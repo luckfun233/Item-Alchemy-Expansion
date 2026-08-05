@@ -1,0 +1,78 @@
+{
+  "itemalchemy-expansion.config.title": "Item Alchemy Expansion 配置",
+  "itemalchemy-expansion.config.category.general": "通用",
+  "itemalchemy-expansion.config.category.shulker_box": "潜影盒",
+  "itemalchemy-expansion.config.category.advanced": "高级",
+
+  "itemalchemy-expansion.config.nbtMode": "NBT 区分模式",
+  "itemalchemy-expansion.config.nbtMode.tooltip": "全量：按全部 NBT 区分，兼容性最好，任意模组的不同 NBT 物品都能区分。\n智能：只保留重要 key，性能更好但可能漏识别未知模组。",
+  "itemalchemy-expansion.config.nbtMode.option.smart": "智能（兼容性差）",
+  "itemalchemy-expansion.config.nbtMode.option.full": "全量（推荐）",
+
+  "itemalchemy-expansion.config.displayMode": "展示方式",
+  "itemalchemy-expansion.config.displayMode.tooltip": "转换桌提取槽中物品的展示方式。\n仅图标 / 仅名称 / 图标 + 名称（默认）。",
+  "itemalchemy-expansion.config.displayMode.option.icon_only": "仅图标",
+  "itemalchemy-expansion.config.displayMode.option.name_only": "仅名称",
+  "itemalchemy-expansion.config.displayMode.option.icon_and_name": "图标 + 名称",
+
+  "itemalchemy-expansion.config.searchByTranslatedName": "搜索时匹配翻译名",
+  "itemalchemy-expansion.config.searchByTranslatedName.tooltip": "开启后，搜索框除匹配物品 ID 外，也会匹配物品的翻译名。",
+
+  "itemalchemy-expansion.config.renderNameUnderSlot": "槽位下方渲染名称",
+  "itemalchemy-expansion.config.renderNameUnderSlot.tooltip": "开启后（且展示方式为「图标 + 名称」时），在每个提取槽下方绘制名称小字。",
+
+  "itemalchemy-expansion.config.shulkerBoxMode": "潜影盒功能",
+  "itemalchemy-expansion.config.shulkerBoxMode.tooltip": "开启：潜影盒可放入转换桌，内容物计入 EMC。\n关闭：潜影盒不可放入。",
+  "itemalchemy-expansion.config.shulkerBoxMode.option.allow": "开启",
+  "itemalchemy-expansion.config.shulkerBoxMode.option.disable": "关闭",
+
+  "itemalchemy-expansion.config.shulkerNoEmcPolicy": "无 EMC 物品策略（潜影盒）",
+  "itemalchemy-expansion.config.shulkerNoEmcPolicy.tooltip": "拒绝放入：潜影盒内若有任何无 EMC 物品，禁止放入。\n按 0 计并允许：无 EMC 物品按 0 计入总和，允许放入。",
+  "itemalchemy-expansion.config.shulkerNoEmcPolicy.option.reject": "拒绝放入",
+  "itemalchemy-expansion.config.shulkerNoEmcPolicy.option.allow_as_zero": "按 0 计并允许",
+
+  "itemalchemy-expansion.config.builtInShulkerPreview": "内置潜影盒预览",
+  "itemalchemy-expansion.config.builtInShulkerPreview.tooltip": "未安装 ShulkerBoxTooltip 模组时，启用内置的 Shift 悬停预览潜影盒内容。",
+
+  "itemalchemy-expansion.config.debugLogging": "调试日志",
+  "itemalchemy-expansion.config.debugLogging.tooltip": "开启后输出变体键生成、提取槽重建、注册/移除等详细 INFO 日志，便于排查兼容性问题。正常游戏时建议关闭。",
+
+  "itemalchemy-expansion.config.fullIgnoreDamageAndRepairCost": "FULL 模式：忽略 Damage 与 RepairCost",
+  "itemalchemy-expansion.config.fullIgnoreDamageAndRepairCost.tooltip": "开启后（仅 FULL 模式），忽略 Damage（耐久）和 RepairCost（修复花费）NBT key，避免同一工具因耐久不同产生大量变体。需要严格全 NBT 区分时关闭。",
+
+  "itemalchemy-expansion.config.smartNbtKeys": "智能模式：额外 NBT Key",
+  "itemalchemy-expansion.config.smartNbtKeys.tooltip": "SMART 模式下额外纳入指纹的 NBT key（在内置规则之上追加）。每行一个 key。",
+
+  "itemalchemy-expansion.config.ignoreNbtKeys": "忽略的 NBT Key（两模式通用）",
+  "itemalchemy-expansion.config.ignoreNbtKeys.tooltip": "始终从指纹中排除的 NBT key，SMART 与 FULL 模式都生效。每行一个 key。",
+
+  "itemalchemy-expansion.config.perModRules.note": "按模组规则（perModRules）可直接编辑 config/itemalchemy-expansion.json5 文件。暂不支持 GUI 编辑 Map 结构。",
+
+  "itemalchemy-expansion.shulker_box.no_emc_item": "无法放入潜影盒：其中包含 %s，该物品没有 EMC 值。请在配置中将「无 EMC 物品策略」切换为「按 0 计（ALLOW_AS_ZERO）」以忽略。",
+  "itemalchemy-expansion.shulker_box.preview_title": "%s（EMC：%s）",
+  "itemalchemy-expansion.shulker_box.toast.title": "无法放入潜影盒",
+  "itemalchemy-expansion.shulker_box.toast.desc": "%s 没有 EMC 值",
+
+  "itemalchemy-expansion.keybind.category": "Item Alchemy Expansion",
+  "itemalchemy-expansion.keybind.set_emc": "设置手持物品 EMC",
+
+  "itemalchemy-expansion.set_emc.title": "设置物品 EMC 值",
+  "itemalchemy-expansion.set_emc.emc_field": "EMC 值",
+  "itemalchemy-expansion.set_emc.current_emc": "当前 EMC：%s",
+  "itemalchemy-expansion.set_emc.new_emc_label": "新 EMC 值",
+  "itemalchemy-expansion.set_emc.scope_label": "作用范围",
+  "itemalchemy-expansion.set_emc.scope.this_save": "仅本存档",
+  "itemalchemy-expansion.set_emc.scope.global": "所有存档（全局）",
+  "itemalchemy-expansion.set_emc.scope.this_save.hint": "仅对当前存档生效，不影响其它存档",
+  "itemalchemy-expansion.set_emc.scope.global.hint": "写入全局配置，对所有存档生效",
+  "itemalchemy-expansion.set_emc.confirm": "确认",
+  "itemalchemy-expansion.set_emc.cancel": "取消",
+  "itemalchemy-expansion.set_emc.fail.empty": "请输入 EMC 值",
+  "itemalchemy-expansion.set_emc.fail.parse": "无法解析为数字",
+  "itemalchemy-expansion.set_emc.fail.negative": "EMC 值不能为负数",
+
+  "itemalchemy-expansion.set_emc.success": "已设置 %s 的 EMC 为 %s（%s）",
+  "itemalchemy-expansion.set_emc.fail.invalid_id": "物品 ID 无效",
+  "itemalchemy-expansion.set_emc.fail.invalid_scope": "作用范围无效",
+  "itemalchemy-expansion.set_emc.fail.exception": "设置 EMC 时发生错误，请查看日志"
+}

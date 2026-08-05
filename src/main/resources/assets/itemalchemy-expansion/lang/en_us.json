@@ -1,0 +1,78 @@
+{
+  "itemalchemy-expansion.config.title": "Item Alchemy Expansion Config",
+  "itemalchemy-expansion.config.category.general": "General",
+  "itemalchemy-expansion.config.category.shulker_box": "Shulker Box",
+  "itemalchemy-expansion.config.category.advanced": "Advanced",
+
+  "itemalchemy-expansion.config.nbtMode": "NBT Distinction Mode",
+  "itemalchemy-expansion.config.nbtMode.tooltip": "FULL: distinguish by all NBT (max compatibility, any mod's NBT variants are distinguished).\nSMART: only keep important keys (better performance but may miss unknown mods).",
+  "itemalchemy-expansion.config.nbtMode.option.smart": "Smart (poor compat)",
+  "itemalchemy-expansion.config.nbtMode.option.full": "Full (recommended)",
+
+  "itemalchemy-expansion.config.displayMode": "Display Mode",
+  "itemalchemy-expansion.config.displayMode.tooltip": "How items are shown in the Alchemy Table extract slots.\nIcon only / Name only / Icon + Name (default).",
+  "itemalchemy-expansion.config.displayMode.option.icon_only": "Icon only",
+  "itemalchemy-expansion.config.displayMode.option.name_only": "Name only",
+  "itemalchemy-expansion.config.displayMode.option.icon_and_name": "Icon + Name",
+
+  "itemalchemy-expansion.config.searchByTranslatedName": "Search By Translated Name",
+  "itemalchemy-expansion.config.searchByTranslatedName.tooltip": "When enabled, the search box matches the item's translated name in addition to its ID.",
+
+  "itemalchemy-expansion.config.renderNameUnderSlot": "Render Name Under Slot",
+  "itemalchemy-expansion.config.renderNameUnderSlot.tooltip": "When enabled (and Display Mode is ICON_AND_NAME), draws a small name label under each extract slot.",
+
+  "itemalchemy-expansion.config.shulkerBoxMode": "Shulker Box Mode",
+  "itemalchemy-expansion.config.shulkerBoxMode.tooltip": "Allow: shulker boxes can be placed in the Alchemy Table (contents counted as EMC).\nDisable: shulker boxes cannot be placed.",
+  "itemalchemy-expansion.config.shulkerBoxMode.option.allow": "Enable",
+  "itemalchemy-expansion.config.shulkerBoxMode.option.disable": "Disable",
+
+  "itemalchemy-expansion.config.shulkerNoEmcPolicy": "No-EMC Item Policy (Shulker Box)",
+  "itemalchemy-expansion.config.shulkerNoEmcPolicy.tooltip": "Reject: reject placing a shulker box if any item inside has no EMC value.\nAllow as zero: treat no-EMC items as 0 and allow placing.",
+  "itemalchemy-expansion.config.shulkerNoEmcPolicy.option.reject": "Reject",
+  "itemalchemy-expansion.config.shulkerNoEmcPolicy.option.allow_as_zero": "Allow as zero",
+
+  "itemalchemy-expansion.config.builtInShulkerPreview": "Built-in Shulker Box Preview",
+  "itemalchemy-expansion.config.builtInShulkerPreview.tooltip": "When ShulkerBoxTooltip mod is not installed, show a built-in Shift-hover preview of shulker box contents.",
+
+  "itemalchemy-expansion.config.debugLogging": "Debug Logging",
+  "itemalchemy-expansion.config.debugLogging.tooltip": "Enable verbose INFO logs for variant key generation, extract slot rebuild, register/remove operations. Useful for diagnosing compatibility issues. Turn off for normal play.",
+
+  "itemalchemy-expansion.config.fullIgnoreDamageAndRepairCost": "FULL Mode: Ignore Damage & RepairCost",
+  "itemalchemy-expansion.config.fullIgnoreDamageAndRepairCost.tooltip": "When enabled (FULL mode only), Damage and RepairCost NBT keys are ignored so tools with different durability don't create hundreds of variants. Turn off for strict full-NBT distinction.",
+
+  "itemalchemy-expansion.config.smartNbtKeys": "Smart Mode: Extra NBT Keys",
+  "itemalchemy-expansion.config.smartNbtKeys.tooltip": "Additional NBT keys to include in SMART mode fingerprints (on top of built-in rules). One key per line.",
+
+  "itemalchemy-expansion.config.ignoreNbtKeys": "Ignored NBT Keys (Both Modes)",
+  "itemalchemy-expansion.config.ignoreNbtKeys.tooltip": "NBT keys to always exclude from fingerprints, in both SMART and FULL modes. One key per line.",
+
+  "itemalchemy-expansion.config.perModRules.note": "Per-mod rules (perModRules) can be edited directly in config/itemalchemy-expansion.json5. GUI editing for maps is not yet available.",
+
+  "itemalchemy-expansion.shulker_box.no_emc_item": "Cannot place shulker box: it contains %s which has no EMC value. Switch the 'No-EMC Item Policy' to 'ALLOW_AS_ZERO' in config to ignore.",
+  "itemalchemy-expansion.shulker_box.preview_title": "%s (EMC: %s)",
+  "itemalchemy-expansion.shulker_box.toast.title": "Cannot place shulker box",
+  "itemalchemy-expansion.shulker_box.toast.desc": "%s has no EMC value",
+
+  "itemalchemy-expansion.keybind.category": "Item Alchemy Expansion",
+  "itemalchemy-expansion.keybind.set_emc": "Set Held Item EMC",
+
+  "itemalchemy-expansion.set_emc.title": "Set Item EMC Value",
+  "itemalchemy-expansion.set_emc.emc_field": "EMC Value",
+  "itemalchemy-expansion.set_emc.current_emc": "Current EMC: %s",
+  "itemalchemy-expansion.set_emc.new_emc_label": "New EMC Value",
+  "itemalchemy-expansion.set_emc.scope_label": "Scope",
+  "itemalchemy-expansion.set_emc.scope.this_save": "This Save Only",
+  "itemalchemy-expansion.set_emc.scope.global": "All Saves (Global)",
+  "itemalchemy-expansion.set_emc.scope.this_save.hint": "Only affects the current save",
+  "itemalchemy-expansion.set_emc.scope.global.hint": "Writes to global config, affects all saves",
+  "itemalchemy-expansion.set_emc.confirm": "Confirm",
+  "itemalchemy-expansion.set_emc.cancel": "Cancel",
+  "itemalchemy-expansion.set_emc.fail.empty": "Please enter an EMC value",
+  "itemalchemy-expansion.set_emc.fail.parse": "Cannot parse as a number",
+  "itemalchemy-expansion.set_emc.fail.negative": "EMC value cannot be negative",
+
+  "itemalchemy-expansion.set_emc.success": "Set %s EMC to %s (%s)",
+  "itemalchemy-expansion.set_emc.fail.invalid_id": "Invalid item ID",
+  "itemalchemy-expansion.set_emc.fail.invalid_scope": "Invalid scope",
+  "itemalchemy-expansion.set_emc.fail.exception": "An error occurred while setting EMC, check logs"
+}
