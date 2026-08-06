@@ -42,8 +42,8 @@ public class IAExpConfig {
         @SerializedName("allow_as_zero") ALLOW_AS_ZERO
     }
 
-    /** 配置版本号，用于旧配置自动升级。缺省（旧配置）视为 0，当前为 3。 */
-    public int configVersion = 3;
+    /** 配置版本号，用于旧配置自动升级。缺省（旧配置）视为 0，当前为 4。 */
+    public int configVersion = 4;
 
     /** NBT 区分策略，默认 FULL（全 NBT 区分，最大兼容性，任意模组的不同 NBT 物品都能区分） */
     public NbtMode nbtMode = NbtMode.FULL;
@@ -56,6 +56,20 @@ public class IAExpConfig {
 
     /** 潜影盒含无 EMC 物品时默认禁止放入并提示 */
     public ShulkerNoEmcPolicy shulkerNoEmcPolicy = ShulkerNoEmcPolicy.REJECT;
+
+    /**
+     * 搜索时是否同时检索潜影盒内部内容物（默认 true）。
+     * <p>开启后，搜索词会匹配潜影盒内每个内容物的 id/翻译名/显示名，
+     * 匹配的潜影盒会出现在搜索结果中（排在直接物品之后），
+     * 并在槽位右下角显示第一个匹配物的小标志。</p>
+     */
+    public boolean searchShulkerContents = true;
+
+    /**
+     * Shift 预览时是否对匹配搜索词的内容物格子画红框标记（默认 true）。
+     * <p>焦点白框优先级高于红框（同一格既是焦点又匹配时，只显示白框）。</p>
+     */
+    public boolean shulkerMatchRedFrame = true;
 
     /** 额外纳入智能匹配的 NBT key（在内置规则之外追加） */
     public List<String> smartNbtKeys = new ArrayList<>();
@@ -111,6 +125,8 @@ public class IAExpConfig {
         c.builtInShulkerPreview = builtInShulkerPreview;
         c.debugLogging = debugLogging;
         c.fullIgnoreDamageAndRepairCost = fullIgnoreDamageAndRepairCost;
+        c.searchShulkerContents = searchShulkerContents;
+        c.shulkerMatchRedFrame = shulkerMatchRedFrame;
         return c;
     }
 }

@@ -1,6 +1,7 @@
 package itemalchemy.expansion;
 
 import itemalchemy.expansion.config.IAExpConfigHolder;
+import itemalchemy.expansion.network.FilterModeNetwork;
 import itemalchemy.expansion.network.PerSaveEmcStore;
 import itemalchemy.expansion.network.SetEmcNetwork;
 import net.fabricmc.api.ModInitializer;
@@ -21,6 +22,9 @@ public class ItemAlchemyExpansion implements ModInitializer {
 
 		// 注册「设置 EMC」C2S 网络包接收器（服务端）
 		SetEmcNetwork.registerServer();
+
+		// 注册「筛选模式切换」C2S 网络包接收器（服务端）
+		FilterModeNetwork.registerServer();
 
 		// 服务端启动后（EMCManager 已 init）应用本存档 EMC 覆盖。
 		// SERVER_STARTED 在世界加载、EMCManager.init 之后触发，

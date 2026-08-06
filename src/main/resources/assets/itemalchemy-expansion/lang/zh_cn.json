@@ -74,5 +74,18 @@
   "itemalchemy-expansion.set_emc.success": "已设置 %s 的 EMC 为 %s（%s）",
   "itemalchemy-expansion.set_emc.fail.invalid_id": "物品 ID 无效",
   "itemalchemy-expansion.set_emc.fail.invalid_scope": "作用范围无效",
-  "itemalchemy-expansion.set_emc.fail.exception": "设置 EMC 时发生错误，请查看日志"
+  "itemalchemy-expansion.set_emc.fail.exception": "设置 EMC 时发生错误，请查看日志",
+
+  "itemalchemy-expansion.config.searchShulkerContents": "搜索潜影盒内容物",
+  "itemalchemy-expansion.config.searchShulkerContents.tooltip": "开启后，搜索时同时检索潜影盒内部是否含匹配物品，匹配的潜影盒排在直接物品之后，并在槽位右下角显示第一个匹配物的小标志。",
+  "itemalchemy-expansion.config.shulkerMatchRedFrame": "Shift 预览匹配红框",
+  "itemalchemy-expansion.config.shulkerMatchRedFrame.tooltip": "Shift 预览潜影盒时，对匹配搜索词的内容物格子画红框标记。焦点白框优先级更高（同一格既是焦点又匹配时只显示白框）。",
+
+  "itemalchemy-expansion.filter_button.tooltip": "筛选模式：点击循环切换\n全部：显示直接物品 + 潜影盒\n物品：仅显示直接拥有的物品\n盒子：仅显示潜影盒",
+  "itemalchemy-expansion.filter_button.all": "全部",
+  "itemalchemy-expansion.filter_button.direct": "物品",
+  "itemalchemy-expansion.filter_button.shulker": "盒子",
+
+  "itemalchemy-expansion.search.match_list_title": "匹配内容：",
+  "itemalchemy-expansion.search.match_list_more": "另有 %s 个..."
 }

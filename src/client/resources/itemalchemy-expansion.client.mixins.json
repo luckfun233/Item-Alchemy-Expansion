@@ -4,7 +4,8 @@
 	"compatibilityLevel": "JAVA_17",
 	"client": [
 		"MixinSimpleInventoryScreen",
-		"MixinAlchemyTableScreen"
+		"MixinAlchemyTableScreen",
+		"MixinItemAlchemyClient"
 	],
 	"injectors": {
 		"defaultRequire": 0

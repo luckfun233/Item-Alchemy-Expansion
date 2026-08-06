@@ -1,6 +1,14 @@
 package itemalchemy.expansion.mixin;
 
+import itemalchemy.expansion.IAExpServices;
+import itemalchemy.expansion.ItemAlchemyExpansion;
 import itemalchemy.expansion.nbt.ItemVariantKey;
+import itemalchemy.expansion.nbt.ShulkerBoxSupport;
+import itemalchemy.expansion.search.IAlchemyTableScreenHandlerExt;
+import itemalchemy.expansion.search.SearchFilterMode;
+import itemalchemy.expansion.search.SearchMatcher;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
 import net.pitan76.itemalchemy.api.PlayerRegisteredItemUtil;
 import net.pitan76.itemalchemy.gui.inventory.ExtractInventory;
 import net.pitan76.itemalchemy.gui.screen.AlchemyTableScreenHandler;
@@ -11,6 +19,7 @@ import net.pitan76.mcpitanlib.midohra.item.ItemWrapper;
 import net.pitan76.mcpitanlib.midohra.nbt.NbtCompound;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -18,27 +27,58 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
- * 重写 sortBySearch 以支持变体键。
+ * 重写 sortBySearch 以支持变体键、潜影盒内容物搜索、权重排序与筛选模式。
  *
- * <p>原实现的两个问题：
- * <ol>
- *   <li>{@code CompatIdentifier.of(id)} 对变体键（含 \u0001）解析失败 → 搜索崩溃或漏结果。</li>
- *   <li>{@code id = id.toLowerCase()} 会破坏 NBT 指纹的大小写（如 AmmoId → ammoid），导致提取时 SNBT 解析失败。</li>
- * </ol>
- * 本 Mixin 在 HEAD cancel 并重写：对每个变体键提取 itemId 部分做搜索匹配，匹配则把**原变体键**
- * （保留 NBT 指纹大小写）加入结果列表。</p>
+ * <p><b>重写要点</b>：</p>
+ * <ul>
+ *   <li><b>变体键保留</b>：原 {@code CompatIdentifier.of(id)} 对变体键（含 \u0001）解析失败，
+ *       且 {@code id.toLowerCase()} 破坏 NBT 指纹大小写。本 Mixin 在 HEAD cancel 重写，
+ *       保留原变体键。</li>
+ *   <li><b>潜影盒内容物搜索</b>：对每个潜影盒变体键重建 ItemStack，用 {@link SearchMatcher}
+ *       检查「自身名 + 内容物 id/翻译名/显示名」是否匹配搜索词。</li>
+ *   <li><b>权重排序</b>：直接物品匹配在前，潜影盒匹配在后（用户需求：直接拥有的物品优先）。</li>
+ *   <li><b>筛选模式</b>：{@link SearchFilterMode#ALL} 全部 / {@link SearchFilterMode#DIRECT_ONLY}
+ *       仅直接物品 / {@link SearchFilterMode#SHULKER_ONLY} 仅潜影盒。</li>
+ *   <li><b>筛选模式状态</b>：通过 {@link IAlchemyTableScreenHandlerExt} 接口暴露的 @Unique 字段，
+ *       客户端与服务端各持一份，客户端切换时通过 {@code filter_mode} 网络包同步。</li>
+ * </ul>
  */
 @Mixin(value = AlchemyTableScreenHandler.class, priority = 500)
-public abstract class MixinAlchemyTableScreenHandler {
+public abstract class MixinAlchemyTableScreenHandler implements IAlchemyTableScreenHandlerExt {
 
     @Shadow public Player player;
     @Shadow public String searchText;
     @Shadow public String searchNamespace;
     @Shadow public ExtractInventory extractInventory;
+
+    /** 筛选模式状态（@Unique，通过接口暴露） */
+    @Unique
+    private SearchFilterMode iaexp$filterMode = SearchFilterMode.ALL;
+
+    // ====== IAlchemyTableScreenHandlerExt 实现 ======
+
+    @Override
+    @Unique
+    public SearchFilterMode iaexp$getFilterMode() {
+        return iaexp$filterMode;
+    }
+
+    @Override
+    @Unique
+    public void iaexp$setFilterMode(SearchFilterMode mode) {
+        iaexp$filterMode = (mode == null) ? SearchFilterMode.ALL : mode;
+    }
+
+    @Override
+    @Unique
+    public SearchFilterMode iaexp$cycleFilterMode() {
+        iaexp$filterMode = iaexp$filterMode.next();
+        return iaexp$filterMode;
+    }
+
+    // ====== sortBySearch 重写 ======
 
     /**
      * 反射读取 {@code translations} 字段（midohra NbtCompound）。
@@ -58,7 +98,9 @@ public abstract class MixinAlchemyTableScreenHandler {
 
     @Inject(method = "sortBySearch", at = @At("HEAD"), cancellable = true)
     private void iaexp$sortBySearchVariant(CallbackInfo ci) {
-        if (searchText == null || searchText.isEmpty()) {
+        // 快速路径：空搜索 + ALL → 走原 placeExtractSlots()（显示全部）
+        boolean emptySearch = (searchText == null || searchText.isEmpty());
+        if (emptySearch && iaexp$filterMode == SearchFilterMode.ALL) {
             extractInventory.placeExtractSlots();
             ci.cancel();
             return;
@@ -66,61 +108,86 @@ public abstract class MixinAlchemyTableScreenHandler {
 
         List<String> ids;
         try {
-            // 用 public API 获取 registeredItems（兼容 1.1.3/1.3.3 的 ModState 签名差异）
             ids = new ArrayList<>(PlayerRegisteredItemUtil.getItemsAsString(player));
         } catch (Throwable t) {
             ci.cancel();
             return;
         }
 
-        List<String> sortedIds = new ArrayList<>();
-
-        // 提取 @(NAMESPACE) 前缀
-        String localSearch = searchText;
-        String localNamespace = "";
-        Pattern pattern = Pattern.compile("@([a-zA-Z0-9_-]+)");
-        Matcher matcher = pattern.matcher(localSearch);
-        if (matcher.find()) {
-            localNamespace = matcher.group(1);
-            localSearch = localSearch.replaceFirst("@" + localNamespace + " ?", "");
-        }
-        String searchLower = localSearch.toLowerCase();
-        String nsFilterLower = localNamespace.toLowerCase();
-
-        // 反射读取 translations 一次，循环外缓存（避免每次迭代都反射）
+        // 解析搜索上下文
         NbtCompound translations = iaexp$getTranslations();
+        SearchMatcher.SearchContext ctx = SearchMatcher.parse(searchText, translations);
+
+        // 分类收集匹配结果：直接物品在前，潜影盒在后
+        List<String> directMatches = new ArrayList<>();
+        List<String> shulkerMatches = new ArrayList<>();
 
         for (String raw : ids) {
             ItemVariantKey vk = ItemVariantKey.fromStorageString(raw);
             if (vk == null) continue;
             String itemId = vk.itemId;
 
+            // 校验物品存在 + 获取原版 Item
             CompatIdentifier itemIdentifier;
+            Item vanillaItem;
             try {
                 itemIdentifier = CompatIdentifier.of(itemId);
+                if (!ItemUtil.isExist(itemIdentifier)) continue;
+                vanillaItem = ItemUtil.fromId(itemIdentifier);
             } catch (Throwable t) {
                 continue;
             }
-            if (!ItemUtil.isExist(itemIdentifier)) continue;
+            if (vanillaItem == null) continue;
 
-            ItemWrapper item = ItemWrapper.of(itemIdentifier);
-            String itemTranslationKey = item.getTranslationKey();
-            String translatedName = (translations != null && translations.has(itemTranslationKey))
-                    ? translations.getString(itemTranslationKey) : "";
+            boolean isShulker = ShulkerBoxSupport.isShulkerBox(vanillaItem);
 
-            String path = itemIdentifier.getPath();
-            String ns = itemIdentifier.getNamespace();
+            if (isShulker) {
+                // 筛选模式过滤：DIRECT_ONLY 跳过潜影盒
+                if (iaexp$filterMode == SearchFilterMode.DIRECT_ONLY) continue;
 
-            boolean nsOk = localNamespace.isEmpty() || ns.toLowerCase().contains(nsFilterLower);
-            boolean textOk = path.toLowerCase().contains(searchLower)
-                    || translatedName.toLowerCase().contains(searchLower)
-                    || item.getName().toLowerCase().contains(searchLower);
+                // 潜影盒匹配：空搜索(ctx.isEmpty)时全部算匹配；否则检查自身名 + 内容物
+                boolean matched;
+                if (ctx.isEmpty()) {
+                    matched = true;
+                } else {
+                    // 需要重建 ItemStack 才能检查内容物
+                    ItemStack shulkerStack = IAExpServices.rebuildStack(vk);
+                    matched = !shulkerStack.isEmpty()
+                            && (SearchMatcher.matchesShulkerBoxItself(shulkerStack, ctx)
+                                || !SearchMatcher.findShulkerMatchingContents(shulkerStack, ctx).isEmpty());
+                }
+                if (matched) {
+                    shulkerMatches.add(raw);
+                }
+            } else {
+                // 筛选模式过滤：SHULKER_ONLY 跳过直接物品
+                if (iaexp$filterMode == SearchFilterMode.SHULKER_ONLY) continue;
 
-            if (nsOk && textOk) {
-                // 保留原变体键（含 NBT 指纹，不小写化）
-                sortedIds.add(raw);
+                // 直接物品匹配
+                boolean matched;
+                if (ctx.isEmpty()) {
+                    matched = true;
+                } else {
+                    try {
+                        ItemWrapper item = ItemWrapper.of(itemIdentifier);
+                        matched = SearchMatcher.matchesDirectItem(itemId, item, ctx);
+                    } catch (Throwable t) {
+                        matched = false;
+                    }
+                }
+                if (matched) {
+                    directMatches.add(raw);
+                }
             }
         }
+
+        // 合并：直接物品在前，潜影盒在后
+        List<String> sortedIds = new ArrayList<>(directMatches.size() + shulkerMatches.size());
+        sortedIds.addAll(directMatches);
+        sortedIds.addAll(shulkerMatches);
+
+        ItemAlchemyExpansion.debug("[IAExp] sortBySearch: search='{}', filter={}, direct={}, shulker={}, total={}",
+                searchText, iaexp$filterMode, directMatches.size(), shulkerMatches.size(), sortedIds.size());
 
         extractInventory.placeExtractSlots(sortedIds);
         ci.cancel();

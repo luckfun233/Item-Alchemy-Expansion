@@ -4,6 +4,7 @@ import itemalchemy.expansion.ItemAlchemyExpansion;
 import itemalchemy.expansion.config.IAExpConfig;
 import itemalchemy.expansion.config.IAExpConfigHolder;
 import itemalchemy.expansion.nbt.ShulkerBoxSupport;
+import itemalchemy.expansion.search.SearchMatcher;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
@@ -15,8 +16,8 @@ import net.minecraft.screen.slot.Slot;
 import net.minecraft.text.Text;
 import net.pitan76.itemalchemy.EMCManager;
 import net.pitan76.itemalchemy.client.screen.AlchemyTableScreen;
+import net.pitan76.itemalchemy.gui.screen.AlchemyTableScreenHandler;
 import org.lwjgl.glfw.GLFW;
-
 import java.lang.reflect.Field;
 
 /**
@@ -166,9 +167,18 @@ public final class AlchemyTableScreenShulkerPreview {
         // 6. 更新焦点位置（基于按键状态轮询）
         updateFocus(screen);
 
-        // 7. 渲染预览
+        // 7. 获取搜索上下文（用于红框标记匹配内容物）
+        SearchMatcher.SearchContext searchCtx = null;
         try {
-            renderPreview(context, mouseX, mouseY, shulkerBox);
+            Object handler = AlchemyTableScreen.class.getMethod("getScreenHandlerOverride").invoke(screen);
+            if (handler instanceof AlchemyTableScreenHandler) {
+                searchCtx = SearchMatchCache.getContext((AlchemyTableScreenHandler) handler);
+            }
+        } catch (Throwable ignored) {}
+
+        // 8. 渲染预览
+        try {
+            renderPreview(context, mouseX, mouseY, shulkerBox, searchCtx);
         } catch (Throwable t) {
             ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to render shulker box preview", t);
         }
@@ -273,7 +283,8 @@ public final class AlchemyTableScreenShulkerPreview {
      * </ul>
      * </p>
      */
-    private static void renderPreview(DrawContext context, int mouseX, int mouseY, ItemStack shulkerBox) {
+    private static void renderPreview(DrawContext context, int mouseX, int mouseY, ItemStack shulkerBox,
+                                      SearchMatcher.SearchContext searchCtx) {
         ItemStack[] contents = ShulkerBoxSupport.getContents(shulkerBox);
         int bgWidth = COLS * SLOT_SIZE + PADDING * 2;
         int bgHeight = PADDING + TITLE_HEIGHT + 2 + ROWS * SLOT_SIZE + PADDING;
@@ -315,6 +326,16 @@ public final class AlchemyTableScreenShulkerPreview {
             // 内容物网格起始 y（标题行下方 + 2px 间距）
             int gridY = y + PADDING + TITLE_HEIGHT + 2;
 
+            // 红框标记是否启用：配置开启 + 有搜索上下文 + 搜索词非空
+            boolean redFrameEnabled = false;
+            if (searchCtx != null && !searchCtx.isEmpty()) {
+                try {
+                    redFrameEnabled = IAExpConfigHolder.get().shulkerMatchRedFrame;
+                } catch (Throwable t) {
+                    redFrameEnabled = false;
+                }
+            }
+
             // 绘制 27 格内容物
             for (int row = 0; row < ROWS; row++) {
                 for (int col = 0; col < COLS; col++) {
@@ -346,6 +367,12 @@ public final class AlchemyTableScreenShulkerPreview {
                                 sy + SLOT_SIZE - client.textRenderer.fontHeight - 1,
                                 0xFFFFFF);
                         context.getMatrices().pop();
+                    }
+
+                    // 红框标记匹配搜索词的内容物（非焦点格；焦点格由白框覆盖，优先级更高）
+                    if (redFrameEnabled && (row != focusRow || col != focusCol)
+                            && SearchMatcher.matchesContentItem(item, searchCtx)) {
+                        renderRedFrame(context, sx, sy);
                     }
                 }
             }
@@ -433,5 +460,24 @@ public final class AlchemyTableScreenShulkerPreview {
         context.fill(x, y + height - 1, x + width, y + height, color); // bottom
         context.fill(x, y, x + 1, y + height, color);                // left
         context.fill(x + width - 1, y, x + width, y + height, color); // right
+    }
+
+    /**
+     * 绘制红框标记匹配搜索词的内容物格子。
+     *
+     * <p>红色 2px 粗边框（外延 1px），z=260：高于物品图标(z=0)与数量文字(z=250)，
+     * 低于焦点白框(z=300)。焦点格不调用本方法（由调用方判断），
+     * 确保焦点白框优先级更高。</p>
+     */
+    private static void renderRedFrame(DrawContext context, int sx, int sy) {
+        context.getMatrices().push();
+        context.getMatrices().translate(0, 0, 260);
+        int red = 0xFFFF3030;
+        // 2px 粗边框（外延 1px）
+        context.fill(sx - 1, sy - 1, sx + SLOT_SIZE + 1, sy, red);                       // top
+        context.fill(sx - 1, sy + SLOT_SIZE, sx + SLOT_SIZE + 1, sy + SLOT_SIZE + 1, red); // bottom
+        context.fill(sx - 1, sy, sx, sy + SLOT_SIZE, red);                               // left
+        context.fill(sx + SLOT_SIZE, sy, sx + SLOT_SIZE + 1, sy + SLOT_SIZE, red);       // right
+        context.getMatrices().pop();
     }
 }

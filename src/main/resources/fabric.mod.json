@@ -12,9 +12,9 @@
 		"MisterPeModder (ShulkerBoxTooltip 上游作者)"
 	],
 	"contact": {
-		"homepage": "https://github.com/Pitan76/item-alchemy",
-		"sources": "https://github.com/Pitan76/item-alchemy",
-		"issues": "https://github.com/Pitan76/item-alchemy/issues"
+		"homepage": "https://github.com/luckfun233/Item-Alchemy-Expansion",
+		"sources": "https://github.com/luckfun233/Item-Alchemy-Expansion",
+		"issues": "https://github.com/luckfun233/Item-Alchemy-Expansion/issues"
 	},
 	"license": "MIT",
 	"icon": "assets/itemalchemy-expansion/icon.png",
@@ -41,7 +41,7 @@
 		}
 	],
 	"depends": {
-		"fabricloader": ">=0.19.3",
+		"fabricloader": ">=0.17.0",
 		"minecraft": "~1.20.1",
 		"java": ">=17",
 		"fabric-api": "*",

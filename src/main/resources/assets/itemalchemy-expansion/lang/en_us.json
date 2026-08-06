@@ -74,5 +74,18 @@
   "itemalchemy-expansion.set_emc.success": "Set %s EMC to %s (%s)",
   "itemalchemy-expansion.set_emc.fail.invalid_id": "Invalid item ID",
   "itemalchemy-expansion.set_emc.fail.invalid_scope": "Invalid scope",
-  "itemalchemy-expansion.set_emc.fail.exception": "An error occurred while setting EMC, check logs"
+  "itemalchemy-expansion.set_emc.fail.exception": "An error occurred while setting EMC, check logs",
+
+  "itemalchemy-expansion.config.searchShulkerContents": "Search Shulker Box Contents",
+  "itemalchemy-expansion.config.searchShulkerContents.tooltip": "When enabled, searching also checks inside shulker boxes for matching items. Matching shulker boxes appear after direct items, with a small badge of the first match in the slot's bottom-right.",
+  "itemalchemy-expansion.config.shulkerMatchRedFrame": "Shift Preview Match Red Frame",
+  "itemalchemy-expansion.config.shulkerMatchRedFrame.tooltip": "When Shift-previewing a shulker box, draw a red frame around content slots that match the search term. Focus white frame takes priority (a slot that is both focus and match shows only white).",
+
+  "itemalchemy-expansion.filter_button.tooltip": "Filter mode: click to cycle\nAll: direct items + shulker boxes\nItems: only direct items\nBox: only shulker boxes",
+  "itemalchemy-expansion.filter_button.all": "All",
+  "itemalchemy-expansion.filter_button.direct": "Items",
+  "itemalchemy-expansion.filter_button.shulker": "Box",
+
+  "itemalchemy-expansion.search.match_list_title": "Matches:",
+  "itemalchemy-expansion.search.match_list_more": "%s more..."
 }

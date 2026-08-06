@@ -126,6 +126,16 @@ public final class IAExpConfigHolder {
             needsSave = true;
         }
 
+        // configVersion 3 -> 4: 新增 searchShulkerContents / shulkerMatchRedFrame 字段
+        // Gson 用 Unsafe 分配对象时布尔原始类型默认为 false，需把默认 true 的字段补回
+        if (loaded.configVersion < 4) {
+            ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 4: add searchShulkerContents / shulkerMatchRedFrame", loaded.configVersion);
+            loaded.searchShulkerContents = def.searchShulkerContents;
+            loaded.shulkerMatchRedFrame = def.shulkerMatchRedFrame;
+            loaded.configVersion = 4;
+            needsSave = true;
+        }
+
         return loaded;
     }
 
