@@ -1,68 +1,21 @@
-Item Alchemy Expansion
-Copyright (c) 2026 luckyfun233
+MIT License
 
-This product is licensed under the MIT License. The full license text is
-available in the LICENSE file accompanying this distribution.
+Copyright (c) 2026 Pitan Network
 
-This product extends, but does not include, the following upstream works.
-Each work is licensed under its respective license; see the corresponding
-upstream repository for the full license text.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-  Item Alchemy
-    Copyright (c) 2026 Pitan Network
-    License: MIT
-    https://github.com/Pitan76/item-alchemy
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-  mcpitanlib
-    Copyright (c) Pitan
-    License: MIT
-    https://maven.pitan76.net/
-
-  Fabric API
-    Copyright (c) FabricMC
-    License: MIT / Apache License 2.0
-    https://github.com/FabricMC/fabric
-
-  Fabric Loader
-    Copyright (c) FabricMC
-    License: Apache License 2.0
-    https://github.com/FabricMC/fabric-loader
-
-  Minecraft
-    Copyright (c) Mojang AB
-    License: Mojang EULA
-    https://www.minecraft.net/eula
-
-  Yarn Mappings
-    Copyright (c) FabricMC
-    License: CC0 1.0 Universal
-    https://github.com/FabricMC/yarn
-
-  Cloth Config API
-    Copyright (c) shedaniel
-    License: MIT
-    https://github.com/shedaniel/cloth-config
-
-  Mod Menu
-    Copyright (c) Terraformers
-    License: MIT
-    https://github.com/TerraformersMC/ModMenu
-
-  ShulkerBoxTooltip
-    Copyright (c) 2019 Yanis Guaye
-    License: MIT
-    https://github.com/MisterPeModder/ShulkerBoxTooltip
-
-    The Shift-hover shulker box preview in this product is inspired by
-    ShulkerBoxTooltip's design. The implementation is independent and does
-    not include its source code. When ShulkerBoxTooltip is installed at
-    runtime, this product defers preview rendering to it.
-
-The mod icon (assets/itemalchemy-expansion/icon.png) is a derivative work
-based on the Alchemy Table block texture from Item Alchemy (licensed under
-MIT), scaled and composited with the Minecraft Jump Boost effect icon.
-Used under the MIT License of the upstream work.
-
-Except for the mod icon mentioned above, the distributed JAR of this
-product does not contain any source code or binary artifacts from the
-above upstream works.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
