@@ -72,6 +72,51 @@ public final class PerSaveEmcStore {
     }
 
     /**
+     * 返回本存档 overrides 的快照（itemId -> emc）。
+     *
+     * <p>用于「重新定价」对话框扫描候选：服务端读出全部条目，过滤后回给客户端展示。
+     * 不修改内存中的 {@link EMCManager#map}（只读视图）。</p>
+     */
+    public static Map<String, Long> getSnapshot(MinecraftServer server) {
+        return read(server);
+    }
+
+    /**
+     * 从本存档 overrides 中删除指定的 itemId 条目，并同步更新内存 {@link EMCManager#map}
+     * （把这些物品的通用 EMC 重置为上游默认值；若上游未定义则移除条目，使后续自动定价接管）。
+     *
+     * <p>用于「重新定价」对话框玩家选「是」时：候选物品的玩家覆盖被清除，
+     * 由 {@link itemalchemy.expansion.recipe.RecipeAutoPricer} 重新自动定价。</p>
+     *
+     * @param server   Minecraft 服务端
+     * @param itemIds  要删除的 itemId 集合
+     * @return 实际删除的条目数
+     */
+    public static int removeAll(MinecraftServer server, java.util.Set<String> itemIds) {
+        if (itemIds == null || itemIds.isEmpty()) return 0;
+        Map<String, Long> overrides = read(server);
+        int removed = 0;
+        for (String id : itemIds) {
+            if (overrides.remove(id) != null) removed++;
+            // 同步内存 map：移除本存档覆盖条目，回退到上游默认值（若上游有）
+            try {
+                Long upstream = null;
+                if (EMCManager.defaultEMCMap != null) upstream = EMCManager.defaultEMCMap.get(id);
+                if (upstream != null) {
+                    EMCManager.set(id, upstream);
+                } else {
+                    // 上游未定义：从内存 map 移除，让自动定价接管
+                    EMCManager.getMap().remove(id);
+                }
+            } catch (Throwable ignore) {}
+        }
+        if (removed > 0) write(server, overrides);
+        ItemAlchemyExpansion.debug("[IAExp] per-save emc overrides removed {} entries (of {} requested)",
+                removed, itemIds.size());
+        return removed;
+    }
+
+    /**
      * 世界加载时调用：读取本存档 overrides，应用到 {@link EMCManager} 内存 map。
      *
      * <p>在全局 emc_config.json 加载之后调用，相同 itemId 覆盖全局值。

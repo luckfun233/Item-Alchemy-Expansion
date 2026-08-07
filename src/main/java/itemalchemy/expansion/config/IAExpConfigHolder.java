@@ -28,7 +28,20 @@ public final class IAExpConfigHolder {
     /** 配置升级标志：load() 中若发生版本升级则置 true，load 完成后据此决定是否写盘 */
     private static boolean needsSave = false;
 
+    /** 旧版本升级标志：本次 load 是否发生了从 < 5 到 5 的升级（用于客户端 toast 提醒，仅内存） */
+    private static boolean upgradedFromLegacy = false;
+
     private IAExpConfigHolder() {}
+
+    /** 本次 load 是否发生了从旧版本到当前版本的升级（供客户端 toast 检测） */
+    public static boolean wasUpgradedFromLegacy() {
+        return upgradedFromLegacy;
+    }
+
+    /** 客户端 toast 显示后清零，避免重复触发 */
+    public static void clearUpgradedFromLegacy() {
+        upgradedFromLegacy = false;
+    }
 
     /** 获取当前生效的配置（只读视图，修改后需调用 {@link #save()}） */
     public static IAExpConfig get() {
@@ -44,6 +57,7 @@ public final class IAExpConfigHolder {
     public static void load() {
         Path path = configPath();
         needsSave = false;
+        upgradedFromLegacy = false;
         if (Files.exists(path)) {
             try {
                 String content = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
@@ -134,6 +148,19 @@ public final class IAExpConfigHolder {
             loaded.shulkerMatchRedFrame = def.shulkerMatchRedFrame;
             loaded.configVersion = 4;
             needsSave = true;
+        }
+
+        // configVersion 4 -> 5: 新增「实验性功能」（精确模式 / 配方自动定价 / 策略 / 重定价提示标志）
+        // 全部默认 false，Gson Unsafe 已置 false；只需补 enum 与默认 true 的 autoPricingRespectUpstream
+        if (loaded.configVersion < 5) {
+            ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 5: add experimental features (preciseMode / autoPricingFromRecipes)", loaded.configVersion);
+            if (loaded.autoPricingStrategy == null) loaded.autoPricingStrategy = def.autoPricingStrategy;
+            // 默认 true 的字段显式补回（Gson Unsafe 会把布尔零初始化为 false）
+            loaded.autoPricingRespectUpstream = def.autoPricingRespectUpstream;
+            // autoPricingRepricePromptShown / featureNoticeShown / preciseMode / autoPricingFromRecipes 默认 false，保持现状
+            loaded.configVersion = 5;
+            needsSave = true;
+            upgradedFromLegacy = true;
         }
 
         return loaded;

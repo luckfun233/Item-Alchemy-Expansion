@@ -3,6 +3,9 @@
   "itemalchemy-expansion.config.category.general": "General",
   "itemalchemy-expansion.config.category.shulker_box": "Shulker Box",
   "itemalchemy-expansion.config.category.advanced": "Advanced",
+  "itemalchemy-expansion.config.category.experimental": "Experimental",
+
+  "itemalchemy-expansion.config.experimental.note": "The following features are experimental and disabled by default. Enabling them may change EMC calculation behavior. Use with caution.",
 
   "itemalchemy-expansion.config.nbtMode": "NBT Distinction Mode",
   "itemalchemy-expansion.config.nbtMode.tooltip": "FULL: distinguish by all NBT (max compatibility, any mod's NBT variants are distinguished).\nSMART: only keep important keys (better performance but may miss unknown mods).",
@@ -60,11 +63,17 @@
   "itemalchemy-expansion.set_emc.emc_field": "EMC Value",
   "itemalchemy-expansion.set_emc.current_emc": "Current EMC: %s",
   "itemalchemy-expansion.set_emc.new_emc_label": "New EMC Value",
+  "itemalchemy-expansion.set_emc.variant_label": "Variant: %s",
   "itemalchemy-expansion.set_emc.scope_label": "Scope",
   "itemalchemy-expansion.set_emc.scope.this_save": "This Save Only",
   "itemalchemy-expansion.set_emc.scope.global": "All Saves (Global)",
   "itemalchemy-expansion.set_emc.scope.this_save.hint": "Only affects the current save",
   "itemalchemy-expansion.set_emc.scope.global.hint": "Writes to global config, affects all saves",
+  "itemalchemy-expansion.set_emc.precision_label": "Pricing Precision",
+  "itemalchemy-expansion.set_emc.precision.precise": "Precise (by variant)",
+  "itemalchemy-expansion.set_emc.precision.general": "General (by ID)",
+  "itemalchemy-expansion.set_emc.precision.precise.hint": "Writes to variant-keyed store, only effective when Precise Mode is on (same ID + different NBT can have separate prices)",
+  "itemalchemy-expansion.set_emc.precision.general.hint": "Writes to ID-keyed store (default behavior, all same-ID items share one price)",
   "itemalchemy-expansion.set_emc.confirm": "Confirm",
   "itemalchemy-expansion.set_emc.cancel": "Cancel",
   "itemalchemy-expansion.set_emc.fail.empty": "Please enter an EMC value",
@@ -87,5 +96,36 @@
   "itemalchemy-expansion.filter_button.shulker": "Box",
 
   "itemalchemy-expansion.search.match_list_title": "Matches:",
-  "itemalchemy-expansion.search.match_list_more": "%s more..."
+  "itemalchemy-expansion.search.match_list_more": "%s more...",
+
+  "itemalchemy-expansion.config.preciseMode": "Precise Mode",
+  "itemalchemy-expansion.config.preciseMode.tooltip": "Experimental. EMC is queried by item variant (itemId + NBT fingerprint): items with same ID but different NBT can have separate prices (e.g. tacz ammo with different AmmoId). When off, 'same ID = same price' (default behavior). Enabling 'Recipe Auto-Pricing' will automatically enable this.",
+
+  "itemalchemy-expansion.config.autoPricingFromRecipes": "Recipe Auto-Pricing",
+  "itemalchemy-expansion.config.autoPricingFromRecipes.tooltip": "Experimental. Scans all recipes registered with the vanilla recipe manager (including custom mod types like TACZ ammo workbench) and prices items with no EMC by summing material EMC. Manual EMC always takes priority over auto. Enabling this will also enable 'Precise Mode' and show a 'Reprice' dialog once.",
+
+  "itemalchemy-expansion.config.autoPricingStrategy": "Multi-Recipe Strategy",
+  "itemalchemy-expansion.config.autoPricingStrategy.tooltip": "Experimental. Strategy when multiple recipes produce the same variant. Min: cheapest recipe (recommended, anti-arbitrage); Max: most expensive; Avg: average of all; First: first found. Currently only Min is implemented.",
+  "itemalchemy-expansion.config.autoPricingStrategy.option.min": "Min (recommended)",
+  "itemalchemy-expansion.config.autoPricingStrategy.option.max": "Max",
+  "itemalchemy-expansion.config.autoPricingStrategy.option.avg": "Average",
+  "itemalchemy-expansion.config.autoPricingStrategy.option.first": "First",
+
+  "itemalchemy-expansion.config.autoPricingRespectUpstream": "Don't Override Upstream Values",
+  "itemalchemy-expansion.config.autoPricingRespectUpstream.tooltip": "Experimental. When enabled, vanilla/upstream default EMC values are not overridden by auto-pricing. Strongly recommended to keep enabled.",
+
+  "itemalchemy-expansion.new_feature_toast.title": "Item Alchemy Expansion New Features",
+  "itemalchemy-expansion.new_feature_toast.desc1": "Added 'Recipe Auto-Pricing' and 'Precise Mode' (experimental, disabled by default).",
+  "itemalchemy-expansion.new_feature_toast.desc2": "Enable them in Mod Menu -> Item Alchemy Expansion -> Experimental.",
+
+  "itemalchemy-expansion.reprice.title": "Re-price Already-Set Items?",
+  "itemalchemy-expansion.reprice.desc": "You have manually set EMC for the following items in this save:",
+  "itemalchemy-expansion.reprice.count": "%s item(s) can be auto-re-priced",
+  "itemalchemy-expansion.reprice.more": "%s more...",
+  "itemalchemy-expansion.reprice.confirm_yes": "Yes, re-price automatically",
+  "itemalchemy-expansion.reprice.confirm_no": "No, keep my settings",
+  "itemalchemy-expansion.reprice.hint": "Choosing 'Yes' will immediately recompute and sync to all online players.",
+  "itemalchemy-expansion.reprice.hint2": "You can run /itemalchemy-expansion reprice later to trigger again.",
+  "itemalchemy-expansion.reprice.feedback.done": "[IAExp] Re-priced %s candidate items and recomputed auto-pricing.",
+  "itemalchemy-expansion.reprice.feedback.kept": "[IAExp] Kept your settings; auto-pricing will only handle undefined items."
 }

@@ -1,8 +1,9 @@
 package itemalchemy.expansion.compat.clothconfig;
 
-import itemalchemy.expansion.IAExpServices;
+import itemalchemy.expansion.client.RepriceTriggerClient;
 import itemalchemy.expansion.config.IAExpConfig;
 import itemalchemy.expansion.config.IAExpConfigHolder;
+import itemalchemy.expansion.IAExpServices;
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
 import me.shedaniel.clothconfig2.api.ConfigCategory;
 import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
@@ -60,6 +61,9 @@ public final class IAExpClothConfigScreen {
 
         // 保存：写回 active + 落盘 + 刷新运行时服务
         builder.setSavingRunnable(() -> {
+            boolean wasAutoPricingOn = IAExpConfigHolder.get().autoPricingFromRecipes;
+            boolean wasPreciseMode = IAExpConfigHolder.get().preciseMode;
+
             IAExpConfigHolder.get().nbtMode = editing.nbtMode;
             IAExpConfigHolder.get().displayMode = editing.displayMode;
             IAExpConfigHolder.get().shulkerBoxMode = editing.shulkerBoxMode;
@@ -71,9 +75,26 @@ public final class IAExpClothConfigScreen {
             IAExpConfigHolder.get().builtInShulkerPreview = editing.builtInShulkerPreview;
             IAExpConfigHolder.get().debugLogging = editing.debugLogging;
             IAExpConfigHolder.get().fullIgnoreDamageAndRepairCost = editing.fullIgnoreDamageAndRepairCost;
+            IAExpConfigHolder.get().autoPricingStrategy = editing.autoPricingStrategy;
+            IAExpConfigHolder.get().autoPricingRespectUpstream = editing.autoPricingRespectUpstream;
+            // 精确模式与自动定价单独处理（涉及联动与对话框）
+            IAExpConfigHolder.get().preciseMode = editing.preciseMode;
+            IAExpConfigHolder.get().autoPricingFromRecipes = editing.autoPricingFromRecipes;
             // perModRules 暂不在 GUI 编辑（Map 结构复杂），保留 active 中的值
             IAExpConfigHolder.save();
             IAExpServices.refresh();
+
+            // 自动定价首次 OFF→ON：自动开启精确模式 + 弹重新定价对话框
+            if (!wasAutoPricingOn && editing.autoPricingFromRecipes) {
+                if (!editing.preciseMode) {
+                    // 自动定价需要精确模式才能区分 NBT 物品
+                    IAExpConfigHolder.get().preciseMode = true;
+                    IAExpConfigHolder.save();
+                    IAExpServices.refresh();
+                }
+                // 触发重新定价检查（客户端发起 C2S，服务端扫描 PerSaveEmcStore 候选并回 S2C 弹窗）
+                RepriceTriggerClient.sendRepriceCheck();
+            }
         });
 
         return builder.build();
@@ -99,6 +120,10 @@ public final class IAExpClothConfigScreen {
     private static final Function<Enum, Text> SHULKER_POLICY_NAMING = e ->
             Text.translatable("itemalchemy-expansion.config.shulkerNoEmcPolicy.option." + e.name().toLowerCase());
 
+    /** AutoPricingStrategy 直观名：MIN→「最小值」, MAX→「最大值」, AVG→「平均值」, FIRST→「首个」 */
+    private static final Function<Enum, Text> AUTO_PRICING_STRATEGY_NAMING = e ->
+            Text.translatable("itemalchemy-expansion.config.autoPricingStrategy.option." + e.name().toLowerCase());
+
     /**
      * 注册所有分类与条目。新增配置项时在此追加即可。
      *
@@ -107,6 +132,7 @@ public final class IAExpClothConfigScreen {
      *   <li>general — NBT 策略、展示、搜索</li>
      *   <li>shulker_box — 潜影盒相关</li>
      *   <li>advanced — 调试日志、FULL 模式过滤、NBT key 列表</li>
+     *   <li>experimental — 实验性功能（精确模式 / 配方自动定价，默认全部关闭）</li>
      * </ul>
      * </p>
      */
@@ -217,6 +243,47 @@ public final class IAExpClothConfigScreen {
 
         advanced.addEntry(entries
                 .startTextDescription(Text.translatable("itemalchemy-expansion.config.perModRules.note"))
+                .build());
+
+        // ===== Experimental =====
+        ConfigCategory experimental = builder.getOrCreateCategory(
+                Text.translatable("itemalchemy-expansion.config.category.experimental"));
+
+        experimental.addEntry(entries
+                .startTextDescription(Text.translatable("itemalchemy-expansion.config.experimental.note"))
+                .build());
+
+        experimental.addEntry(entries
+                .startBooleanToggle(Text.translatable("itemalchemy-expansion.config.preciseMode"),
+                        c.preciseMode)
+                .setDefaultValue(false)
+                .setTooltip(Text.translatable("itemalchemy-expansion.config.preciseMode.tooltip"))
+                .setSaveConsumer(v -> c.preciseMode = v)
+                .build());
+
+        experimental.addEntry(entries
+                .startBooleanToggle(Text.translatable("itemalchemy-expansion.config.autoPricingFromRecipes"),
+                        c.autoPricingFromRecipes)
+                .setDefaultValue(false)
+                .setTooltip(Text.translatable("itemalchemy-expansion.config.autoPricingFromRecipes.tooltip"))
+                .setSaveConsumer(v -> c.autoPricingFromRecipes = v)
+                .build());
+
+        experimental.addEntry(entries
+                .startEnumSelector(Text.translatable("itemalchemy-expansion.config.autoPricingStrategy"),
+                        IAExpConfig.AutoPricingStrategy.class, c.autoPricingStrategy)
+                .setDefaultValue(IAExpConfig.AutoPricingStrategy.MIN)
+                .setTooltip(Text.translatable("itemalchemy-expansion.config.autoPricingStrategy.tooltip"))
+                .setEnumNameProvider(AUTO_PRICING_STRATEGY_NAMING)
+                .setSaveConsumer(v -> c.autoPricingStrategy = v)
+                .build());
+
+        experimental.addEntry(entries
+                .startBooleanToggle(Text.translatable("itemalchemy-expansion.config.autoPricingRespectUpstream"),
+                        c.autoPricingRespectUpstream)
+                .setDefaultValue(true)
+                .setTooltip(Text.translatable("itemalchemy-expansion.config.autoPricingRespectUpstream.tooltip"))
+                .setSaveConsumer(v -> c.autoPricingRespectUpstream = v)
                 .build());
     }
 }

@@ -3,6 +3,9 @@
   "itemalchemy-expansion.config.category.general": "通用",
   "itemalchemy-expansion.config.category.shulker_box": "潜影盒",
   "itemalchemy-expansion.config.category.advanced": "高级",
+  "itemalchemy-expansion.config.category.experimental": "实验性功能",
+
+  "itemalchemy-expansion.config.experimental.note": "以下功能为实验性，默认全部关闭。开启后可能改变 EMC 计算行为，请谨慎使用。",
 
   "itemalchemy-expansion.config.nbtMode": "NBT 区分模式",
   "itemalchemy-expansion.config.nbtMode.tooltip": "全量：按全部 NBT 区分，兼容性最好，任意模组的不同 NBT 物品都能区分。\n智能：只保留重要 key，性能更好但可能漏识别未知模组。",
@@ -60,11 +63,17 @@
   "itemalchemy-expansion.set_emc.emc_field": "EMC 值",
   "itemalchemy-expansion.set_emc.current_emc": "当前 EMC：%s",
   "itemalchemy-expansion.set_emc.new_emc_label": "新 EMC 值",
+  "itemalchemy-expansion.set_emc.variant_label": "变体：%s",
   "itemalchemy-expansion.set_emc.scope_label": "作用范围",
   "itemalchemy-expansion.set_emc.scope.this_save": "仅本存档",
   "itemalchemy-expansion.set_emc.scope.global": "所有存档（全局）",
   "itemalchemy-expansion.set_emc.scope.this_save.hint": "仅对当前存档生效，不影响其它存档",
   "itemalchemy-expansion.set_emc.scope.global.hint": "写入全局配置，对所有存档生效",
+  "itemalchemy-expansion.set_emc.precision_label": "定价精度",
+  "itemalchemy-expansion.set_emc.precision.precise": "精确（按变体）",
+  "itemalchemy-expansion.set_emc.precision.general": "通用（按 ID）",
+  "itemalchemy-expansion.set_emc.precision.precise.hint": "写入变体键存储，仅精确模式开启时生效（同 ID 不同 NBT 各自有价）",
+  "itemalchemy-expansion.set_emc.precision.general.hint": "写入按 ID 的存储（原行为，所有同 ID 物品同价）",
   "itemalchemy-expansion.set_emc.confirm": "确认",
   "itemalchemy-expansion.set_emc.cancel": "取消",
   "itemalchemy-expansion.set_emc.fail.empty": "请输入 EMC 值",
@@ -87,5 +96,36 @@
   "itemalchemy-expansion.filter_button.shulker": "盒子",
 
   "itemalchemy-expansion.search.match_list_title": "匹配内容：",
-  "itemalchemy-expansion.search.match_list_more": "另有 %s 个..."
+  "itemalchemy-expansion.search.match_list_more": "另有 %s 个...",
+
+  "itemalchemy-expansion.config.preciseMode": "精确模式",
+  "itemalchemy-expansion.config.preciseMode.tooltip": "实验性。开启后 EMC 按物品变体（itemId + NBT 指纹）查询：同 ID 不同 NBT 的物品可各自有价（如 tacz 弹药的不同 AmmoId）。关闭时保持「同 ID 同价」（默认行为）。开启「配方自动定价」时会自动开启此项。",
+
+  "itemalchemy-expansion.config.autoPricingFromRecipes": "配方自动定价",
+  "itemalchemy-expansion.config.autoPricingFromRecipes.tooltip": "实验性。开启后扫描所有注册到原版配方管理器的配方（含模组自定义类型，如 TACZ 弹药合成台），对未定义 EMC 的物品按材料 EMC 之和自动定价。手动设定的 EMC 优先级高于自动。开启时会自动开启「精确模式」并弹出「重新定价」对话框（仅一次）。",
+
+  "itemalchemy-expansion.config.autoPricingStrategy": "多配方策略",
+  "itemalchemy-expansion.config.autoPricingStrategy.tooltip": "实验性。多条配方产出相同变体时的取值策略。最小值：取最便宜配方（推荐，防套利）；最大值：取最贵；平均值：所有配方平均；首个：第一个找到。当前实现仅最小值生效，其余预留。",
+  "itemalchemy-expansion.config.autoPricingStrategy.option.min": "最小值（推荐）",
+  "itemalchemy-expansion.config.autoPricingStrategy.option.max": "最大值",
+  "itemalchemy-expansion.config.autoPricingStrategy.option.avg": "平均值",
+  "itemalchemy-expansion.config.autoPricingStrategy.option.first": "首个",
+
+  "itemalchemy-expansion.config.autoPricingRespectUpstream": "不覆盖上游已定义值",
+  "itemalchemy-expansion.config.autoPricingRespectUpstream.tooltip": "实验性。开启后原版/上游默认 EMC 值不被自动定价覆盖。强烈不建议关闭。",
+
+  "itemalchemy-expansion.new_feature_toast.title": "Item Alchemy Expansion 新功能",
+  "itemalchemy-expansion.new_feature_toast.desc1": "已新增「配方自动定价」与「精确模式」（实验性，默认关闭）。",
+  "itemalchemy-expansion.new_feature_toast.desc2": "可在 Mod 菜单 → Item Alchemy Expansion → 实验性功能 中开启。",
+
+  "itemalchemy-expansion.reprice.title": "重新定价已设置的物品？",
+  "itemalchemy-expansion.reprice.desc": "检测到你在本存档中手动设置了以下物品的 EMC：",
+  "itemalchemy-expansion.reprice.count": "共 %s 个物品可被自动重新定价",
+  "itemalchemy-expansion.reprice.more": "另有 %s 个...",
+  "itemalchemy-expansion.reprice.confirm_yes": "是，重新自动定价",
+  "itemalchemy-expansion.reprice.confirm_no": "否，保留我的设置",
+  "itemalchemy-expansion.reprice.hint": "选择「是」后将立即重算并同步给所有在线玩家。",
+  "itemalchemy-expansion.reprice.hint2": "以后可用命令 /itemalchemy-expansion reprice 再次触发。",
+  "itemalchemy-expansion.reprice.feedback.done": "[IAExp] 已重新定价 %s 个候选物品并重算自动定价。",
+  "itemalchemy-expansion.reprice.feedback.kept": "[IAExp] 已保留你的设置，自动定价仅处理未定义物品。"
 }

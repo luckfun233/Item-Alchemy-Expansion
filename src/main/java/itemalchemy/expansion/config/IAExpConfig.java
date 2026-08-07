@@ -42,8 +42,16 @@ public class IAExpConfig {
         @SerializedName("allow_as_zero") ALLOW_AS_ZERO
     }
 
-    /** 配置版本号，用于旧配置自动升级。缺省（旧配置）视为 0，当前为 4。 */
-    public int configVersion = 4;
+    /** 多条配方产出相同变体时的取值策略（实验性功能） */
+    public enum AutoPricingStrategy {
+        @SerializedName("min") MIN,
+        @SerializedName("max") MAX,
+        @SerializedName("avg") AVG,
+        @SerializedName("first") FIRST
+    }
+
+    /** 配置版本号，用于旧配置自动升级。缺省（旧配置）视为 0，当前为 5。 */
+    public int configVersion = 5;
 
     /** NBT 区分策略，默认 FULL（全 NBT 区分，最大兼容性，任意模组的不同 NBT 物品都能区分） */
     public NbtMode nbtMode = NbtMode.FULL;
@@ -107,6 +115,54 @@ public class IAExpConfig {
      */
     public boolean fullIgnoreDamageAndRepairCost = true;
 
+    // ===== 实验性功能（默认全部关闭，行为与旧版完全一致）=====
+
+    /**
+     * 精确模式（实验性，默认 false）。
+     * <p>开启后 {@code EMCManager.get(ItemStack)} 按变体键（itemId + NBT 指纹）查询 EMC：
+     * 同 ID 不同 NBT 的物品可各自有价（如 tacz 弹药的不同 AmmoId）。
+     * 关闭时保持 F2 契约（同 ID 同价），向后兼容。</p>
+     * <p>查询优先级（精确模式 ON）：
+     * 玩家精确覆盖 → 自动精确 → 通用（上游 + 玩家通用）→ 自动通用 → 0。</p>
+     */
+    public boolean preciseMode = false;
+
+    /**
+     * 配方自动定价总开关（实验性，默认 false）。
+     * <p>开启后扫描所有注册到原版 RecipeManager 的配方（含模组自定义类型），
+     * 对未定义 EMC 的物品按材料 EMC 之和定价。开启时建议同时开启 {@link #preciseMode}，
+     * 否则同 ID 不同 NBT 的物品（如不同 AmmoId 的子弹）无法各自定价。
+     * GUI 保存时若 preciseMode 仍为 false，会自动置 true。</p>
+     * <p>优先级：手动（精确/通用）> 自动（精确/通用）；上游已定义值不被覆盖。</p>
+     */
+    public boolean autoPricingFromRecipes = false;
+
+    /**
+     * 多条配方产出相同变体时的取值策略（实验性，默认 MIN）。
+     * <p>MIN 取最便宜配方（推荐，防套利）；MAX 取最贵；AVG 平均；FIRST 第一个找到。
+     * 当前实现仅 MIN，其余预留枚举位。</p>
+     */
+    public AutoPricingStrategy autoPricingStrategy = AutoPricingStrategy.MIN;
+
+    /**
+     * 自动定价是否跳过上游 defaultEMCMap 已定义的物品（实验性，默认 true）。
+     * <p>开启后原版/上游默认值不被自动定价覆盖。强烈不建议关闭。</p>
+     */
+    public boolean autoPricingRespectUpstream = true;
+
+    /**
+     * 「重新定价」对话框是否已弹过（默认 false）。
+     * <p>仅在 autoPricingFromRecipes 首次从 OFF→ON 时弹一次；弹过置 true 写盘。
+     * 想再次触发可用命令 {@code /itemalchemy-expansion reprice}。</p>
+     */
+    public boolean autoPricingRepricePromptShown = false;
+
+    /**
+     * 新功能提醒是否已显示（默认 false）。
+     * <p>检测到 configVersion 从旧版升级时进世界弹一次 toast，弹过置 true 写盘。</p>
+     */
+    public boolean featureNoticeShown = false;
+
     /** 返回一份带默认内置规则副本的配置（不修改本对象） */
     public IAExpConfig copy() {
         IAExpConfig c = new IAExpConfig();
@@ -127,6 +183,12 @@ public class IAExpConfig {
         c.fullIgnoreDamageAndRepairCost = fullIgnoreDamageAndRepairCost;
         c.searchShulkerContents = searchShulkerContents;
         c.shulkerMatchRedFrame = shulkerMatchRedFrame;
+        c.preciseMode = preciseMode;
+        c.autoPricingFromRecipes = autoPricingFromRecipes;
+        c.autoPricingStrategy = autoPricingStrategy;
+        c.autoPricingRespectUpstream = autoPricingRespectUpstream;
+        c.autoPricingRepricePromptShown = autoPricingRepricePromptShown;
+        c.featureNoticeShown = featureNoticeShown;
         return c;
     }
 }
