@@ -123,6 +123,15 @@ public final class IAExpConfigHolder {
             upgradedFromLegacy = true;
         }
 
+        // configVersion < 8: 重新定价提示流程已重写（旧的全量确认 → 新的逐个选择 UI），
+        // 旧标记 autoPricingRepricePromptShown=true 是旧 UI 遗留的，重置为 false 让新 UI 有机会弹出。
+        if (loaded.configVersion < 8) {
+            ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 8 (reset reprice prompt flag)", loaded.configVersion);
+            loaded.autoPricingRepricePromptShown = false;
+            loaded.configVersion = 8;
+            needsSave = true;
+        }
+
         return loaded;
     }
 

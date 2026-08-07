@@ -42,8 +42,8 @@ public class IAExpConfig {
         @SerializedName("first") FIRST
     }
 
-    /** 配置版本号，用于旧配置自动升级。缺省（旧配置）视为 0，当前为 7。 */
-    public int configVersion = 7;
+    /** 配置版本号，用于旧配置自动升级。缺省（旧配置）视为 0，当前为 8。 */
+    public int configVersion = 8;
 
     /** 转换桌展示方式，默认 图标+名称 */
     public DisplayMode displayMode = DisplayMode.ICON_AND_NAME;
