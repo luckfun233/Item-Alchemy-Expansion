@@ -1,5 +1,7 @@
 package itemalchemy.expansion.client;
 
+import itemalchemy.expansion.IAExpServices;
+import itemalchemy.expansion.nbt.ItemVariantKey;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -74,10 +76,17 @@ public class RepriceConfirmScreen extends Screen {
         }
     }
 
-    /** 根据 itemId 解析 ItemStack（用于显示图标） */
-    private static ItemStack resolveStack(String itemId) {
+    /** 根据 itemId / 变体键解析 ItemStack（用于显示图标，带 NBT 还原） */
+    private static ItemStack resolveStack(String idStr) {
         try {
-            Identifier id = Identifier.tryParse(itemId);
+            // 优先按变体键解析（支持 "itemId\u0001nbtFingerprint" 格式，还原 NBT）
+            ItemVariantKey vk = ItemVariantKey.fromStorageString(idStr);
+            if (vk != null) {
+                ItemStack stack = IAExpServices.rebuildStack(vk);
+                if (!stack.isEmpty()) return stack;
+            }
+            // 回退：纯 itemId
+            Identifier id = Identifier.tryParse(idStr);
             if (id != null && Registries.ITEM.containsId(id)) {
                 return new ItemStack(Registries.ITEM.get(id));
             }

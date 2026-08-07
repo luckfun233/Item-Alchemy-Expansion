@@ -71,11 +71,12 @@ public abstract class MixinAlchemyTableScreen {
     }
 
     /**
-     * 反射调用 {@code addDrawableChild_compatibility}（mcpitanlib 方法）。
-     * 失败时回退到 vanilla {@code Screen.addDrawableChild}。
+     * 反射调用 {@code addDrawableChild} 把控件加入 Screen。
+     * 优先 mcpitanlib 的 {@code addDrawableChild_compatibility}，失败则遍历继承链找 vanilla {@code addDrawableChild}。
+     * 泛型擦除后参数类型可能因构建环境不同而异，依次尝试 Element / ClickableWidget / Object。
      */
     private void iaexp$addDrawableChild(ClickableWidget widget) {
-        // 1. 遍历继承链查找 mcpitanlib 的 addDrawableChild_compatibility（可能是 protected）
+        // 1. 遍历继承链查找 mcpitanlib 的 addDrawableChild_compatibility
         Class<?> cls = AlchemyTableScreen.class;
         while (cls != null && cls != Object.class) {
             try {
@@ -89,15 +90,21 @@ public abstract class MixinAlchemyTableScreen {
                 break;
             }
         }
-        // 2. 回退到 vanilla Screen.addDrawableChild
-        // 泛型 <T extends Element & Drawable & Selectable> 类型擦除后参数为 Element
-        try {
-            Method m = Screen.class.getDeclaredMethod("addDrawableChild", Element.class);
-            m.setAccessible(true);
-            m.invoke(this, widget);
-        } catch (Throwable t) {
-            System.err.println("[IAExp] Failed to add filter button: " + t);
+        // 2. 遍历继承链找 vanilla addDrawableChild，尝试多种参数类型
+        Class<?>[] paramCandidates = { Element.class, ClickableWidget.class, Object.class };
+        cls = AlchemyTableScreen.class;
+        while (cls != null && cls != Object.class) {
+            for (Class<?> paramType : paramCandidates) {
+                try {
+                    Method m = cls.getDeclaredMethod("addDrawableChild", paramType);
+                    m.setAccessible(true);
+                    m.invoke(this, widget);
+                    return;
+                } catch (Exception ignored) {}
+            }
+            cls = cls.getSuperclass();
         }
+        System.err.println("[IAExp] Failed to add filter button: addDrawableChild not found in hierarchy");
     }
 
     // ====== 方向键拦截（Shift 预览激活时） ======

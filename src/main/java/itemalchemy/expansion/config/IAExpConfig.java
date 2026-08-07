@@ -3,9 +3,7 @@ package itemalchemy.expansion.config;
 import com.google.gson.annotations.SerializedName;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Item Alchemy Expansion 配置模型。
@@ -16,12 +14,6 @@ import java.util.Map;
  * <p>所有默认值即用户主需求（见 plan.md §5）。</p>
  */
 public class IAExpConfig {
-
-    /** NBT 区分策略 */
-    public enum NbtMode {
-        @SerializedName("smart") SMART,
-        @SerializedName("full") FULL
-    }
 
     /** 转换桌展示方式 */
     public enum DisplayMode {
@@ -50,11 +42,8 @@ public class IAExpConfig {
         @SerializedName("first") FIRST
     }
 
-    /** 配置版本号，用于旧配置自动升级。缺省（旧配置）视为 0，当前为 5。 */
-    public int configVersion = 5;
-
-    /** NBT 区分策略，默认 FULL（全 NBT 区分，最大兼容性，任意模组的不同 NBT 物品都能区分） */
-    public NbtMode nbtMode = NbtMode.FULL;
+    /** 配置版本号，用于旧配置自动升级。缺省（旧配置）视为 0，当前为 7。 */
+    public int configVersion = 7;
 
     /** 转换桌展示方式，默认 图标+名称 */
     public DisplayMode displayMode = DisplayMode.ICON_AND_NAME;
@@ -79,17 +68,8 @@ public class IAExpConfig {
      */
     public boolean shulkerMatchRedFrame = true;
 
-    /** 额外纳入智能匹配的 NBT key（在内置规则之外追加） */
-    public List<String> smartNbtKeys = new ArrayList<>();
-
-    /** 强制忽略的 NBT key（即使内置规则纳入也会被排除） */
+    /** 强制忽略的 NBT key（从指纹中排除，避免运行时状态变化导致指纹失配） */
     public List<String> ignoreNbtKeys = new ArrayList<>();
-
-    /**
-     * 按物品 namespace 自定义重要 NBT key。
-     * key = namespace（如 "tacz"），value = 该 namespace 下需纳入的 NBT key 列表。
-     */
-    public Map<String, List<String>> perModRules = new HashMap<>();
 
     /** 搜索时是否匹配翻译名（默认 true） */
     public boolean searchByTranslatedName = true;
@@ -108,24 +88,21 @@ public class IAExpConfig {
     public boolean debugLogging = false;
 
     /**
-     * FULL 模式下是否忽略 Damage 与 RepairCost（默认 true）。
-     * <p>FULL 模式会保留全部 NBT，但工具/武器的 Damage（耐久）和 RepairCost（修复花费）
-     * 会让同一工具因耐久不同产生大量变体。默认忽略这两个 key 以避免变体爆炸；
-     * 想要严格全 NBT 区分时设为 false。{@link #ignoreNbtKeys} 中的 key 始终被忽略（两模式通用）。</p>
+     * 是否忽略 Damage 与 RepairCost（默认 true）。
+     * <p>工具/武器的 Damage（耐久）和 RepairCost（修复花费）会让同一工具因耐久不同产生大量变体。
+     * 默认忽略这两个 key 以避免变体爆炸；想要严格全 NBT 区分时设为 false。</p>
      */
     public boolean fullIgnoreDamageAndRepairCost = true;
 
     // ===== 实验性功能（默认全部关闭，行为与旧版完全一致）=====
 
     /**
-     * 精确模式（实验性，默认 false）。
-     * <p>开启后 {@code EMCManager.get(ItemStack)} 按变体键（itemId + NBT 指纹）查询 EMC：
-     * 同 ID 不同 NBT 的物品可各自有价（如 tacz 弹药的不同 AmmoId）。
-     * 关闭时保持 F2 契约（同 ID 同价），向后兼容。</p>
-     * <p>查询优先级（精确模式 ON）：
-     * 玩家精确覆盖 → 自动精确 → 通用（上游 + 玩家通用）→ 自动通用 → 0。</p>
+     * 精确模式（默认 true）。
+     * <p>EMC 按变体键（itemId + NBT 指纹）查询：同 ID 不同 NBT 的物品可各自有价。
+     * 已从 GUI 移除开关——自动定价需要它，手动定价在 SetEmcScreen 中可选精确/通用，
+     * 全局精确模式始终开启不影响「通用」手动定价（查询时精确层 miss 自然落到通用层）。</p>
      */
-    public boolean preciseMode = false;
+    public boolean preciseMode = true;
 
     /**
      * 配方自动定价总开关（实验性，默认 false）。
@@ -163,19 +140,13 @@ public class IAExpConfig {
      */
     public boolean featureNoticeShown = false;
 
-    /** 返回一份带默认内置规则副本的配置（不修改本对象） */
+    /** 返回一份副本（不修改本对象） */
     public IAExpConfig copy() {
         IAExpConfig c = new IAExpConfig();
-        c.nbtMode = nbtMode;
         c.displayMode = displayMode;
         c.shulkerBoxMode = shulkerBoxMode;
         c.shulkerNoEmcPolicy = shulkerNoEmcPolicy;
-        c.smartNbtKeys = new ArrayList<>(smartNbtKeys);
         c.ignoreNbtKeys = new ArrayList<>(ignoreNbtKeys);
-        c.perModRules = new HashMap<>();
-        for (Map.Entry<String, List<String>> e : perModRules.entrySet()) {
-            c.perModRules.put(e.getKey(), new ArrayList<>(e.getValue()));
-        }
         c.searchByTranslatedName = searchByTranslatedName;
         c.renderNameUnderSlot = renderNameUnderSlot;
         c.builtInShulkerPreview = builtInShulkerPreview;

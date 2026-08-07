@@ -62,13 +62,10 @@ public final class IAExpClothConfigScreen {
         // 保存：写回 active + 落盘 + 刷新运行时服务
         builder.setSavingRunnable(() -> {
             boolean wasAutoPricingOn = IAExpConfigHolder.get().autoPricingFromRecipes;
-            boolean wasPreciseMode = IAExpConfigHolder.get().preciseMode;
 
-            IAExpConfigHolder.get().nbtMode = editing.nbtMode;
             IAExpConfigHolder.get().displayMode = editing.displayMode;
             IAExpConfigHolder.get().shulkerBoxMode = editing.shulkerBoxMode;
             IAExpConfigHolder.get().shulkerNoEmcPolicy = editing.shulkerNoEmcPolicy;
-            IAExpConfigHolder.get().smartNbtKeys = editing.smartNbtKeys;
             IAExpConfigHolder.get().ignoreNbtKeys = editing.ignoreNbtKeys;
             IAExpConfigHolder.get().searchByTranslatedName = editing.searchByTranslatedName;
             IAExpConfigHolder.get().renderNameUnderSlot = editing.renderNameUnderSlot;
@@ -77,22 +74,14 @@ public final class IAExpClothConfigScreen {
             IAExpConfigHolder.get().fullIgnoreDamageAndRepairCost = editing.fullIgnoreDamageAndRepairCost;
             IAExpConfigHolder.get().autoPricingStrategy = editing.autoPricingStrategy;
             IAExpConfigHolder.get().autoPricingRespectUpstream = editing.autoPricingRespectUpstream;
-            // 精确模式与自动定价单独处理（涉及联动与对话框）
-            IAExpConfigHolder.get().preciseMode = editing.preciseMode;
+            // 精确模式始终开启（已从 GUI 移除开关）
+            IAExpConfigHolder.get().preciseMode = true;
             IAExpConfigHolder.get().autoPricingFromRecipes = editing.autoPricingFromRecipes;
-            // perModRules 暂不在 GUI 编辑（Map 结构复杂），保留 active 中的值
             IAExpConfigHolder.save();
             IAExpServices.refresh();
 
-            // 自动定价首次 OFF→ON：自动开启精确模式 + 弹重新定价对话框
+            // 自动定价首次 OFF→ON：弹重新定价对话框
             if (!wasAutoPricingOn && editing.autoPricingFromRecipes) {
-                if (!editing.preciseMode) {
-                    // 自动定价需要精确模式才能区分 NBT 物品
-                    IAExpConfigHolder.get().preciseMode = true;
-                    IAExpConfigHolder.save();
-                    IAExpServices.refresh();
-                }
-                // 触发重新定价检查（客户端发起 C2S，服务端扫描 PerSaveEmcStore 候选并回 S2C 弹窗）
                 RepriceTriggerClient.sendRepriceCheck();
             }
         });
@@ -103,10 +92,6 @@ public final class IAExpClothConfigScreen {
     // ============ 枚举名映射工具 ============
     // Cloth Config 11.1.136 的 EnumSelectorBuilder.setEnumNameProvider 接收
     // Function<Enum, Text>（注意是原始 Enum 类型，不是泛型 T），因此这里用 Function<Enum, Text>。
-
-    /** NbtMode 直观名：SMART→「智能（兼容性差）」, FULL→「全量（推荐）」 */
-    private static final Function<Enum, Text> NBT_MODE_NAMING = e ->
-            Text.translatable("itemalchemy-expansion.config.nbtMode.option." + e.name().toLowerCase());
 
     /** DisplayMode 直观名 */
     private static final Function<Enum, Text> DISPLAY_MODE_NAMING = e ->
@@ -129,10 +114,10 @@ public final class IAExpClothConfigScreen {
      *
      * <p>分类组织：
      * <ul>
-     *   <li>general — NBT 策略、展示、搜索</li>
+     *   <li>general — 展示、搜索</li>
      *   <li>shulker_box — 潜影盒相关</li>
-     *   <li>advanced — 调试日志、FULL 模式过滤、NBT key 列表</li>
-     *   <li>experimental — 实验性功能（精确模式 / 配方自动定价，默认全部关闭）</li>
+     *   <li>advanced — 调试日志、NBT 过滤、忽略 key 列表</li>
+     *   <li>experimental — 实验性功能（配方自动定价，默认关闭）</li>
      * </ul>
      * </p>
      */
@@ -140,15 +125,6 @@ public final class IAExpClothConfigScreen {
         // ===== General =====
         ConfigCategory general = builder.getOrCreateCategory(
                 Text.translatable("itemalchemy-expansion.config.category.general"));
-
-        general.addEntry(entries
-                .startEnumSelector(Text.translatable("itemalchemy-expansion.config.nbtMode"),
-                        IAExpConfig.NbtMode.class, c.nbtMode)
-                .setDefaultValue(IAExpConfig.NbtMode.FULL)
-                .setTooltip(Text.translatable("itemalchemy-expansion.config.nbtMode.tooltip"))
-                .setEnumNameProvider(NBT_MODE_NAMING)
-                .setSaveConsumer(v -> c.nbtMode = v)
-                .build());
 
         general.addEntry(entries
                 .startEnumSelector(Text.translatable("itemalchemy-expansion.config.displayMode"),
@@ -226,23 +202,11 @@ public final class IAExpClothConfigScreen {
                 .build());
 
         advanced.addEntry(entries
-                .startStrList(Text.translatable("itemalchemy-expansion.config.smartNbtKeys"),
-                        new ArrayList<>(c.smartNbtKeys))
-                .setDefaultValue(new ArrayList<>())
-                .setTooltip(Text.translatable("itemalchemy-expansion.config.smartNbtKeys.tooltip"))
-                .setSaveConsumer((List<String> v) -> c.smartNbtKeys = v)
-                .build());
-
-        advanced.addEntry(entries
                 .startStrList(Text.translatable("itemalchemy-expansion.config.ignoreNbtKeys"),
                         new ArrayList<>(c.ignoreNbtKeys))
                 .setDefaultValue(new ArrayList<>())
                 .setTooltip(Text.translatable("itemalchemy-expansion.config.ignoreNbtKeys.tooltip"))
                 .setSaveConsumer((List<String> v) -> c.ignoreNbtKeys = v)
-                .build());
-
-        advanced.addEntry(entries
-                .startTextDescription(Text.translatable("itemalchemy-expansion.config.perModRules.note"))
                 .build());
 
         // ===== Experimental =====
@@ -251,14 +215,6 @@ public final class IAExpClothConfigScreen {
 
         experimental.addEntry(entries
                 .startTextDescription(Text.translatable("itemalchemy-expansion.config.experimental.note"))
-                .build());
-
-        experimental.addEntry(entries
-                .startBooleanToggle(Text.translatable("itemalchemy-expansion.config.preciseMode"),
-                        c.preciseMode)
-                .setDefaultValue(false)
-                .setTooltip(Text.translatable("itemalchemy-expansion.config.preciseMode.tooltip"))
-                .setSaveConsumer(v -> c.preciseMode = v)
                 .build());
 
         experimental.addEntry(entries

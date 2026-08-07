@@ -10,7 +10,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
 
 /**
  * 配置持有者与加载/保存器。
@@ -103,62 +102,23 @@ public final class IAExpConfigHolder {
     /** 用默认值补齐加载后可能缺失的字段（向前兼容），并执行配置版本升级 */
     private static IAExpConfig mergeWithDefaults(IAExpConfig loaded) {
         IAExpConfig def = new IAExpConfig();
-        if (loaded.nbtMode == null) loaded.nbtMode = def.nbtMode;
         if (loaded.displayMode == null) loaded.displayMode = def.displayMode;
         if (loaded.shulkerBoxMode == null) loaded.shulkerBoxMode = def.shulkerBoxMode;
         if (loaded.shulkerNoEmcPolicy == null) loaded.shulkerNoEmcPolicy = def.shulkerNoEmcPolicy;
-        if (loaded.smartNbtKeys == null) loaded.smartNbtKeys = new ArrayList<>();
         if (loaded.ignoreNbtKeys == null) loaded.ignoreNbtKeys = new ArrayList<>();
-        if (loaded.perModRules == null) loaded.perModRules = new HashMap<>();
 
-        // 配置版本升级：configVersion 0 = 旧配置（默认 SMART），升级为 FULL 并保存
-        if (loaded.configVersion < 1) {
-            ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 1: nbtMode SMART -> FULL", loaded.configVersion);
-            loaded.nbtMode = IAExpConfig.NbtMode.FULL;
-            loaded.configVersion = 1;
-            // 标记需要保存（在 load() 中检测此标志后写盘）
-            needsSave = true;
-        }
-
-        // configVersion 1 -> 2: 新增 debugLogging / fullIgnoreDamageAndRepairCost 字段
-        // Gson 用 Unsafe 分配对象时布尔原始类型默认为 false，需把默认 true 的字段补回
-        if (loaded.configVersion < 2) {
-            ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 2: add debugLogging / fullIgnoreDamageAndRepairCost", loaded.configVersion);
+        // configVersion < 7: 旧版本，补齐默认 true 的字段（Gson Unsafe 会把布尔零初始化为 false）
+        if (loaded.configVersion < 7) {
+            ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 7", loaded.configVersion);
             loaded.debugLogging = def.debugLogging;
             loaded.fullIgnoreDamageAndRepairCost = def.fullIgnoreDamageAndRepairCost;
-            loaded.configVersion = 2;
-            needsSave = true;
-        }
-
-        // configVersion 2 -> 3: 强制默认 全量模式 + 开启内置预览
-        // 旧配置可能因 Gson Unsafe 分配导致 builtInShulkerPreview=false，升级时补回默认值
-        if (loaded.configVersion < 3) {
-            ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 3: force nbtMode=FULL, builtInShulkerPreview=true", loaded.configVersion);
-            loaded.nbtMode = IAExpConfig.NbtMode.FULL;
             loaded.builtInShulkerPreview = true;
-            loaded.configVersion = 3;
-            needsSave = true;
-        }
-
-        // configVersion 3 -> 4: 新增 searchShulkerContents / shulkerMatchRedFrame 字段
-        // Gson 用 Unsafe 分配对象时布尔原始类型默认为 false，需把默认 true 的字段补回
-        if (loaded.configVersion < 4) {
-            ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 4: add searchShulkerContents / shulkerMatchRedFrame", loaded.configVersion);
             loaded.searchShulkerContents = def.searchShulkerContents;
             loaded.shulkerMatchRedFrame = def.shulkerMatchRedFrame;
-            loaded.configVersion = 4;
-            needsSave = true;
-        }
-
-        // configVersion 4 -> 5: 新增「实验性功能」（精确模式 / 配方自动定价 / 策略 / 重定价提示标志）
-        // 全部默认 false，Gson Unsafe 已置 false；只需补 enum 与默认 true 的 autoPricingRespectUpstream
-        if (loaded.configVersion < 5) {
-            ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 5: add experimental features (preciseMode / autoPricingFromRecipes)", loaded.configVersion);
             if (loaded.autoPricingStrategy == null) loaded.autoPricingStrategy = def.autoPricingStrategy;
-            // 默认 true 的字段显式补回（Gson Unsafe 会把布尔零初始化为 false）
             loaded.autoPricingRespectUpstream = def.autoPricingRespectUpstream;
-            // autoPricingRepricePromptShown / featureNoticeShown / preciseMode / autoPricingFromRecipes 默认 false，保持现状
-            loaded.configVersion = 5;
+            loaded.preciseMode = true;
+            loaded.configVersion = 7;
             needsSave = true;
             upgradedFromLegacy = true;
         }

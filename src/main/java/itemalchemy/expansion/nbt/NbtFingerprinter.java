@@ -12,12 +12,12 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * NBT 指纹生成器：把物品 NBT 按策略压缩为规范化 SNBT 字符串。
+ * NBT 指纹生成器：把物品 NBT 压缩为规范化 SNBT 字符串。
  *
- * <p>SMART 模式：仅保留 {@link SmartNbtRules} 认定的重要 key，输出挑选后 NbtCompound 的 SNBT。
- * FULL 模式：保留全部 NBT（扣除 {@code ignoreNbtKeys} 与可选的 Damage/RepairCost），输出 NbtCompound 的 SNBT。</p>
+ * <p>保留全部 NBT（扣除 ignoreNbtKeys、可选的 Damage/RepairCost、以及按 namespace 的内置易变键），
+ * 输出 NbtCompound 的 SNBT。</p>
  *
- * <p>输出的是合法 SNBT（如 {@code {AmmoId:"tacz:556x45"}}），可用 {@link #parseFingerprint(String)}
+ * <p>输出的是合法 SNBT（如 {@code {GunId:"tacz:ak47"}}），可用 {@link #parseFingerprint(String)}
  * 通过 {@link StringNbtReader} 反解析回 {@link NbtCompound}，从而在提取槽重建带 NBT 的 ItemStack。</p>
  *
  * <p>规范化：key 按字典序复制到新 NbtCompound，确保等价 NBT 产生相同指纹（顺序无关）。</p>
@@ -40,50 +40,28 @@ public final class NbtFingerprinter {
     public String fingerprint(ItemStack stack, NbtCompound nbt) {
         if (nbt == null || nbt.isEmpty()) return "";
 
-        // FULL 与 SMART 都先计算「应忽略的 key 集合」（两模式通用，保证 ignoreNbtKeys 始终生效）
+        // 计算应忽略的 key 集合
         Set<String> ignore = collectIgnoreKeys();
 
-        if (config.nbtMode == IAExpConfig.NbtMode.FULL) {
-            // FULL：保留全部 NBT，但扣除 ignoreNbtKeys 与（可选）Damage/RepairCost
-            if (ignore.isEmpty()) {
-                return nbt.toString();
-            }
-            return filterNbt(nbt, ignore);
-        }
-
-        // SMART：挑选重要 key（用 registry id 提取 namespace，而非 getItem().toString()）
+        // 追加按 namespace 的内置易变键（如 TACZ 的弹药数/开火模式/配件等）
+        // 确保存储/查询指纹一致，不因运行时状态变化而失配
         String itemId = net.minecraft.registry.Registries.ITEM.getId(stack.getItem()).toString();
-        String namespace = SmartNbtRules.namespaceOf(itemId);
-        Set<String> important = SmartNbtRules.importantKeysFor(namespace, config);
-        // importantKeysFor 已扣除 ignoreNbtKeys，无需重复扣
+        String namespace = NbtIgnoreRules.namespaceOf(itemId);
+        ignore.addAll(NbtIgnoreRules.builtinIgnoreKeysFor(namespace));
 
-        // 按字典序复制到新 NbtCompound（保证顺序无关）
-        List<String> present = new ArrayList<>();
-        for (String key : important) {
-            if (nbt.contains(key)) present.add(key);
+        // 保留全部 NBT，但扣除 ignore 集合
+        if (ignore.isEmpty()) {
+            return nbt.toString();
         }
-        if (present.isEmpty()) {
-            // 回退：NBT 非空但没有匹配任何已知 key → 保留全部 NBT（避免丢失），但仍扣除 ignore
-            if (ignore.isEmpty()) {
-                return nbt.toString();
-            }
-            return filterNbt(nbt, ignore);
-        }
-        Collections.sort(present);
-
-        NbtCompound picked = new NbtCompound();
-        for (String key : present) {
-            picked.put(key, nbt.get(key));
-        }
-        return picked.toString();
+        return filterNbt(nbt, ignore);
     }
 
     /**
      * 收集本次应忽略的 NBT key 集合。
      * <ul>
-     *   <li>{@code config.ignoreNbtKeys}：用户配置的通用忽略（两模式都生效）</li>
-     *   <li>{@code config.fullIgnoreDamageAndRepairCost}：FULL 模式下默认忽略 Damage/RepairCost，
-     *       避免工具因耐久不同产生大量变体（仅 FULL 模式生效；SMART 本就不纳入这两个 key）</li>
+     *   <li>{@code config.ignoreNbtKeys}：用户配置的通用忽略</li>
+     *   <li>{@code config.fullIgnoreDamageAndRepairCost}：默认忽略 Damage/RepairCost，
+     *       避免工具因耐久不同产生大量变体</li>
      * </ul>
      */
     private Set<String> collectIgnoreKeys() {
@@ -91,7 +69,7 @@ public final class NbtFingerprinter {
         if (config.ignoreNbtKeys != null) {
             ignore.addAll(config.ignoreNbtKeys);
         }
-        if (config.fullIgnoreDamageAndRepairCost && config.nbtMode == IAExpConfig.NbtMode.FULL) {
+        if (config.fullIgnoreDamageAndRepairCost) {
             ignore.add("Damage");
             ignore.add("RepairCost");
         }
@@ -121,7 +99,6 @@ public final class NbtFingerprinter {
         try {
             return StringNbtReader.parse(snbt);
         } catch (Exception e) {
-            // StringNbtReader.parse 抛 CommandSyntaxException（checked）；解析失败回退为无 NBT
             return null;
         }
     }

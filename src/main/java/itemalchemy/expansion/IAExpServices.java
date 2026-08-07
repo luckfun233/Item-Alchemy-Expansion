@@ -24,8 +24,8 @@ public final class IAExpServices {
     public static void init() {
         IAExpConfigHolder.load();
         fingerprinter = new NbtFingerprinter(IAExpConfigHolder.get());
-        ItemAlchemyExpansion.debug("[IAExp] services initialized (nbtMode={}, display={}, debug={})",
-                IAExpConfigHolder.get().nbtMode, IAExpConfigHolder.get().displayMode,
+        ItemAlchemyExpansion.debug("[IAExp] services initialized (display={}, debug={})",
+                IAExpConfigHolder.get().displayMode,
                 IAExpConfigHolder.get().debugLogging);
     }
 
