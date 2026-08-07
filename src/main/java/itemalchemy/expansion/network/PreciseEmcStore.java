@@ -170,6 +170,28 @@ public final class PreciseEmcStore {
         return new LinkedHashMap<>(saveLayer);
     }
 
+    /**
+     * 从本存档层批量删除指定变体键（用于「重新定价」逐个选择：玩家勾选重算的精确候选）。
+     *
+     * <p>同时从合并层移除，并写回本存档文件。不动全局层。返回实际删除条目数。</p>
+     *
+     * @param server      Minecraft 服务端（定位存档目录写盘）
+     * @param variantKeys 要删除的变体键集合
+     * @return 实际删除的条目数
+     */
+    public static int removeAllFromSaveLayer(MinecraftServer server, java.util.Set<String> variantKeys) {
+        if (variantKeys == null || variantKeys.isEmpty()) return 0;
+        int removed = 0;
+        for (String vk : variantKeys) {
+            if (saveLayer.remove(vk) != null) removed++;
+            merged.remove(vk);
+        }
+        if (removed > 0) writeSave(server);
+        ItemAlchemyExpansion.debug("[IAExp] precise emc save layer removed {} entries (of {} requested)",
+                removed, variantKeys.size());
+        return removed;
+    }
+
     // ============ 私有：读写文件 ============
 
     private static Map<String, Long> readMap(Path file) {

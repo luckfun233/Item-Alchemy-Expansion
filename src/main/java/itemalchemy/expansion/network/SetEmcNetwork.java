@@ -83,11 +83,14 @@ public final class SetEmcNetwork {
             new Identifier(ItemAlchemyExpansion.MOD_ID, "reprice_candidates");
 
     /**
-     * C2S 包 id：{@code itemalchemy-expansion:reprice_confirm}。
-     * <p>玩家在 RepriceConfirmScreen 选择后回送：boolean yes（true=重定价，false=保留）。</p>
+     * C2S 包 id：{@code itemalchemy-expansion:reprice_selective}。
+     * <p>玩家在 RepriceConfirmScreen 逐个勾选后回送选择「重算」的条目：
+     * <pre>varint generalCount + N 个 string(itemId)
+     *       + varint preciseCount + N 个 string(vkStr)</pre>
+     * 服务端删除这些条目后强制重算自动定价。</p>
      */
-    public static final Identifier REPRICE_CONFIRM_ID =
-            new Identifier(ItemAlchemyExpansion.MOD_ID, "reprice_confirm");
+    public static final Identifier REPRICE_SELECTIVE_ID =
+            new Identifier(ItemAlchemyExpansion.MOD_ID, "reprice_selective");
 
     /**
      * S2C 包 id：{@code itemalchemy-expansion:new_feature_toast}。
@@ -120,10 +123,15 @@ public final class SetEmcNetwork {
             server.execute(() -> handleRepriceCheck(server, player));
         });
 
-        // 「重新定价确认」C2S：玩家点「是」/「否」
-        ServerPlayNetworking.registerGlobalReceiver(REPRICE_CONFIRM_ID, (server, player, handler, buf, responseSender) -> {
-            final boolean yes = buf.readBoolean();
-            server.execute(() -> handleRepriceConfirm(server, player, yes));
+        // 「重新定价逐个选择」C2S：玩家勾选「重算」的条目（通用层 itemId + 精确层变体键）
+        ServerPlayNetworking.registerGlobalReceiver(REPRICE_SELECTIVE_ID, (server, player, handler, buf, responseSender) -> {
+            final int generalCount = buf.readVarInt();
+            final List<String> generalIds = new ArrayList<>(generalCount);
+            for (int i = 0; i < generalCount; i++) generalIds.add(buf.readString());
+            final int preciseCount = buf.readVarInt();
+            final List<String> preciseVkStrs = new ArrayList<>(preciseCount);
+            for (int i = 0; i < preciseCount; i++) preciseVkStrs.add(buf.readString());
+            server.execute(() -> handleRepriceSelective(server, player, generalIds, preciseVkStrs));
         });
     }
 
@@ -265,36 +273,46 @@ public final class SetEmcNetwork {
     // ============ 重新定价（reprice）流程 ============
 
     /**
-     * 服务端处理「重新定价查询」：扫描 PerSaveEmcStore 候选并回 S2C 给客户端弹窗。
+     * 服务端处理「重新定价查询」：扫描通用层（PerSaveEmcStore）+ 精确层（PreciseEmcStore 本存档层）
+     * 的手动定价候选，回 S2C {@link #REPRICE_CANDIDATES_ID} 给客户端弹逐个选择对话框。
      *
-     * <p>候选过滤规则：
+     * <p>候选过滤规则（两层共用）：
      * <ul>
      *   <li>排除 {@code minecraft:*} 原版物品（上游已定义）</li>
      *   <li>排除在 {@link EMCManager#defaultEMCMap} 中的物品（上游默认值不重置）</li>
      * </ul>
-     * 候选为空时不弹窗（直接置 {@code autoPricingRepricePromptShown=true} 跳过）。</p>
+     * 精确层 key 为变体键（{@code itemId\u0001nbt}），过滤时取其 itemId 部分判定。</p>
+     *
+     * <p>S2C 协议：{@code varint generalCount + N×(string itemId + long oldEmc)
+     *              + varint preciseCount + N×(string vkStr + long oldEmc)}。
+     * 两层均空时直接置 {@code autoPricingRepricePromptShown=true} 跳过，不弹窗。</p>
      */
-    static void handleRepriceCheck(net.minecraft.server.MinecraftServer server,
-                                   ServerPlayerEntity player) {
+    public static void handleRepriceCheck(net.minecraft.server.MinecraftServer server,
+                                          ServerPlayerEntity player) {
         // 已经弹过则不再弹（避免重复）
         if (IAExpConfigHolder.get().autoPricingRepricePromptShown) {
             ItemAlchemyExpansion.debug("[IAExp] reprice check skipped: already shown");
             return;
         }
 
-        Map<String, Long> all = PerSaveEmcStore.getSnapshot(server);
-        List<String> candidates = new ArrayList<>();
-        for (Map.Entry<String, Long> e : all.entrySet()) {
+        // 通用层候选（PerSaveEmcStore：按 itemId 存储）
+        List<Map.Entry<String, Long>> generalCandidates = new ArrayList<>();
+        for (Map.Entry<String, Long> e : PerSaveEmcStore.getSnapshot(server).entrySet()) {
             String id = e.getKey();
-            if (id == null || id.isEmpty()) continue;
-            if (id.startsWith("minecraft:")) continue;  // 原版不动
-            try {
-                if (EMCManager.defaultEMCMap != null && EMCManager.defaultEMCMap.containsKey(id)) continue;
-            } catch (Throwable ignore) {}
-            candidates.add(id);
+            if (id == null || id.isEmpty() || !isRepriceCandidate(id)) continue;
+            generalCandidates.add(e);
         }
 
-        if (candidates.isEmpty()) {
+        // 精确层候选（PreciseEmcStore 本存档层：按变体键存储）
+        List<Map.Entry<String, Long>> preciseCandidates = new ArrayList<>();
+        for (Map.Entry<String, Long> e : PreciseEmcStore.getSaveLayerSnapshot().entrySet()) {
+            String vkStr = e.getKey();
+            if (vkStr == null || vkStr.isEmpty()) continue;
+            if (!isRepriceCandidate(extractItemId(vkStr))) continue;
+            preciseCandidates.add(e);
+        }
+
+        if (generalCandidates.isEmpty() && preciseCandidates.isEmpty()) {
             // 无候选：直接标记已弹过，不弹窗
             IAExpConfigHolder.get().autoPricingRepricePromptShown = true;
             IAExpConfigHolder.save();
@@ -302,62 +320,77 @@ public final class SetEmcNetwork {
             return;
         }
 
-        // 推 S2C：候选列表
+        // 推 S2C：通用层 + 精确层候选（含旧 EMC 供 UI 展示「旧: X」）
         PacketByteBuf buf = PacketByteBufs.create();
-        buf.writeVarInt(candidates.size());
-        for (String id : candidates) buf.writeString(id);
+        buf.writeVarInt(generalCandidates.size());
+        for (Map.Entry<String, Long> e : generalCandidates) {
+            buf.writeString(e.getKey());
+            buf.writeLong(e.getValue());
+        }
+        buf.writeVarInt(preciseCandidates.size());
+        for (Map.Entry<String, Long> e : preciseCandidates) {
+            buf.writeString(e.getKey());
+            buf.writeLong(e.getValue());
+        }
         ServerPlayNetworking.send(player, REPRICE_CANDIDATES_ID, buf);
-        ItemAlchemyExpansion.debug("[IAExp] reprice check: sent {} candidates to {}",
-                candidates.size(), player.getEntityName());
+        ItemAlchemyExpansion.debug("[IAExp] reprice check: sent {} general + {} precise candidates to {}",
+                generalCandidates.size(), preciseCandidates.size(), player.getEntityName());
     }
 
     /**
-     * 服务端处理「重新定价确认」：玩家在 RepriceConfirmScreen 选「是」或「否」。
+     * 服务端处理「重新定价逐个选择」：玩家在 RepriceConfirmScreen 逐个勾选后回送。
      *
-     * <p>无论选什么，都置 {@code autoPricingRepricePromptShown=true} 写盘（对话框只弹一次）。
-     * 选「是」时：扫描候选并从 PerSaveEmcStore 移除 + 强制重算自动定价。</p>
+     * <p>玩家勾选「重算」的条目从对应存储移除：通用层走 {@link PerSaveEmcStore#removeAll}
+     * （同步重置内存 map），精确层走 {@link PreciseEmcStore#removeAllFromSaveLayer}。
+     * 然后强制重算自动定价并重同步给所有在线玩家。未勾选的条目保留原手动值。
+     * 无论结果如何都置 {@code autoPricingRepricePromptShown=true} 写盘（对话框只弹一次）。</p>
      */
-    static void handleRepriceConfirm(net.minecraft.server.MinecraftServer server,
-                                     ServerPlayerEntity player, boolean yes) {
+    static void handleRepriceSelective(net.minecraft.server.MinecraftServer server,
+                                       ServerPlayerEntity player,
+                                       List<String> generalIds, List<String> preciseVkStrs) {
         // 标记已弹过
         IAExpConfigHolder.get().autoPricingRepricePromptShown = true;
         IAExpConfigHolder.save();
 
-        if (!yes) {
-            ItemAlchemyExpansion.debug("[IAExp] reprice confirm: player chose NO, keep overrides");
+        int removedGeneral = PerSaveEmcStore.removeAll(server, new HashSet<>(generalIds));
+        int removedPrecise = PreciseEmcStore.removeAllFromSaveLayer(server, new HashSet<>(preciseVkStrs));
+        int removed = removedGeneral + removedPrecise;
+
+        if (removed == 0) {
+            ItemAlchemyExpansion.debug("[IAExp] reprice selective: nothing removed, keep overrides");
             sendFeedback(player, "itemalchemy-expansion.reprice.feedback.kept");
             return;
         }
 
-        // 扫描候选并删除
-        Map<String, Long> all = PerSaveEmcStore.getSnapshot(server);
-        Set<String> toRemove = new HashSet<>();
-        for (String id : all.keySet()) {
-            if (id == null || id.startsWith("minecraft:")) continue;
-            try {
-                if (EMCManager.defaultEMCMap != null && EMCManager.defaultEMCMap.containsKey(id)) continue;
-            } catch (Throwable ignore) {}
-            toRemove.add(id);
-        }
-
-        int removed = PerSaveEmcStore.removeAll(server, toRemove);
-
-        // 强制重算自动定价
+        // 有条目被移除：强制重算自动定价并重同步
         try {
             RecipeAutoPricer.forceRecompute(server);
         } catch (Throwable t) {
-            ItemAlchemyExpansion.LOGGER.warn("[IAExp] reprice: forceRecompute failed: {}", t.toString());
+            ItemAlchemyExpansion.LOGGER.warn("[IAExp] reprice selective: forceRecompute failed: {}", t.toString());
         }
-
-        // 重同步给所有在线玩家（通用 map 已变化）
         try {
             resyncAll(server);
         } catch (Throwable ignore) {}
 
         sendFeedback(player, "itemalchemy-expansion.reprice.feedback.done",
                 Text.literal(String.valueOf(removed)));
-        ItemAlchemyExpansion.debug("[IAExp] reprice confirm: player chose YES, removed {} candidates, recomputed",
-                removed);
+        ItemAlchemyExpansion.debug("[IAExp] reprice selective: removed {} (general={} precise={}), recomputed",
+                removed, removedGeneral, removedPrecise);
+    }
+
+    /** 判断 itemId 是否为重新定价候选：排除原版与上游已定义（不重置这些）。 */
+    private static boolean isRepriceCandidate(String itemId) {
+        if (itemId == null || itemId.startsWith("minecraft:")) return false;
+        try {
+            if (EMCManager.defaultEMCMap != null && EMCManager.defaultEMCMap.containsKey(itemId)) return false;
+        } catch (Throwable ignore) {}
+        return true;
+    }
+
+    /** 从变体键存储串提取 itemId（兼容纯 ID 与 {@code itemId\u0001nbt} 格式）。 */
+    private static String extractItemId(String vkStr) {
+        int idx = vkStr.indexOf(itemalchemy.expansion.nbt.ItemVariantKey.SEPARATOR);
+        return idx < 0 ? vkStr : vkStr.substring(0, idx);
     }
 
     /**

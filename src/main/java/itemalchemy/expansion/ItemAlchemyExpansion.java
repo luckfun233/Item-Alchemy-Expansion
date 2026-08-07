@@ -90,6 +90,15 @@ public class ItemAlchemyExpansion implements ModInitializer {
 			} catch (Throwable t) {
 				LOGGER.warn("[IAExp] Failed to push new feature toast: {}", t.toString());
 			}
+			// 重新定价提示：autoPricing 开启且未弹过时，扫描手动定价候选并推给客户端
+			try {
+				IAExpConfig cfg = IAExpConfigHolder.get();
+				if (cfg.autoPricingFromRecipes && !cfg.autoPricingRepricePromptShown) {
+					SetEmcNetwork.handleRepriceCheck(server, handler.player);
+				}
+			} catch (Throwable t) {
+				LOGGER.warn("[IAExp] Failed to check reprice prompt on player join: {}", t.toString());
+			}
 		});
 
 		LOGGER.info("[IAExp] Item Alchemy Expansion initialized. config={}",

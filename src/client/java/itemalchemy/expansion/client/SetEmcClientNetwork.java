@@ -80,18 +80,23 @@ public final class SetEmcClientNetwork {
     }
 
     /**
-     * 客户端发送「重新定价确认」C2S 包。
+     * 客户端发送「重新定价逐个选择」C2S 包：把玩家勾选「重算」的条目回送服务端。
      *
-     * @param yes true=重新自动定价（删除候选 + 重算），false=保留玩家覆盖
+     * @param generalIds    通用层选择重算的 itemId 列表
+     * @param preciseVkStrs 精确层选择重算的变体键列表
      */
-    public static void sendRepriceConfirm(boolean yes) {
+    public static void sendRepriceSelective(List<String> generalIds, List<String> preciseVkStrs) {
         try {
             PacketByteBuf buf = PacketByteBufs.create();
-            buf.writeBoolean(yes);
-            ClientPlayNetworking.send(SetEmcNetwork.REPRICE_CONFIRM_ID, buf);
-            ItemAlchemyExpansion.debug("[IAExp] reprice confirm sent: yes={}", yes);
+            buf.writeVarInt(generalIds.size());
+            for (String id : generalIds) buf.writeString(id);
+            buf.writeVarInt(preciseVkStrs.size());
+            for (String vk : preciseVkStrs) buf.writeString(vk);
+            ClientPlayNetworking.send(SetEmcNetwork.REPRICE_SELECTIVE_ID, buf);
+            ItemAlchemyExpansion.debug("[IAExp] reprice selective sent: general={} precise={}",
+                    generalIds.size(), preciseVkStrs.size());
         } catch (Throwable t) {
-            ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to send reprice confirm: {}", t.toString());
+            ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to send reprice selective: {}", t.toString());
         }
     }
 
@@ -144,22 +149,32 @@ public final class SetEmcClientNetwork {
                     });
                 });
 
-        // 3. 重新定价候选列表 → 打开 RepriceConfirmScreen
+        // 3. 重新定价候选列表（通用层 + 精确层）→ 打开 RepriceConfirmScreen 逐个选择
         ClientPlayNetworking.registerGlobalReceiver(SetEmcNetwork.REPRICE_CANDIDATES_ID,
                 (client, handler, buf, responseSender) -> {
-                    int size = buf.readVarInt();
-                    List<String> candidates = new ArrayList<>(size);
-                    for (int i = 0; i < size; i++) {
-                        candidates.add(buf.readString());
+                    // 通用层候选：itemId + oldEmc
+                    int generalCount = buf.readVarInt();
+                    List<RepriceConfirmScreen.RepriceEntry> entries = new ArrayList<>(generalCount);
+                    for (int i = 0; i < generalCount; i++) {
+                        String id = buf.readString();
+                        long oldEmc = buf.readLong();
+                        entries.add(RepriceConfirmScreen.RepriceEntry.general(id, oldEmc));
+                    }
+                    // 精确层候选：变体键 + oldEmc
+                    int preciseCount = buf.readVarInt();
+                    for (int i = 0; i < preciseCount; i++) {
+                        String vkStr = buf.readString();
+                        long oldEmc = buf.readLong();
+                        entries.add(RepriceConfirmScreen.RepriceEntry.precise(vkStr, oldEmc));
                     }
                     client.execute(() -> {
                         try {
                             MinecraftClient mc = MinecraftClient.getInstance();
                             if (mc == null || mc.player == null) return;
-                            // 在客户端主线程打开屏幕
-                            mc.setScreen(new RepriceConfirmScreen(candidates));
-                            ItemAlchemyExpansion.debug("[IAExp] reprice candidates received: {} items, opened RepriceConfirmScreen",
-                                    candidates.size());
+                            // 在客户端主线程打开逐个选择屏幕
+                            mc.setScreen(new RepriceConfirmScreen(entries));
+                            ItemAlchemyExpansion.debug("[IAExp] reprice candidates received: {} general + {} precise, opened RepriceConfirmScreen",
+                                    generalCount, preciseCount);
                         } catch (Throwable t) {
                             ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to open RepriceConfirmScreen: {}",
                                     t.toString());
