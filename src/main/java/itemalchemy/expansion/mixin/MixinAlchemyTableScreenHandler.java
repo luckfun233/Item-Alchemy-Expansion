@@ -125,59 +125,24 @@ public abstract class MixinAlchemyTableScreenHandler implements IAlchemyTableScr
         for (String raw : ids) {
             ItemVariantKey vk = ItemVariantKey.fromStorageString(raw);
             if (vk == null) continue;
-            String itemId = vk.itemId;
 
-            // 校验物品存在 + 获取原版 Item
             CompatIdentifier itemIdentifier;
-            Item vanillaItem;
             try {
-                itemIdentifier = CompatIdentifier.of(itemId);
+                itemIdentifier = CompatIdentifier.of(vk.itemId);
                 if (!ItemUtil.isExist(itemIdentifier)) continue;
-                vanillaItem = ItemUtil.fromId(itemIdentifier);
             } catch (Throwable t) {
                 continue;
             }
+
+            Item vanillaItem = ItemUtil.fromId(itemIdentifier);
             if (vanillaItem == null) continue;
 
-            boolean isShulker = ShulkerBoxSupport.isShulkerBox(vanillaItem);
-
-            if (isShulker) {
-                // 筛选模式过滤：DIRECT_ONLY 跳过潜影盒
+            if (ShulkerBoxSupport.isShulkerBox(vanillaItem)) {
                 if (iaexp$filterMode == SearchFilterMode.DIRECT_ONLY) continue;
-
-                // 潜影盒匹配：空搜索(ctx.isEmpty)时全部算匹配；否则检查自身名 + 内容物
-                boolean matched;
-                if (ctx.isEmpty()) {
-                    matched = true;
-                } else {
-                    // 需要重建 ItemStack 才能检查内容物
-                    ItemStack shulkerStack = IAExpServices.rebuildStack(vk);
-                    matched = !shulkerStack.isEmpty()
-                            && (SearchMatcher.matchesShulkerBoxItself(shulkerStack, ctx)
-                                || !SearchMatcher.findShulkerMatchingContents(shulkerStack, ctx).isEmpty());
-                }
-                if (matched) {
-                    shulkerMatches.add(raw);
-                }
+                if (matchesShulker(vk, ctx)) shulkerMatches.add(raw);
             } else {
-                // 筛选模式过滤：SHULKER_ONLY 跳过直接物品
                 if (iaexp$filterMode == SearchFilterMode.SHULKER_ONLY) continue;
-
-                // 直接物品匹配
-                boolean matched;
-                if (ctx.isEmpty()) {
-                    matched = true;
-                } else {
-                    try {
-                        ItemWrapper item = ItemWrapper.of(itemIdentifier);
-                        matched = SearchMatcher.matchesDirectItem(itemId, item, ctx);
-                    } catch (Throwable t) {
-                        matched = false;
-                    }
-                }
-                if (matched) {
-                    directMatches.add(raw);
-                }
+                if (matchesDirect(vk.itemId, itemIdentifier, ctx)) directMatches.add(raw);
             }
         }
 
@@ -191,5 +156,26 @@ public abstract class MixinAlchemyTableScreenHandler implements IAlchemyTableScr
 
         extractInventory.placeExtractSlots(sortedIds);
         ci.cancel();
+    }
+
+    /** 潜影盒匹配：空搜索时全部算匹配；否则检查自身名 + 内容物 */
+    private static boolean matchesShulker(ItemVariantKey vk, SearchMatcher.SearchContext ctx) {
+        if (ctx.isEmpty()) return true;
+        ItemStack shulkerStack = IAExpServices.rebuildStack(vk);
+        if (shulkerStack.isEmpty()) return false;
+        return SearchMatcher.matchesShulkerBoxItself(shulkerStack, ctx)
+                || !SearchMatcher.findShulkerMatchingContents(shulkerStack, ctx).isEmpty();
+    }
+
+    /** 直接物品匹配：空搜索时全部算匹配；否则按 id/翻译名/显示名匹配 */
+    private static boolean matchesDirect(String itemId, CompatIdentifier itemIdentifier,
+                                          SearchMatcher.SearchContext ctx) {
+        if (ctx.isEmpty()) return true;
+        try {
+            ItemWrapper item = ItemWrapper.of(itemIdentifier);
+            return SearchMatcher.matchesDirectItem(itemId, item, ctx);
+        } catch (Throwable t) {
+            return false;
+        }
     }
 }

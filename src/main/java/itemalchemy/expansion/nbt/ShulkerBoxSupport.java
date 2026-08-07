@@ -74,6 +74,55 @@ public final class ShulkerBoxSupport {
     }
 
     /**
+     * 同时读取内容物列表和 EMC 总和（单次 NBT 解析）。
+     *
+     * <p>供渲染热点使用：避免同一帧内分别调用 {@link #getContents} 和 {@link #sumEmc}
+     * 导致同一潜影盒 NBT 被解析两次。</p>
+     *
+     * @return {@link ContentsAndEmc}；非潜影盒返回空内容物 + sum=0
+     */
+    public static ContentsAndEmc getContentsAndSumEmc(ItemStack stack) {
+        ItemStack[] contents = new ItemStack[27];
+        for (int i = 0; i < 27; i++) contents[i] = ItemStack.EMPTY;
+        long sum = 0;
+        if (!isShulkerBox(stack)) return new ContentsAndEmc(contents, sum);
+        NbtCompound blockEntityTag = getBlockEntityTag(stack);
+        if (blockEntityTag == null) return new ContentsAndEmc(contents, sum);
+        NbtList items = blockEntityTag.getList("Items", NbtElement.COMPOUND_TYPE);
+        for (int i = 0; i < items.size(); i++) {
+            NbtCompound entry = items.getCompound(i);
+            ItemStack contentStack = ItemStack.fromNbt(entry);
+            if (contentStack.isEmpty()) continue;
+            // 放入槽位
+            int slot = entry.getByte("Slot") & 0xFF;
+            if (slot >= 0 && slot < 27) {
+                contents[slot] = contentStack;
+            } else {
+                for (int j = 0; j < 27; j++) {
+                    if (contents[j].isEmpty()) {
+                        contents[j] = contentStack;
+                        break;
+                    }
+                }
+            }
+            // 累加 EMC（同 sumEmc 逻辑，但复用已解析的 contentStack）
+            long itemEmc = EMCManager.get(contentStack.getItem());
+            sum += itemEmc * contentStack.getCount();
+        }
+        return new ContentsAndEmc(contents, sum);
+    }
+
+    /** getContentsAndSumEmc 的返回值：内容物数组 + EMC 总和 */
+    public static final class ContentsAndEmc {
+        public final ItemStack[] contents;
+        public final long sumEmc;
+        public ContentsAndEmc(ItemStack[] contents, long sumEmc) {
+            this.contents = contents;
+            this.sumEmc = sumEmc;
+        }
+    }
+
+    /**
      * 查找潜影盒内第一个无 EMC 值的内容物。
      *
      * @return 第一个 EMC=0 的内容物 ItemStack；若全部有 EMC 或非潜影盒/空盒，返回 null。

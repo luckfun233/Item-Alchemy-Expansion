@@ -60,12 +60,10 @@ public final class AlchemyTableSlotMatchOverlay {
         }
 
         // 2. 获取 handler + extractInventory
-        AlchemyTableScreenHandler handler;
+        AlchemyTableScreenHandler handler = GuiRenderUtil.getScreenHandler(screen);
+        if (handler == null) return;
         ExtractInventory extractInv;
         try {
-            handler = (AlchemyTableScreenHandler) AlchemyTableScreen.class
-                    .getMethod("getScreenHandlerOverride")
-                    .invoke(screen);
             extractInv = handler.extractInventory;
         } catch (Throwable t) {
             return;

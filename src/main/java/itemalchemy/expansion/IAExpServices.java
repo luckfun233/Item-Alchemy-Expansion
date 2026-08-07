@@ -46,10 +46,13 @@ public final class IAExpServices {
     /** 从 ItemStack 生成变体键 */
     public static ItemVariantKey variantKeyOf(ItemStack stack) {
         ItemVariantKey vk = ItemVariantKey.fromStack(stack, fingerprinter());
-        ItemAlchemyExpansion.debug("[IAExp] variantKeyOf: item={}, hasNbt={}, nbt={}, variant={}",
-                stack.getItem(), stack.hasNbt(),
-                stack.hasNbt() ? stack.getNbt() : "{}",
-                vk.toStorageString());
+        // 用 debugEnabled() 守卫，避免 debug 关闭时仍拼接 toStorageString()（含 NBT 指纹计算）
+        if (ItemAlchemyExpansion.debugEnabled()) {
+            ItemAlchemyExpansion.debug("[IAExp] variantKeyOf: item={}, hasNbt={}, nbt={}, variant={}",
+                    stack.getItem(), stack.hasNbt(),
+                    stack.hasNbt() ? stack.getNbt() : "{}",
+                    vk.toStorageString());
+        }
         return vk;
     }
 
@@ -75,9 +78,11 @@ public final class IAExpServices {
                 ItemAlchemyExpansion.LOGGER.warn("[IAExp] rebuildStack: failed to parse fingerprint: {}", key.nbtFingerprint);
             }
         }
-        ItemAlchemyExpansion.debug("[IAExp] rebuildStack: key={} -> item={}, hasNbt={}, nbt={}",
-                key.toStorageString(), stack.getItem(), stack.hasNbt(),
-                stack.hasNbt() ? stack.getNbt() : "{}");
+        if (ItemAlchemyExpansion.debugEnabled()) {
+            ItemAlchemyExpansion.debug("[IAExp] rebuildStack: key={} -> item={}, hasNbt={}, nbt={}",
+                    key.toStorageString(), stack.getItem(), stack.hasNbt(),
+                    stack.hasNbt() ? stack.getNbt() : "{}");
+        }
         return stack;
     }
 }

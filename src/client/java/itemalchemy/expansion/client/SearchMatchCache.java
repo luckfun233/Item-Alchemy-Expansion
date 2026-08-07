@@ -53,6 +53,14 @@ public final class SearchMatchCache {
     private static Field translationsField;
     private static boolean translationsFieldResolved = false;
 
+    // ====== 槽位匹配帧内缓存 ======
+    // 同一帧内 SlotMatchOverlay 和 ShulkerPreview 都会调用 computeSlotMatches，
+    // 用帧标记避免重复计算。definedStacks 引用变化时自动失效。
+    private static Map<Integer, SlotMatch> cachedSlotMatches = Collections.emptyMap();
+    private static AlchemyTableScreenHandler cachedSlotHandler = null;
+    private static ExtractInventory cachedSlotInv = null;
+    private static long cachedSlotFrameId = -1;
+
     /**
      * 获取当前搜索上下文（带缓存）。
      *
@@ -91,22 +99,46 @@ public final class SearchMatchCache {
     }
 
     /**
-     * 计算当前 13 个提取槽（slot 64~76）的匹配结果。
+     * 计算当前 13 个提取槽（slot 64~76）的匹配结果（带帧内缓存）。
+     *
+     * <p>同一帧内若 handler + extractInv 引用未变，直接返回缓存结果，
+     * 避免 SlotMatchOverlay 和 ShulkerPreview 重复计算。searchText 变化时
+     * 通过 {@link #getContext} 内部的 SearchContext 缓存自动失效。</p>
      *
      * @param handler 当前 AlchemyTableScreenHandler
      * @param extractInv 关联的 ExtractInventory（读 definedStacks）
      * @return Map<slotIndex, SlotMatch>，仅包含匹配的槽位（NO_MATCH 不加入）；空搜索时返回空 Map
      */
     public static Map<Integer, SlotMatch> computeSlotMatches(AlchemyTableScreenHandler handler, ExtractInventory extractInv) {
-        Map<Integer, SlotMatch> result = new HashMap<>();
-        if (handler == null || extractInv == null) return result;
+        if (handler == null || extractInv == null) return Collections.emptyMap();
+
+        // 帧内缓存命中：handler 和 extractInv 引用未变时复用
+        long frameId = getCurrentFrameId();
+        if (frameId == cachedSlotFrameId
+                && handler == cachedSlotHandler
+                && extractInv == cachedSlotInv) {
+            return cachedSlotMatches;
+        }
+
+        // 重新计算
+        cachedSlotHandler = handler;
+        cachedSlotInv = extractInv;
+        cachedSlotFrameId = frameId;
+
         SearchMatcher.SearchContext ctx = getContext(handler);
         // 空搜索时不需要匹配标记（全部显示，无小标志）
-        if (ctx.isEmpty()) return result;
+        if (ctx.isEmpty()) {
+            cachedSlotMatches = Collections.emptyMap();
+            return cachedSlotMatches;
+        }
 
         Map<Integer, ItemStack> definedStacks = extractInv.definedStacks;
-        if (definedStacks == null || definedStacks.isEmpty()) return result;
+        if (definedStacks == null || definedStacks.isEmpty()) {
+            cachedSlotMatches = Collections.emptyMap();
+            return cachedSlotMatches;
+        }
 
+        Map<Integer, SlotMatch> result = new HashMap<>();
         for (Map.Entry<Integer, ItemStack> entry : definedStacks.entrySet()) {
             int slotIndex = entry.getKey();
             ItemStack stack = entry.getValue();
@@ -126,12 +158,27 @@ public final class SearchMatchCache {
             }
             result.put(slotIndex, new SlotMatch(type, matchedContents, firstContent));
         }
+        cachedSlotMatches = result;
         return result;
+    }
+
+    /**
+     * 获取当前渲染帧 ID（用系统时间近似）。
+     *
+     * <p>同一帧内的多次调用会得到相同值（因为 System.currentTimeMillis 精度为 ms，
+     * 而一帧约 16ms）。帧切换时自动失效，无需手动 reset。</p>
+     */
+    private static long getCurrentFrameId() {
+        return System.currentTimeMillis();
     }
 
     /** 重置缓存（屏幕关闭/切换时调用，避免持有旧 ScreenHandler 数据） */
     public static void reset() {
         cachedSearchText = "\u0000sentinel";
         cachedCtx = null;
+        cachedSlotMatches = Collections.emptyMap();
+        cachedSlotHandler = null;
+        cachedSlotInv = null;
+        cachedSlotFrameId = -1;
     }
 }

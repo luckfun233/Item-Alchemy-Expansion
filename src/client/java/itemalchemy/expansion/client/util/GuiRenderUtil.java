@@ -4,8 +4,11 @@ import itemalchemy.expansion.ItemAlchemyExpansion;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.screen.slot.Slot;
+import net.pitan76.itemalchemy.client.screen.AlchemyTableScreen;
+import net.pitan76.itemalchemy.gui.screen.AlchemyTableScreenHandler;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 
 /**
  * 客户端 GUI 渲染共享工具：边框绘制与悬停槽位反射读取。
@@ -26,6 +29,10 @@ public final class GuiRenderUtil {
     /** 缓存的反射 Field，首次使用时查找；查找失败置 null 表示不可用 */
     private static Field hoveredSlotField;
     private static boolean hoveredSlotFieldResolved = false;
+
+    /** 缓存的 getScreenHandlerOverride Method，首次使用时查找 */
+    private static Method getHandlerMethod;
+    private static boolean getHandlerMethodResolved = false;
 
     private GuiRenderUtil() {}
 
@@ -81,5 +88,38 @@ public final class GuiRenderUtil {
         }
         hoveredSlotFieldResolved = true;
         return hoveredSlotField;
+    }
+
+    /**
+     * 反射调用 {@link AlchemyTableScreen#getScreenHandlerOverride()} 获取 ScreenHandler。
+     *
+     * <p>Method 对象懒加载并缓存，避免每帧 {@code getMethod} 反射查找。
+     * 调用失败返回 null（调用方应静默跳过）。</p>
+     *
+     * @param screen 当前 AlchemyTableScreen
+     * @return AlchemyTableScreenHandler；不可用或异常时返回 null
+     */
+    public static AlchemyTableScreenHandler getScreenHandler(AlchemyTableScreen screen) {
+        Method m = resolveGetHandlerMethod();
+        if (m == null) return null;
+        try {
+            return (AlchemyTableScreenHandler) m.invoke(screen);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    /** 懒加载并缓存 AlchemyTableScreen.getScreenHandlerOverride 的反射 Method */
+    private static Method resolveGetHandlerMethod() {
+        if (getHandlerMethodResolved) return getHandlerMethod;
+        try {
+            getHandlerMethod = AlchemyTableScreen.class.getMethod("getScreenHandlerOverride");
+        } catch (Throwable t) {
+            ItemAlchemyExpansion.LOGGER.warn("[IAExp] Could not resolve AlchemyTableScreen.getScreenHandlerOverride; preview/overlay disabled",
+                    t);
+            getHandlerMethod = null;
+        }
+        getHandlerMethodResolved = true;
+        return getHandlerMethod;
     }
 }

@@ -157,12 +157,10 @@ public final class AlchemyTableScreenShulkerPreview {
 
         // 7. 获取搜索上下文（用于红框标记匹配内容物）
         SearchMatcher.SearchContext searchCtx = null;
-        try {
-            Object handler = AlchemyTableScreen.class.getMethod("getScreenHandlerOverride").invoke(screen);
-            if (handler instanceof AlchemyTableScreenHandler) {
-                searchCtx = SearchMatchCache.getContext((AlchemyTableScreenHandler) handler);
-            }
-        } catch (Throwable ignored) {}
+        AlchemyTableScreenHandler handler = GuiRenderUtil.getScreenHandler(screen);
+        if (handler != null) {
+            searchCtx = SearchMatchCache.getContext(handler);
+        }
 
         // 8. 渲染预览
         try {
@@ -242,7 +240,9 @@ public final class AlchemyTableScreenShulkerPreview {
      */
     private static void renderPreview(DrawContext context, int mouseX, int mouseY, ItemStack shulkerBox,
                                       SearchMatcher.SearchContext searchCtx) {
-        ItemStack[] contents = ShulkerBoxSupport.getContents(shulkerBox);
+        // 单次 NBT 解析：同时获取内容物列表和 EMC 总和（避免双重解析）
+        ShulkerBoxSupport.ContentsAndEmc cae = ShulkerBoxSupport.getContentsAndSumEmc(shulkerBox);
+        ItemStack[] contents = cae.contents;
         int bgWidth = COLS * SLOT_SIZE + PADDING * 2;
         int bgHeight = PADDING + TITLE_HEIGHT + 2 + ROWS * SLOT_SIZE + PADDING;
 
@@ -272,10 +272,8 @@ public final class AlchemyTableScreenShulkerPreview {
             // 深灰边框
             GuiRenderUtil.drawBorder(context, x, y, bgWidth, bgHeight, 0xFF505050);
 
-            // 标题：潜影盒名称 + EMC 之和
-            // 用 String.format 预格式化 long 为 String，绕过 Text.translatable 的 %,d 渲染问题
-            long sumEmc = ShulkerBoxSupport.sumEmc(shulkerBox);
-            String sumEmcStr = String.format("%,d", sumEmc);
+            // 标题：潜影盒名称 + EMC 之和（复用已解析的 cae.sumEmc，不再重复解析 NBT）
+            String sumEmcStr = String.format("%,d", cae.sumEmc);
             Text title = Text.translatable("itemalchemy-expansion.shulker_box.preview_title",
                     shulkerBox.getName(), sumEmcStr);
             context.drawTextWithShadow(client.textRenderer, title, x + PADDING, y + PADDING, 0xFFFFFF);
