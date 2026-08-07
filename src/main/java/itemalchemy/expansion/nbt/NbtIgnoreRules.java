@@ -31,6 +31,8 @@ public final class NbtIgnoreRules {
         taczVolatile.add("LaserColor");           // 激光颜色
         taczVolatile.add("GunDisplayId");         // 显示模型 ID（可能随皮肤变化）
         taczVolatile.add("DummyAmmo");            // 虚拟弹药
+        taczVolatile.add("MaxDummyAmmo");         // 虚拟弹药上限（运行时写入，init 新枪无此 key）
+        taczVolatile.add("AttachmentLock");       // 配件锁定状态（玩家可切换，init 新枪无此 key）
         // 枪上安装的配件（可拆装，不应影响身份指纹）
         taczVolatile.add("AttachmentSCOPE");
         taczVolatile.add("AttachmentGRIP");

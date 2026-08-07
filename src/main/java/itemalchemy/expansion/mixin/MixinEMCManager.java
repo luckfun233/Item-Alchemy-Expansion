@@ -99,8 +99,14 @@ public abstract class MixinEMCManager {
             if (!EMCManager.contains(itemId)) {
                 Long autoGeneral = AutoEmcStore.getGeneral(itemId);
                 if (autoGeneral != null) {
-                    ItemAlchemyExpansion.debug("[IAExp] emc hit L4 (general auto): {} -> {} x {}",
-                            itemId, autoGeneral, count);
+                    // L3 miss 回退 L4：若物品有 NBT，说明变体键未命中精确层，可能存在未忽略的运行时 NBT key
+                    if (stack.hasNbt()) {
+                        ItemAlchemyExpansion.debug("[IAExp] emc L3 miss -> L4 fallback: itemId={}, variant={}, nbtKeys={}, general={} x {}",
+                                itemId, vkStr, stack.getNbt().getKeys(), autoGeneral, count);
+                    } else {
+                        ItemAlchemyExpansion.debug("[IAExp] emc hit L4 (general auto): {} -> {} x {}",
+                                itemId, autoGeneral, count);
+                    }
                     cir.setReturnValue(autoGeneral * count);
                     return;
                 }

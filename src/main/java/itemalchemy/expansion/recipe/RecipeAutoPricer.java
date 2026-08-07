@@ -202,7 +202,11 @@ public final class RecipeAutoPricer {
 
         // 1. 拿输出
         ItemStack outStack = extractOutput(recipe, world);
-        if (outStack == null || outStack.isEmpty()) return;
+        if (outStack == null || outStack.isEmpty()) {
+            ItemAlchemyExpansion.debug("[IAExp] recipe skipped (output empty after init): id={}",
+                    recipe.getId());
+            return;
+        }
 
         String itemId = EmcQueryUtil.resolveItemId(outStack);
         if ("minecraft:air".equals(itemId)) return;
@@ -211,7 +215,11 @@ public final class RecipeAutoPricer {
         IAExpConfig cfg = IAExpConfigHolder.get();
         if (cfg.autoPricingRespectUpstream) {
             try {
-                if (EMCManager.defaultEMCMap.containsKey(itemId)) return;
+                if (EMCManager.defaultEMCMap.containsKey(itemId)) {
+                    ItemAlchemyExpansion.debug("[IAExp] recipe skipped (upstream defined): id={}, itemId={}",
+                            recipe.getId(), itemId);
+                    return;
+                }
             } catch (Throwable ignore) {}
         }
 
@@ -245,7 +253,11 @@ public final class RecipeAutoPricer {
             totalEmc += (inEmc / outCount) * ie.count;
         }
 
-        if (totalEmc <= 0) return;
+        if (totalEmc <= 0) {
+            ItemAlchemyExpansion.debug("[IAExp] recipe skipped (totalEmc=0): id={}, itemId={}",
+                    recipe.getId(), itemId);
+            return;
+        }
         if (!allInputsKnown && !forceLast) {
             deferred.add(recipe);
             return;
