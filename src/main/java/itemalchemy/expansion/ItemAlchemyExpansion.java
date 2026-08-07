@@ -64,12 +64,17 @@ public class ItemAlchemyExpansion implements ModInitializer {
 			}
 		});
 
-		// 玩家加入时推送精确 map + 检查是否需要弹「新功能」toast
+		// 玩家加入时推送精确 map + 自动定价 map + 检查是否需要弹「新功能」toast
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			try {
 				SetEmcNetwork.pushPreciseMapTo(handler.player);
 			} catch (Throwable t) {
 				LOGGER.warn("[IAExp] Failed to push precise emc map on player join: {}", t.toString());
+			}
+			try {
+				SetEmcNetwork.pushAutoEmcMapTo(handler.player);
+			} catch (Throwable t) {
+				LOGGER.warn("[IAExp] Failed to push auto emc map on player join: {}", t.toString());
 			}
 			// 升级 toast：仅当配置从旧版本升级 && 未提示过时弹一次
 			try {

@@ -4,16 +4,14 @@ import itemalchemy.expansion.IAExpServices;
 import itemalchemy.expansion.ItemAlchemyExpansion;
 import itemalchemy.expansion.config.IAExpConfig;
 import itemalchemy.expansion.config.IAExpConfigHolder;
-import itemalchemy.expansion.mixin.MixinEMCManager;
 import itemalchemy.expansion.nbt.ItemVariantKey;
 import itemalchemy.expansion.network.AutoEmcStore;
+import itemalchemy.expansion.util.EmcQueryUtil;
 import net.minecraft.item.ItemStack;
 import net.minecraft.recipe.Ingredient;
 import net.minecraft.recipe.Recipe;
 import net.minecraft.recipe.RecipeManager;
-import net.minecraft.registry.Registries;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.Identifier;
 import net.minecraft.world.World;
 import net.pitan76.itemalchemy.EMCManager;
 
@@ -82,6 +80,8 @@ public final class RecipeAutoPricer {
     private static final Map<Class<?>, Method> GET_INGREDIENT_CACHE = new HashMap<>();
     /** 反射缓存：包装类 getCount() */
     private static final Map<Class<?>, Method> GET_COUNT_CACHE = new HashMap<>();
+    /** 反射缓存：init() 无参方法（TACZ GunSmithTableRecipe 延迟构建 ItemStack） */
+    private static final Map<Class<?>, Method> INIT_CACHE = new HashMap<>();
 
     private RecipeAutoPricer() {}
 
@@ -204,7 +204,7 @@ public final class RecipeAutoPricer {
         ItemStack outStack = extractOutput(recipe, world);
         if (outStack == null || outStack.isEmpty()) return;
 
-        String itemId = resolveItemId(outStack);
+        String itemId = EmcQueryUtil.resolveItemId(outStack);
         if ("minecraft:air".equals(itemId)) return;
 
         // 2. 过滤：尊重上游默认值（精确层仍算，但通用层会在最后移除）
@@ -236,7 +236,7 @@ public final class RecipeAutoPricer {
                 continue;
             }
             // 取第一个匹配堆的 EMC（按 ID 查，不递归本配方）
-            long inEmc = MixinEMCManager.resolveEmcForInput(stacks[0]);
+            long inEmc = EmcQueryUtil.resolveEmcForInput(stacks[0]);
             if (inEmc <= 0) {
                 allInputsKnown = false;
                 continue;
@@ -262,8 +262,26 @@ public final class RecipeAutoPricer {
 
     // ============ 反射：拿输出 ============
 
-    /** 优先反射调 getOutput()（TACZ 无参版本）；失败回退到 1.20.1 yarn 的 getOutput(DynamicRegistryManager) */
+    /**
+     * 优先反射调 getOutput()（TACZ 无参版本）；失败回退到 1.20.1 yarn 的 getOutput(DynamicRegistryManager)。
+     *
+     * <p><b>TACZ 延迟构建兼容</b>：TACZ 的 {@code GunSmithTableRecipe} 的 result 在未调用
+     * {@code init()} 时返回 {@link ItemStack#EMPTY}。若首次 getOutput() 返回空，
+     * 尝试反射调用 {@code recipe.init()}（若存在）后重新取输出。
+     * init() 是幂等的（调用后 raw=null，重复调用安全）。</p>
+     */
     private static ItemStack extractOutput(Recipe<?> recipe, World world) {
+        ItemStack result = tryGetOutput(recipe, world);
+        if (result == null || result.isEmpty()) {
+            // 尝试 init() 后重试（TACZ 延迟构建）
+            tryInitRecipe(recipe);
+            result = tryGetOutput(recipe, world);
+        }
+        return result == null ? ItemStack.EMPTY : result;
+    }
+
+    /** 实际尝试获取输出（不含 init 重试逻辑） */
+    private static ItemStack tryGetOutput(Recipe<?> recipe, World world) {
         Method m = GET_OUTPUT_CACHE.get(recipe.getClass());
         if (m == null) {
             try {
@@ -292,6 +310,29 @@ public final class RecipeAutoPricer {
             return recipe.getOutput(world.getRegistryManager());
         } catch (Throwable t) {
             return ItemStack.EMPTY;
+        }
+    }
+
+    /**
+     * 反射调用 recipe 的 init() 方法（若存在）。
+     * 用于 TACZ GunSmithTableRecipe：result 在 init() 后才构建真实 ItemStack。
+     * 幂等：init() 内部会把 raw 置 null，重复调用安全。
+     */
+    private static void tryInitRecipe(Recipe<?> recipe) {
+        Class<?> cls = recipe.getClass();
+        Method m = INIT_CACHE.get(cls);
+        if (m == null) {
+            try {
+                m = cls.getMethod("init");
+            } catch (NoSuchMethodException e) {
+                m = null;
+            }
+            INIT_CACHE.put(cls, m);
+        }
+        if (m != null) {
+            try {
+                m.invoke(recipe);
+            } catch (Throwable ignore) {}
         }
     }
 
@@ -399,12 +440,6 @@ public final class RecipeAutoPricer {
     }
 
     // ============ 工具 ============
-
-    /** 解析 ItemStack 的 itemId */
-    private static String resolveItemId(ItemStack stack) {
-        Identifier id = Registries.ITEM.getId(stack.getItem());
-        return id == null ? "minecraft:air" : id.toString();
-    }
 
     /** 从精确层派生通用层：按物品 ID 取该 ID 下所有变体的 MIN */
     private static Map<String, Long> deriveGeneralMin(Map<String, Long> preciseMap) {

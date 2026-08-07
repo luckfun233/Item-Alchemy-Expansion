@@ -56,9 +56,17 @@ public final class SetEmcNetwork {
     /** C2S 包 id：{@code itemalchemy-expansion:set_emc} */
     public static final Identifier SET_EMC_ID = new Identifier(ItemAlchemyExpansion.MOD_ID, "set_emc");
 
-    /** S2C 包 id：{@code itemalchemy-expansion:sync_precise_emc}（精确 map 同步） */
+    /** S2C 包 id：{@code itemalchemy-expansion:sync_precise_emc}（玩家精确 map 同步） */
     public static final Identifier SYNC_PRECISE_EMC_ID =
             new Identifier(ItemAlchemyExpansion.MOD_ID, "sync_precise_emc");
+
+    /**
+     * S2C 包 id：{@code itemalchemy-expansion:sync_auto_emc}（自动定价结果同步）。
+     * <p>格式：varint preciseSize + (string key + long value) * N
+     *       + varint generalSize + (string key + long value) * N</p>
+     */
+    public static final Identifier SYNC_AUTO_EMC_ID =
+            new Identifier(ItemAlchemyExpansion.MOD_ID, "sync_auto_emc");
 
     /**
      * C2S 包 id：{@code itemalchemy-expansion:reprice_check}。
@@ -183,7 +191,7 @@ public final class SetEmcNetwork {
         }
     }
 
-    /** 更新内存中的 map 并把当前所有条目同步给在线玩家（通用 + 精确） */
+    /** 更新内存中的 map 并把当前所有条目同步给在线玩家（通用 + 精确 + 自动） */
     static void resyncAll(net.minecraft.server.MinecraftServer server) {
         for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
             // 用前置模组的同步方法（包名 itemalchemy）：通用 map
@@ -192,11 +200,13 @@ public final class SetEmcNetwork {
             EMCManager.syncS2C_emc_map(mcpPlayer);
             // 精确 map：自定义 S2C 包
             pushPreciseMapTo(p);
+            // 自动定价 map：自定义 S2C 包
+            pushAutoEmcMapTo(p);
         }
     }
 
     /**
-     * 公开入口：把当前所有 EMC map（通用 + 精确）同步给在线玩家。
+     * 公开入口：把当前所有 EMC map（通用 + 精确 + 自动）同步给在线玩家。
      *
      * <p>供 {@link itemalchemy.expansion.command.RepriceCommand} 在命令执行后重同步使用。
      * 内部转发到 {@link #resyncAll}（包级私有）。</p>
@@ -215,6 +225,31 @@ public final class SetEmcNetwork {
             buf.writeLong(e.getValue());
         }
         ServerPlayNetworking.send(player, SYNC_PRECISE_EMC_ID, buf);
+    }
+
+    /**
+     * 把当前自动定价结果（精确层 + 通用层）同步给单个玩家（S2C）。
+     *
+     * <p>玩家加入时、{@code /reprice} 命令执行后、他人修改后调用。
+     * 客户端收到后写入 {@link AutoEmcStore#applyFromSnapshot}。</p>
+     */
+    public static void pushAutoEmcMapTo(ServerPlayerEntity player) {
+        PacketByteBuf buf = PacketByteBufs.create();
+        java.util.Map<String, Long> precise = AutoEmcStore.snapshotPrecise();
+        java.util.Map<String, Long> general = AutoEmcStore.snapshotGeneral();
+        // 精确层
+        buf.writeVarInt(precise.size());
+        for (java.util.Map.Entry<String, Long> e : precise.entrySet()) {
+            buf.writeString(e.getKey());
+            buf.writeLong(e.getValue());
+        }
+        // 通用层
+        buf.writeVarInt(general.size());
+        for (java.util.Map.Entry<String, Long> e : general.entrySet()) {
+            buf.writeString(e.getKey());
+            buf.writeLong(e.getValue());
+        }
+        ServerPlayNetworking.send(player, SYNC_AUTO_EMC_ID, buf);
     }
 
     // ============ 重新定价（reprice）流程 ============

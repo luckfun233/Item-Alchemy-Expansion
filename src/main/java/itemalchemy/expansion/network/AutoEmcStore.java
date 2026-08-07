@@ -39,7 +39,8 @@ public final class AutoEmcStore {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
     private static final Type MAP_TYPE = new TypeToken<LinkedHashMap<String, Long>>(){}.getType();
     private static final String SAVE_FILE_NAME = "itemalchemy_expansion_auto_emc.json";
-    private static final int CACHE_VERSION = 1;
+    /** 缓存版本：提升此值会让旧缓存失效，强制重新扫描配方 */
+    private static final int CACHE_VERSION = 2;
 
     /** 精确层缓存（变体键 -> EMC） */
     private static Map<String, Long> preciseMap = new LinkedHashMap<>();

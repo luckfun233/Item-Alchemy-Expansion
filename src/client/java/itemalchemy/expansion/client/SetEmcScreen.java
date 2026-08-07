@@ -90,8 +90,11 @@ public class SetEmcScreen extends Screen {
         ItemVariantKey vk = IAExpServices.variantKeyOf(targetStack);
         this.variantKey = vk.toStorageString();
         this.nbtBrief = extractNbtBrief(targetStack);
-        // 初始定价精度跟随全局配置
-        this.precision = IAExpConfigHolder.get().preciseMode ? Precision.PRECISE : Precision.GENERAL;
+        // 初始定价精度：有 NBT 的物品默认 PRECISE（精确配置的意义所在），
+        // 无 NBT 的物品默认 GENERAL（两者等价，更简单）。
+        // 不再跟随全局 preciseMode 开关——精确配置始终可用。
+        NbtCompound nbt = targetStack.getNbt();
+        this.precision = (nbt != null && !nbt.isEmpty()) ? Precision.PRECISE : Precision.GENERAL;
         this.currentEmc = resolveCurrentEmc(this.itemId, this.variantKey, this.precision);
     }
 

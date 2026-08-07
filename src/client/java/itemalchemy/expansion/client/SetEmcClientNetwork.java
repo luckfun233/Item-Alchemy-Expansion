@@ -1,6 +1,7 @@
 package itemalchemy.expansion.client;
 
 import itemalchemy.expansion.ItemAlchemyExpansion;
+import itemalchemy.expansion.network.AutoEmcStore;
 import itemalchemy.expansion.network.PreciseEmcStore;
 import itemalchemy.expansion.network.SetEmcNetwork;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -25,8 +26,10 @@ import java.util.Map;
  *
  * <p>客户端通过 {@link #registerClientReceiver} 注册 S2C 接收器：
  * <ul>
- *   <li>{@link SetEmcNetwork#SYNC_PRECISE_EMC_ID}：精确 map 快照（玩家上线/他人修改时触发），
+ *   <li>{@link SetEmcNetwork#SYNC_PRECISE_EMC_ID}：玩家精确 map 快照（玩家上线/他人修改时触发），
  *       写入 {@link PreciseEmcStore#applyFromSnapshot} 供 {@link SetEmcScreen} 显示「当前 EMC」。</li>
+ *   <li>{@link SetEmcNetwork#SYNC_AUTO_EMC_ID}：自动定价结果（精确层 + 通用层）快照，
+ *       写入 {@link AutoEmcStore#applyFromSnapshot} 供 {@code MixinEMCManager} 查询 L3/L4。</li>
  *   <li>{@link SetEmcNetwork#REPRICE_CANDIDATES_ID}：候选 itemId 列表，
  *       打开 {@link RepriceConfirmScreen} 让玩家选择是否重新定价。</li>
  *   <li>{@link SetEmcNetwork#NEW_FEATURE_TOAST_ID}：升级提醒，
@@ -109,7 +112,7 @@ public final class SetEmcClientNetwork {
      * <p>应在 ClientModInitializer 中调用一次。</p>
      */
     public static void registerClientReceiver() {
-        // 1. 精确 map 同步
+        // 1. 玩家精确 map 同步
         ClientPlayNetworking.registerGlobalReceiver(SetEmcNetwork.SYNC_PRECISE_EMC_ID,
                 (client, handler, buf, responseSender) -> {
                     int size = buf.readVarInt();
@@ -131,7 +134,32 @@ public final class SetEmcClientNetwork {
                     });
                 });
 
-        // 2. 重新定价候选列表 → 打开 RepriceConfirmScreen
+        // 2. 自动定价结果同步（精确层 + 通用层）
+        ClientPlayNetworking.registerGlobalReceiver(SetEmcNetwork.SYNC_AUTO_EMC_ID,
+                (client, handler, buf, responseSender) -> {
+                    int preciseSize = buf.readVarInt();
+                    Map<String, Long> precise = new LinkedHashMap<>(preciseSize);
+                    for (int i = 0; i < preciseSize; i++) {
+                        precise.put(buf.readString(), buf.readLong());
+                    }
+                    int generalSize = buf.readVarInt();
+                    Map<String, Long> general = new LinkedHashMap<>(generalSize);
+                    for (int i = 0; i < generalSize; i++) {
+                        general.put(buf.readString(), buf.readLong());
+                    }
+                    client.execute(() -> {
+                        try {
+                            AutoEmcStore.applyFromSnapshot(precise, general);
+                            ItemAlchemyExpansion.debug("[IAExp] auto emc map synced from server: precise={} entries, general={} entries",
+                                    precise.size(), general.size());
+                        } catch (Throwable t) {
+                            ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to apply auto emc snapshot: {}",
+                                    t.toString());
+                        }
+                    });
+                });
+
+        // 3. 重新定价候选列表 → 打开 RepriceConfirmScreen
         ClientPlayNetworking.registerGlobalReceiver(SetEmcNetwork.REPRICE_CANDIDATES_ID,
                 (client, handler, buf, responseSender) -> {
                     int size = buf.readVarInt();
@@ -154,7 +182,7 @@ public final class SetEmcClientNetwork {
                     });
                 });
 
-        // 3. 新功能 toast（升级提醒）
+        // 4. 新功能 toast（升级提醒）
         ClientPlayNetworking.registerGlobalReceiver(SetEmcNetwork.NEW_FEATURE_TOAST_ID,
                 (client, handler, buf, responseSender) -> {
                     client.execute(() -> {
