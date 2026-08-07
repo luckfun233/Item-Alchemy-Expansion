@@ -218,12 +218,7 @@ public final class SetEmcNetwork {
     /** 把当前精确覆盖 map 同步给单个玩家（S2C）。玩家加入或他人修改时调用。 */
     public static void pushPreciseMapTo(ServerPlayerEntity player) {
         PacketByteBuf buf = PacketByteBufs.create();
-        java.util.Map<String, Long> snapshot = PreciseEmcStore.snapshot();
-        buf.writeVarInt(snapshot.size());
-        for (java.util.Map.Entry<String, Long> e : snapshot.entrySet()) {
-            buf.writeString(e.getKey());
-            buf.writeLong(e.getValue());
-        }
+        writeEmcMap(buf, PreciseEmcStore.snapshot());
         ServerPlayNetworking.send(player, SYNC_PRECISE_EMC_ID, buf);
     }
 
@@ -235,21 +230,36 @@ public final class SetEmcNetwork {
      */
     public static void pushAutoEmcMapTo(ServerPlayerEntity player) {
         PacketByteBuf buf = PacketByteBufs.create();
-        java.util.Map<String, Long> precise = AutoEmcStore.snapshotPrecise();
-        java.util.Map<String, Long> general = AutoEmcStore.snapshotGeneral();
-        // 精确层
-        buf.writeVarInt(precise.size());
-        for (java.util.Map.Entry<String, Long> e : precise.entrySet()) {
-            buf.writeString(e.getKey());
-            buf.writeLong(e.getValue());
-        }
-        // 通用层
-        buf.writeVarInt(general.size());
-        for (java.util.Map.Entry<String, Long> e : general.entrySet()) {
-            buf.writeString(e.getKey());
-            buf.writeLong(e.getValue());
-        }
+        writeEmcMap(buf, AutoEmcStore.snapshotPrecise());
+        writeEmcMap(buf, AutoEmcStore.snapshotGeneral());
         ServerPlayNetworking.send(player, SYNC_AUTO_EMC_ID, buf);
+    }
+
+    /**
+     * 把 {@code Map<String, Long>} 编码到 PacketByteBuf：varint size + N 个 (string key + long value)。
+     *
+     * <p>供 S2C 推送（精确/自动/通用 map）复用，与 {@link #readEmcMap} 配对。</p>
+     */
+    public static void writeEmcMap(PacketByteBuf buf, java.util.Map<String, Long> map) {
+        buf.writeVarInt(map.size());
+        for (java.util.Map.Entry<String, Long> e : map.entrySet()) {
+            buf.writeString(e.getKey());
+            buf.writeLong(e.getValue());
+        }
+    }
+
+    /**
+     * 从 PacketByteBuf 读取 {@code Map<String, Long>}：varint size + N 个 (string key + long value)。
+     *
+     * <p>供 C2S/S2C 接收端复用，与 {@link #writeEmcMap} 配对。返回 {@link LinkedHashMap} 保持插入顺序。</p>
+     */
+    public static java.util.Map<String, Long> readEmcMap(PacketByteBuf buf) {
+        int size = buf.readVarInt();
+        java.util.Map<String, Long> map = new LinkedHashMap<>(size);
+        for (int i = 0; i < size; i++) {
+            map.put(buf.readString(), buf.readLong());
+        }
+        return map;
     }
 
     // ============ 重新定价（reprice）流程 ============

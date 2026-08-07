@@ -1,6 +1,7 @@
 package itemalchemy.expansion.client;
 
 import itemalchemy.expansion.IAExpServices;
+import itemalchemy.expansion.client.util.GuiRenderUtil;
 import itemalchemy.expansion.nbt.ItemVariantKey;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -139,7 +140,7 @@ public class RepriceConfirmScreen extends Screen {
 
         // 面板背景
         context.fill(panelLeft, panelTop, panelLeft + PANEL_WIDTH, panelBottom, 0xC0101010);
-        drawBorder(context, panelLeft, panelTop, PANEL_WIDTH, panelHeight, 0xFF404040);
+        GuiRenderUtil.drawBorder(context, panelLeft, panelTop, PANEL_WIDTH, panelHeight, 0xFF404040);
 
         // 标题
         context.drawCenteredTextWithShadow(this.textRenderer, this.title,
@@ -215,13 +216,5 @@ public class RepriceConfirmScreen extends Screen {
                 panelLeft + PADDING, panelTop + panelHeight - 34, 0x808080, false);
 
         super.render(context, mouseX, mouseY, delta);
-    }
-
-    /** 绘制边框（4 条线） */
-    private static void drawBorder(DrawContext context, int x, int y, int width, int height, int color) {
-        context.fill(x, y, x + width, y + 1, color);
-        context.fill(x, y + height - 1, x + width, y + height, color);
-        context.fill(x, y, x + 1, y + height, color);
-        context.fill(x + width - 1, y, x + width, y + height, color);
     }
 }

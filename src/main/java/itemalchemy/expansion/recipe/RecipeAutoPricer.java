@@ -263,6 +263,31 @@ public final class RecipeAutoPricer {
     // ============ 反射：拿输出 ============
 
     /**
+     * 反射查找无参方法并按类缓存结果。
+     *
+     * <p>统一 {@code getOutput}/{@code getInputs}/{@code getIngredient}/{@code getCount}/{@code init}
+     * 五处相同的「查缓存 → 未命中则反射 {@link Class#getMethod(String)} → 存缓存」模式。
+     * 方法不存在时缓存 null，避免重复反射查找。</p>
+     *
+     * @param cls         目标类
+     * @param methodName  无参方法名
+     * @param cache       按类缓存的结果 Map
+     * @return 找到的 Method；不存在或异常返回 null
+     */
+    private static Method findNoArgMethod(Class<?> cls, String methodName, Map<Class<?>, Method> cache) {
+        Method m = cache.get(cls);
+        if (m == null) {
+            try {
+                m = cls.getMethod(methodName);
+            } catch (NoSuchMethodException e) {
+                m = null;
+            }
+            cache.put(cls, m);
+        }
+        return m;
+    }
+
+    /**
      * 优先反射调 getOutput()（TACZ 无参版本）；失败回退到 1.20.1 yarn 的 getOutput(DynamicRegistryManager)。
      *
      * <p><b>TACZ 延迟构建兼容</b>：TACZ 的 {@code GunSmithTableRecipe} 的 result 在未调用
@@ -282,15 +307,7 @@ public final class RecipeAutoPricer {
 
     /** 实际尝试获取输出（不含 init 重试逻辑） */
     private static ItemStack tryGetOutput(Recipe<?> recipe, World world) {
-        Method m = GET_OUTPUT_CACHE.get(recipe.getClass());
-        if (m == null) {
-            try {
-                m = recipe.getClass().getMethod("getOutput");
-            } catch (NoSuchMethodException e) {
-                m = null;
-            }
-            GET_OUTPUT_CACHE.put(recipe.getClass(), m);
-        }
+        Method m = findNoArgMethod(recipe.getClass(), "getOutput", GET_OUTPUT_CACHE);
         if (m != null) {
             try {
                 Object r = m.invoke(recipe);
@@ -319,16 +336,7 @@ public final class RecipeAutoPricer {
      * 幂等：init() 内部会把 raw 置 null，重复调用安全。
      */
     private static void tryInitRecipe(Recipe<?> recipe) {
-        Class<?> cls = recipe.getClass();
-        Method m = INIT_CACHE.get(cls);
-        if (m == null) {
-            try {
-                m = cls.getMethod("init");
-            } catch (NoSuchMethodException e) {
-                m = null;
-            }
-            INIT_CACHE.put(cls, m);
-        }
+        Method m = findNoArgMethod(recipe.getClass(), "init", INIT_CACHE);
         if (m != null) {
             try {
                 m.invoke(recipe);
@@ -342,15 +350,7 @@ public final class RecipeAutoPricer {
     private static List<InputEntry> extractInputs(Recipe<?> recipe) {
         List<InputEntry> result = new ArrayList<>();
 
-        Method m = GET_INPUTS_CACHE.get(recipe.getClass());
-        if (m == null) {
-            try {
-                m = recipe.getClass().getMethod("getInputs");
-            } catch (NoSuchMethodException e) {
-                m = null;
-            }
-            GET_INPUTS_CACHE.put(recipe.getClass(), m);
-        }
+        Method m = findNoArgMethod(recipe.getClass(), "getInputs", GET_INPUTS_CACHE);
         if (m != null) {
             try {
                 Object r = m.invoke(recipe);
@@ -391,24 +391,8 @@ public final class RecipeAutoPricer {
 
         // 反射 getIngredient() + getCount()
         Class<?> cls = item.getClass();
-        Method getIng = GET_INGREDIENT_CACHE.get(cls);
-        Method getCt = GET_COUNT_CACHE.get(cls);
-        if (getIng == null) {
-            try {
-                getIng = cls.getMethod("getIngredient");
-            } catch (NoSuchMethodException e) {
-                getIng = null;
-            }
-            GET_INGREDIENT_CACHE.put(cls, getIng);
-        }
-        if (getCt == null) {
-            try {
-                getCt = cls.getMethod("getCount");
-            } catch (NoSuchMethodException e) {
-                getCt = null;
-            }
-            GET_COUNT_CACHE.put(cls, getCt);
-        }
+        Method getIng = findNoArgMethod(cls, "getIngredient", GET_INGREDIENT_CACHE);
+        Method getCt = findNoArgMethod(cls, "getCount", GET_COUNT_CACHE);
         if (getIng != null) {
             try {
                 Object rawIng = getIng.invoke(item);

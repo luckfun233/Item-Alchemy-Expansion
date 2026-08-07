@@ -1,6 +1,7 @@
 package itemalchemy.expansion.client;
 
 import itemalchemy.expansion.ItemAlchemyExpansion;
+import itemalchemy.expansion.client.util.GuiRenderUtil;
 import itemalchemy.expansion.config.IAExpConfig;
 import itemalchemy.expansion.config.IAExpConfigHolder;
 import itemalchemy.expansion.nbt.ShulkerBoxSupport;
@@ -9,7 +10,6 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.slot.Slot;
@@ -18,7 +18,6 @@ import net.pitan76.itemalchemy.EMCManager;
 import net.pitan76.itemalchemy.client.screen.AlchemyTableScreen;
 import net.pitan76.itemalchemy.gui.screen.AlchemyTableScreenHandler;
 import org.lwjgl.glfw.GLFW;
-import java.lang.reflect.Field;
 
 /**
  * 转换桌界面内置 Shift 预览：在 AlchemyTableScreen 渲染后，若 SHIFT 按下且
@@ -63,17 +62,6 @@ public final class AlchemyTableScreenShulkerPreview {
     private static final int Z_LAYER = 500;
     /** 鼠标到预览面板的偏移量（增大到 16，给原版 tooltip 留出空间） */
     private static final int MOUSE_OFFSET = 16;
-
-    /**
-     * {@link HandledScreen#focusedSlot} 的 intermediary 字段名。
-     * <p>yarn 1.20.1+build.10 中 {@code focusedSlot}（鼠标当前悬停的槽位）→ {@code field_2787}。
-     * 注意：yarn 1.20.1 中没有 {@code hoveredSlot} 字段，悬停槽位的正式名是 {@code focusedSlot}。
-     * 反射用此名读取，兼容无 refmap 的生产环境。</p>
-     */
-    private static final String HOVERED_SLOT_INTERMEDIARY = "field_2787";
-
-    /** 缓存的反射 Field，首次使用时查找；查找失败置 null 表示不可用 */
-    private static Field hoveredSlotField;
 
     // ====== 焦点状态（静态，跨帧保持） ======
     /** 焦点行：-1 表示未激活（预览未显示）；激活时为 0~ROWS-1 */
@@ -144,7 +132,7 @@ public final class AlchemyTableScreenShulkerPreview {
         }
 
         // 4. 获取悬停槽位
-        Slot hovered = getHoveredSlot(screen);
+        Slot hovered = GuiRenderUtil.getHoveredSlot(screen);
         if (hovered == null || !hovered.hasStack()) {
             deactivate();
             return;
@@ -239,37 +227,6 @@ public final class AlchemyTableScreenShulkerPreview {
     }
 
     /**
-     * 反射读取 {@link HandledScreen#focusedSlot}（intermediary: {@code field_2787}）。
-     *
-     * <p>Field 对象缓存，仅首次调用时查找。查找/读取失败返回 null（预览静默跳过）。</p>
-     */
-    private static Slot getHoveredSlot(HandledScreen<?> screen) {
-        Field f = resolveHoveredSlotField();
-        if (f == null) return null;
-        try {
-            return (Slot) f.get(screen);
-        } catch (Throwable t) {
-            return null;
-        }
-    }
-
-    /** 懒加载并缓存 {@link HandledScreen} 的 hoveredSlot 反射 Field */
-    private static Field resolveHoveredSlotField() {
-        if (hoveredSlotField != null) return hoveredSlotField;
-        try {
-            Field f = HandledScreen.class.getDeclaredField(HOVERED_SLOT_INTERMEDIARY);
-            f.setAccessible(true);
-            hoveredSlotField = f;
-            return f;
-        } catch (Throwable t) {
-            ItemAlchemyExpansion.LOGGER.warn("[IAExp] Could not resolve HandledScreen.{} (focusedSlot); shift-preview disabled",
-                    HOVERED_SLOT_INTERMEDIARY, t);
-            hoveredSlotField = null;
-            return null;
-        }
-    }
-
-    /**
      * 绘制 9×3 预览面板（含标题行 + 焦点高亮 + 焦点格物品名标签）。
      *
      * <p><b>关键修复</b>：
@@ -313,7 +270,7 @@ public final class AlchemyTableScreenShulkerPreview {
             // 背景：高 alpha（0xF0）避免下方图标透过来
             context.fill(x, y, x + bgWidth, y + bgHeight, 0xF0101010);
             // 深灰边框
-            drawBorder(context, x, y, bgWidth, bgHeight, 0xFF505050);
+            GuiRenderUtil.drawBorder(context, x, y, bgWidth, bgHeight, 0xFF505050);
 
             // 标题：潜影盒名称 + EMC 之和
             // 用 String.format 预格式化 long 为 String，绕过 Text.translatable 的 %,d 渲染问题
@@ -445,21 +402,10 @@ public final class AlchemyTableScreenShulkerPreview {
         context.getMatrices().push();
         context.getMatrices().translate(0, 0, 350);
         context.fill(labelX, labelY, labelX + labelW, labelY + labelH, 0xF0101010);
-        drawBorder(context, labelX, labelY, labelW, labelH, 0xFF505050);
+        GuiRenderUtil.drawBorder(context, labelX, labelY, labelW, labelH, 0xFF505050);
         context.drawTextWithShadow(client.textRenderer, name, labelX + 4, labelY + 4, 0xFFFFFF);
         context.drawTextWithShadow(client.textRenderer, emcLine, labelX + 4, labelY + 14, 0xFFFFD700);
         context.getMatrices().pop();
-    }
-
-    /**
-     * 绘制边框（4 条线）。
-     * 调用前应已 {@code translate(0, 0, Z_LAYER)}，边框与背景同 z。
-     */
-    private static void drawBorder(DrawContext context, int x, int y, int width, int height, int color) {
-        context.fill(x, y, x + width, y + 1, color);                  // top
-        context.fill(x, y + height - 1, x + width, y + height, color); // bottom
-        context.fill(x, y, x + 1, y + height, color);                // left
-        context.fill(x + width - 1, y, x + width, y + height, color); // right
     }
 
     /**

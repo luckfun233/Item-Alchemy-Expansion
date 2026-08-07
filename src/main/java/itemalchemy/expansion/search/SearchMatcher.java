@@ -102,6 +102,19 @@ public final class SearchMatcher {
         return ns.toLowerCase().contains(ctx.nsFilterLower);
     }
 
+    /**
+     * 判断 path / 翻译名 / 显示名三者中是否有任一包含搜索词。
+     *
+     * <p>统一直接物品、潜影盒自身名、内容物三处的字段匹配逻辑。
+     * 调用方负责空搜索与命名空间过滤的前置判断。</p>
+     */
+    private static boolean matchesAnyField(String path, String translated, String displayName, SearchContext ctx) {
+        String search = ctx.searchLower;
+        return path.toLowerCase().contains(search)
+                || translated.toLowerCase().contains(search)
+                || displayName.toLowerCase().contains(search);
+    }
+
     /** 获取 ItemWrapper 的翻译名（从 translations 表查），无则返回空字符串 */
     private static String translatedName(ItemWrapper item, SearchContext ctx) {
         if (ctx.translations == null) return "";
@@ -143,9 +156,7 @@ public final class SearchMatcher {
         } catch (Throwable t) {
             displayName = "";
         }
-        return path.toLowerCase().contains(ctx.searchLower)
-                || translated.toLowerCase().contains(ctx.searchLower)
-                || displayName.toLowerCase().contains(ctx.searchLower);
+        return matchesAnyField(path, translated, displayName, ctx);
     }
 
     /**
@@ -165,9 +176,7 @@ public final class SearchMatcher {
         } catch (Throwable t) {
             displayName = "";
         }
-        return path.toLowerCase().contains(ctx.searchLower)
-                || translated.toLowerCase().contains(ctx.searchLower)
-                || displayName.toLowerCase().contains(ctx.searchLower);
+        return matchesAnyField(path, translated, displayName, ctx);
     }
 
     /**
@@ -185,9 +194,7 @@ public final class SearchMatcher {
         } catch (Throwable t) {
             displayName = "";
         }
-        return path.toLowerCase().contains(ctx.searchLower)
-                || translated.toLowerCase().contains(ctx.searchLower)
-                || displayName.toLowerCase().contains(ctx.searchLower);
+        return matchesAnyField(path, translated, displayName, ctx);
     }
 
     /**
@@ -227,9 +234,7 @@ public final class SearchMatcher {
         } catch (Throwable t) {
             displayName = "";
         }
-        return path.toLowerCase().contains(ctx.searchLower)
-                || translated.toLowerCase().contains(ctx.searchLower)
-                || displayName.toLowerCase().contains(ctx.searchLower);
+        return matchesAnyField(path, translated, displayName, ctx);
     }
 
     /**

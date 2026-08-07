@@ -1,10 +1,12 @@
 package itemalchemy.expansion.client;
 
 import itemalchemy.expansion.IAExpServices;
+import itemalchemy.expansion.client.util.GuiRenderUtil;
 import itemalchemy.expansion.config.IAExpConfigHolder;
 import itemalchemy.expansion.nbt.ItemVariantKey;
 import itemalchemy.expansion.network.PreciseEmcStore;
 import itemalchemy.expansion.network.SetEmcNetwork;
+import itemalchemy.expansion.util.EmcQueryUtil;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -12,10 +14,8 @@ import net.minecraft.client.gui.widget.CyclingButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
 import net.pitan76.itemalchemy.EMCManager;
 
 /**
@@ -85,7 +85,7 @@ public class SetEmcScreen extends Screen {
     public SetEmcScreen(ItemStack targetStack) {
         super(Text.translatable("itemalchemy-expansion.set_emc.title"));
         this.targetStack = targetStack.copy();
-        this.itemId = resolveItemId(targetStack);
+        this.itemId = EmcQueryUtil.resolveItemId(targetStack);
         // 算变体键（依赖 IAExpServices 已 init）
         ItemVariantKey vk = IAExpServices.variantKeyOf(targetStack);
         this.variantKey = vk.toStorageString();
@@ -96,11 +96,6 @@ public class SetEmcScreen extends Screen {
         NbtCompound nbt = targetStack.getNbt();
         this.precision = (nbt != null && !nbt.isEmpty()) ? Precision.PRECISE : Precision.GENERAL;
         this.currentEmc = resolveCurrentEmc(this.itemId, this.variantKey, this.precision);
-    }
-
-    private static String resolveItemId(ItemStack stack) {
-        Identifier id = Registries.ITEM.getId(stack.getItem());
-        return id == null ? "minecraft:air" : id.toString();
     }
 
     /** 提取 NBT 简要串（截断到 30 字符）用于显示。无 NBT 返回空串 */
@@ -259,7 +254,7 @@ public class SetEmcScreen extends Screen {
 
         // 面板背景（深色半透明 + 边框）
         context.fill(panelLeft, panelTop, panelLeft + PANEL_WIDTH, panelBottom, 0xC0101010);
-        drawBorder(context, panelLeft, panelTop, PANEL_WIDTH, panelHeight, 0xFF404040);
+        GuiRenderUtil.drawBorder(context, panelLeft, panelTop, PANEL_WIDTH, panelHeight, 0xFF404040);
 
         // 标题
         context.drawCenteredTextWithShadow(this.textRenderer, this.title,
@@ -311,14 +306,6 @@ public class SetEmcScreen extends Screen {
         }
 
         super.render(context, mouseX, mouseY, delta);
-    }
-
-    /** 绘制边框（4 条线） */
-    private static void drawBorder(DrawContext context, int x, int y, int width, int height, int color) {
-        context.fill(x, y, x + width, y + 1, color);                  // top
-        context.fill(x, y + height - 1, x + width, y + height, color); // bottom
-        context.fill(x, y, x + 1, y + height, color);                 // left
-        context.fill(x + width - 1, y, x + width, y + height, color);  // right
     }
 
     /** 作用范围枚举 */

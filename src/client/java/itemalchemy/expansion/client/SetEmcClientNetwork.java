@@ -10,7 +10,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.network.PacketByteBuf;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -115,13 +114,7 @@ public final class SetEmcClientNetwork {
         // 1. 玩家精确 map 同步
         ClientPlayNetworking.registerGlobalReceiver(SetEmcNetwork.SYNC_PRECISE_EMC_ID,
                 (client, handler, buf, responseSender) -> {
-                    int size = buf.readVarInt();
-                    Map<String, Long> snapshot = new LinkedHashMap<>(size);
-                    for (int i = 0; i < size; i++) {
-                        String k = buf.readString();
-                        long v = buf.readLong();
-                        snapshot.put(k, v);
-                    }
+                    Map<String, Long> snapshot = SetEmcNetwork.readEmcMap(buf);
                     client.execute(() -> {
                         try {
                             PreciseEmcStore.applyFromSnapshot(snapshot);
@@ -137,16 +130,8 @@ public final class SetEmcClientNetwork {
         // 2. 自动定价结果同步（精确层 + 通用层）
         ClientPlayNetworking.registerGlobalReceiver(SetEmcNetwork.SYNC_AUTO_EMC_ID,
                 (client, handler, buf, responseSender) -> {
-                    int preciseSize = buf.readVarInt();
-                    Map<String, Long> precise = new LinkedHashMap<>(preciseSize);
-                    for (int i = 0; i < preciseSize; i++) {
-                        precise.put(buf.readString(), buf.readLong());
-                    }
-                    int generalSize = buf.readVarInt();
-                    Map<String, Long> general = new LinkedHashMap<>(generalSize);
-                    for (int i = 0; i < generalSize; i++) {
-                        general.put(buf.readString(), buf.readLong());
-                    }
+                    Map<String, Long> precise = SetEmcNetwork.readEmcMap(buf);
+                    Map<String, Long> general = SetEmcNetwork.readEmcMap(buf);
                     client.execute(() -> {
                         try {
                             AutoEmcStore.applyFromSnapshot(precise, general);

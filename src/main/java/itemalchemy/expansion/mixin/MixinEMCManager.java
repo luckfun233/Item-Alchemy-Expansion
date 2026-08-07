@@ -8,9 +8,8 @@ import itemalchemy.expansion.nbt.ItemVariantKey;
 import itemalchemy.expansion.nbt.ShulkerBoxSupport;
 import itemalchemy.expansion.network.AutoEmcStore;
 import itemalchemy.expansion.network.PreciseEmcStore;
+import itemalchemy.expansion.util.EmcQueryUtil;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.Identifier;
-import net.minecraft.registry.Registries;
 import net.pitan76.itemalchemy.EMCManager;
 import net.pitan76.mcpitanlib.api.util.ItemStackUtil;
 import org.spongepowered.asm.mixin.Mixin;
@@ -96,7 +95,7 @@ public abstract class MixinEMCManager {
         // 3. 通用层查询
         // L4: 自动通用（仅 autoPricing 开启且 L2 未定义时提前 cancel，避免原方法返回 0）
         if (cfg.autoPricingFromRecipes) {
-            String itemId = resolveItemId(stack);
+            String itemId = EmcQueryUtil.resolveItemId(stack);
             if (!EMCManager.contains(itemId)) {
                 Long autoGeneral = AutoEmcStore.getGeneral(itemId);
                 if (autoGeneral != null) {
@@ -108,11 +107,5 @@ public abstract class MixinEMCManager {
             }
         }
         // L2: 走原方法（不 cancel，让 EMCManager.get(Item) × count 执行）
-    }
-
-    /** 解析 ItemStack 的 itemId（含命名空间）。Mixin 内部使用，外部用 {@link itemalchemy.expansion.util.EmcQueryUtil#resolveItemId} */
-    private static String resolveItemId(ItemStack stack) {
-        Identifier id = Registries.ITEM.getId(stack.getItem());
-        return id == null ? "minecraft:air" : id.toString();
     }
 }

@@ -1,6 +1,6 @@
 package itemalchemy.expansion.client;
 
-import itemalchemy.expansion.ItemAlchemyExpansion;
+import itemalchemy.expansion.client.util.GuiRenderUtil;
 import itemalchemy.expansion.config.IAExpConfig;
 import itemalchemy.expansion.config.IAExpConfigHolder;
 import itemalchemy.expansion.nbt.ShulkerBoxSupport;
@@ -15,7 +15,6 @@ import net.pitan76.itemalchemy.client.screen.AlchemyTableScreen;
 import net.pitan76.itemalchemy.gui.inventory.ExtractInventory;
 import net.pitan76.itemalchemy.gui.screen.AlchemyTableScreenHandler;
 
-import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
 
@@ -40,10 +39,6 @@ public final class AlchemyTableSlotMatchOverlay {
     private static final int BADGE_SIZE = 8;
     /** 小标志 z 层级（高于槽位图标，低于 Shift 预览面板） */
     private static final int BADGE_Z = 200;
-
-    /** HandledScreen.focusedSlot 的 intermediary 字段名（与 AlchemyTableScreenShulkerPreview 一致） */
-    private static final String HOVERED_SLOT_INTERMEDIARY = "field_2787";
-    private static Field hoveredSlotField;
 
     private AlchemyTableSlotMatchOverlay() {}
 
@@ -107,7 +102,7 @@ public final class AlchemyTableSlotMatchOverlay {
 
         // 5. 匹配列表 tooltip（鼠标悬停 + 非 Shift）
         if (!Screen.hasShiftDown()) {
-            Slot hovered = getHoveredSlot(screen);
+            Slot hovered = GuiRenderUtil.getHoveredSlot(screen);
             if (hovered != null) {
                 int hoveredIndex = hovered.id; // Slot.id 是 vanilla public 字段
                 SearchMatchCache.SlotMatch hoverMatch = matches.get(hoveredIndex);
@@ -198,7 +193,7 @@ public final class AlchemyTableSlotMatchOverlay {
             // 背景
             context.fill(boxX, boxY, boxX + boxWidth, boxY + boxHeight, 0xF0101010);
             // 边框
-            drawBorder(context, boxX, boxY, boxWidth, boxHeight, 0xFF505050);
+            GuiRenderUtil.drawBorder(context, boxX, boxY, boxWidth, boxHeight, 0xFF505050);
 
             // 标题
             int textX = boxX + padding;
@@ -221,13 +216,6 @@ public final class AlchemyTableSlotMatchOverlay {
         }
     }
 
-    private static void drawBorder(DrawContext context, int x, int y, int w, int h, int color) {
-        context.fill(x, y, x + w, y + 1, color);
-        context.fill(x, y + h - 1, x + w, y + h, color);
-        context.fill(x, y, x + 1, y + h, color);
-        context.fill(x + w - 1, y, x + w, y + h, color);
-    }
-
     /** 通过 searchBox 位置推算 screen.x（searchBox 在 x+85） */
     private static int getScreenX(AlchemyTableScreen screen) {
         try {
@@ -242,32 +230,5 @@ public final class AlchemyTableSlotMatchOverlay {
             if (screen.searchBox != null) return screen.searchBox.getY() - 5;
         } catch (Throwable ignored) {}
         return Integer.MIN_VALUE;
-    }
-
-    /** 反射读取 HandledScreen.focusedSlot（与 AlchemyTableScreenShulkerPreview 相同逻辑） */
-    private static Slot getHoveredSlot(AlchemyTableScreen screen) {
-        Field f = resolveHoveredSlotField();
-        if (f == null) return null;
-        try {
-            return (Slot) f.get(screen);
-        } catch (Throwable t) {
-            return null;
-        }
-    }
-
-    private static Field resolveHoveredSlotField() {
-        if (hoveredSlotField != null) return hoveredSlotField;
-        try {
-            Field f = net.minecraft.client.gui.screen.ingame.HandledScreen.class
-                    .getDeclaredField(HOVERED_SLOT_INTERMEDIARY);
-            f.setAccessible(true);
-            hoveredSlotField = f;
-            return f;
-        } catch (Throwable t) {
-            ItemAlchemyExpansion.LOGGER.warn("[IAExp] Could not resolve HandledScreen.{} (focusedSlot); slot match overlay disabled",
-                    HOVERED_SLOT_INTERMEDIARY, t);
-            hoveredSlotField = null;
-            return null;
-        }
     }
 }
