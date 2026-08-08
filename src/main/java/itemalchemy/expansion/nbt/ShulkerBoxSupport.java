@@ -47,13 +47,21 @@ public final class ShulkerBoxSupport {
     }
 
     /**
-     * 计算潜影盒内容物 EMC 之和。
+     * 计算装了物品的潜影盒的总 EMC = 内容物 EMC 之和 + 潜影盒本身的 EMC。
      *
-     * <p>非潜影盒返回 0；空潜影盒返回 0。
-     * EMC 按「物品 id × 数量」累加（与 {@link EMCManager#get(Item)} 同口径，按 id 计价）。</p>
+     * <p><b>定价规则</b>（修复「漏算盒子本身价格」）：
+     * <ul>
+     *   <li>空潜影盒（无内容物）：返回 0。保持原行为——空盒被注册槽原逻辑
+     *       （{@code EMCManager.get(stack) != 0}）拒绝，避免玩家放入无意义空容器。</li>
+     *   <li>有内容物的潜影盒：返回 {@code 内容物 EMC 之和 + 盒子本身的 EMC}。
+     *       此前只算内容物，导致装了东西的盒子实际 EMC 偏低（少算了盒子本体）。
+     *       盒子本身的 EMC 按 id 查 {@link EMCManager#get(Item)}（同 id 同价，与上游口径一致）。</li>
+     * </ul>
+     * </p>
      *
      * <p>注意：此处 {@code EMCManager.get(Item)} 不会触发本模组对潜影盒的 Mixin
-     * （Mixin 拦截的是 {@code get(ItemStack)} 重载），避免递归。</p>
+     * （Mixin 拦截的是 {@code get(ItemStack)} 重载），避免递归。盒子本体不在自身的
+     * {@code BlockEntityTag.Items} 内，故不会与内容物重复计算。</p>
      */
     public static long sumEmc(ItemStack stack) {
         if (!isShulkerBox(stack)) return 0;
@@ -62,13 +70,20 @@ public final class ShulkerBoxSupport {
         NbtList items = blockEntityTag.getList("Items", NbtElement.COMPOUND_TYPE);
         if (items.isEmpty()) return 0;
         long sum = 0;
+        boolean hasContents = false;
         for (int i = 0; i < items.size(); i++) {
             NbtCompound entry = items.getCompound(i);
             ItemStack contentStack = ItemStack.fromNbt(entry);
             if (contentStack.isEmpty()) continue;
+            hasContents = true;
             // 按 id 查 EMC（同 id 同价），不递归潜影盒判定
             long itemEmc = EMCManager.get(contentStack.getItem());
             sum += itemEmc * contentStack.getCount();
+        }
+        // 有内容物时加上潜影盒本身的 EMC（修复「漏算盒子本体价格」）。
+        // 空盒 hasContents=false 返回 0，保持原「空盒被拒绝」行为。
+        if (hasContents) {
+            sum += EMCManager.get(stack.getItem());
         }
         return sum;
     }
@@ -85,6 +100,7 @@ public final class ShulkerBoxSupport {
         ItemStack[] contents = new ItemStack[27];
         for (int i = 0; i < 27; i++) contents[i] = ItemStack.EMPTY;
         long sum = 0;
+        boolean hasContents = false;
         if (!isShulkerBox(stack)) return new ContentsAndEmc(contents, sum);
         NbtCompound blockEntityTag = getBlockEntityTag(stack);
         if (blockEntityTag == null) return new ContentsAndEmc(contents, sum);
@@ -93,6 +109,7 @@ public final class ShulkerBoxSupport {
             NbtCompound entry = items.getCompound(i);
             ItemStack contentStack = ItemStack.fromNbt(entry);
             if (contentStack.isEmpty()) continue;
+            hasContents = true;
             // 放入槽位
             int slot = entry.getByte("Slot") & 0xFF;
             if (slot >= 0 && slot < 27) {
@@ -105,9 +122,15 @@ public final class ShulkerBoxSupport {
                     }
                 }
             }
-            // 累加 EMC（同 sumEmc 逻辑，但复用已解析的 contentStack）
+            // 累加内容物 EMC（按 id 查，同 id 同价）
             long itemEmc = EMCManager.get(contentStack.getItem());
             sum += itemEmc * contentStack.getCount();
+        }
+        // 有内容物时加上潜影盒本身的 EMC（修复「漏算盒子本体价格」）。
+        // 空盒 hasContents=false 返回 0，保持原「空盒被拒绝」行为。
+        // 盒子本体按 id 查 get(Item)（不被 MixinEMCManager 拦截，无递归）。
+        if (hasContents) {
+            sum += EMCManager.get(stack.getItem());
         }
         return new ContentsAndEmc(contents, sum);
     }

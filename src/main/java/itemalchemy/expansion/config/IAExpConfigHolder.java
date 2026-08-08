@@ -132,6 +132,16 @@ public final class IAExpConfigHolder {
             needsSave = true;
         }
 
+        // configVersion < 9: 自动定价引入「分批 + 时间片」扫描，新增两个性能调参字段。
+        // Gson Unsafe 会把 int 零初始化为 0，0 会导致每 tick 不处理任何配方，故补默认值。
+        if (loaded.configVersion < 9) {
+            ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 9 (add auto-pricing perf tuning)", loaded.configVersion);
+            if (loaded.autoPricingBatchSize <= 0) loaded.autoPricingBatchSize = def.autoPricingBatchSize;
+            if (loaded.autoPricingTickBudgetMs <= 0) loaded.autoPricingTickBudgetMs = def.autoPricingTickBudgetMs;
+            loaded.configVersion = 9;
+            needsSave = true;
+        }
+
         return loaded;
     }
 

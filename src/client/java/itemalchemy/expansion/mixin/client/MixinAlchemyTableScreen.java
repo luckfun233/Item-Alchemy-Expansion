@@ -4,7 +4,6 @@ import itemalchemy.expansion.client.AlchemyTableScreenShulkerPreview;
 import itemalchemy.expansion.client.FilterModeClientNetwork;
 import itemalchemy.expansion.search.IAlchemyTableScreenHandlerExt;
 import itemalchemy.expansion.search.SearchFilterMode;
-import net.minecraft.client.gui.Element;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.ClickableWidget;
@@ -21,8 +20,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-
-import java.lang.reflect.Method;
 
 /**
  * 拦截 {@link AlchemyTableScreen} 的 {@code keyPressed} / {@code keyReleased}，
@@ -57,54 +54,43 @@ public abstract class MixinAlchemyTableScreen {
     private ButtonWidget iaexp$filterButton;
 
     /**
-     * 反射调用 {@code getScreenHandlerOverride()}（mcpitanlib 方法，签名随版本可能漂移）。
-     * 反射容忍失败，返回 null 时跳过按钮创建。
+     * 获取当前 ScreenHandler。
+     *
+     * <p>{@code getScreenHandlerOverride()} 是 mcpitanlib {@code SimpleHandledScreen} 上的
+     * <b>public</b> 方法（mcpitanlib 自有类，名字不被 yarn/intermediary 重映射，dev 与 prod 一致），
+     * 因此直接强转 {@code this} 调用即可，无需反射。</p>
      */
     private AlchemyTableScreenHandler iaexp$getHandler() {
         try {
-            return (AlchemyTableScreenHandler) AlchemyTableScreen.class
-                    .getMethod("getScreenHandlerOverride")
-                    .invoke(this);
+            return ((AlchemyTableScreen) (Object) this).getScreenHandlerOverride();
         } catch (Throwable t) {
             return null;
         }
     }
 
     /**
-     * 反射调用 {@code addDrawableChild} 把控件加入 Screen。
-     * 优先 mcpitanlib 的 {@code addDrawableChild_compatibility}，失败则遍历继承链找 vanilla {@code addDrawableChild}。
-     * 泛型擦除后参数类型可能因构建环境不同而异，依次尝试 Element / ClickableWidget / Object。
+     * 把控件加入 Screen（修复「筛选按钮不出现」）。
+     *
+     * <p><b>原 bug 根因</b>：旧实现用反射 {@code getDeclaredMethod("addDrawableChild_compatibility",
+     * ClickableWidget.class)}，但该方法擦除后的形参类型是 {@code Element}（vanilla {@code class_364}），
+     * 而不是 {@link ClickableWidget}，{@code Class.getDeclaredMethod} 要求形参 Class <b>精确</b>匹配，
+     * 故永远抛 {@code NoSuchMethodException}；回退分支又用字符串 {@code "addDrawableChild"} 在生产环境
+     * （intermediary 下该方法名为 {@code method_37063}）查找，同样失败。结果按钮对象被构造却从未注册到
+     * {@code drawables}/{@code selectableChildren}，既不渲染也无法点击。</p>
+     *
+     * <p><b>修复</b>：{@code addDrawableChild_compatibility} 是 mcpitanlib {@code SimpleHandledScreen}
+     * 上的 <b>public</b> 方法，内部直接委托 vanilla {@code HandledScreen.addDrawableChild}。
+     * 直接强转 {@code this} 调用即可：方法名是 mcpitanlib 自有（不重映射），描述符里的 vanilla 类引用
+     * 由 loom 自动重映射，dev 与 prod 行为一致。{@link ClickableWidget} 满足泛型上界
+     * {@code <T extends Element & Drawable & Selectable>}。</p>
      */
     private void iaexp$addDrawableChild(ClickableWidget widget) {
-        // 1. 遍历继承链查找 mcpitanlib 的 addDrawableChild_compatibility
-        Class<?> cls = AlchemyTableScreen.class;
-        while (cls != null && cls != Object.class) {
-            try {
-                Method m = cls.getDeclaredMethod("addDrawableChild_compatibility", ClickableWidget.class);
-                m.setAccessible(true);
-                m.invoke(this, widget);
-                return;
-            } catch (NoSuchMethodException ignored) {
-                cls = cls.getSuperclass();
-            } catch (Throwable t) {
-                break;
-            }
+        try {
+            ((AlchemyTableScreen) (Object) this).addDrawableChild_compatibility(widget);
+        } catch (Throwable t) {
+            itemalchemy.expansion.ItemAlchemyExpansion.LOGGER
+                    .warn("[IAExp] Failed to add filter button via addDrawableChild_compatibility: {}", t.toString());
         }
-        // 2. 遍历继承链找 vanilla addDrawableChild，尝试多种参数类型
-        Class<?>[] paramCandidates = { Element.class, ClickableWidget.class, Object.class };
-        cls = AlchemyTableScreen.class;
-        while (cls != null && cls != Object.class) {
-            for (Class<?> paramType : paramCandidates) {
-                try {
-                    Method m = cls.getDeclaredMethod("addDrawableChild", paramType);
-                    m.setAccessible(true);
-                    m.invoke(this, widget);
-                    return;
-                } catch (Exception ignored) {}
-            }
-            cls = cls.getSuperclass();
-        }
-        System.err.println("[IAExp] Failed to add filter button: addDrawableChild not found in hierarchy");
     }
 
     // ====== 方向键拦截（Shift 预览激活时） ======

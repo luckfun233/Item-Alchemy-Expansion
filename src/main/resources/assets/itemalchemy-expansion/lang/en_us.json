@@ -5,7 +5,7 @@
   "itemalchemy-expansion.config.category.advanced": "Advanced",
   "itemalchemy-expansion.config.category.experimental": "Experimental",
 
-  "itemalchemy-expansion.config.experimental.note": "These features are still being tested and may affect EMC calculation.",
+  "itemalchemy-expansion.config.experimental.note": "These features are still in testing and may affect EMC calculation.",
 
   "itemalchemy-expansion.config.displayMode": "Display Mode",
   "itemalchemy-expansion.config.displayMode.tooltip": "How items appear in extract slots.\nIcon only / Name only / Icon + Name (default).",
@@ -13,7 +13,7 @@
   "itemalchemy-expansion.config.displayMode.option.name_only": "Name only",
   "itemalchemy-expansion.config.displayMode.option.icon_and_name": "Icon + Name",
 
-  "itemalchemy-expansion.config.searchByTranslatedName": "Search By Translated Name",
+  "itemalchemy-expansion.config.searchByTranslatedName": "Search by Translated Name",
   "itemalchemy-expansion.config.searchByTranslatedName.tooltip": "Search by both item ID and translated name.",
 
   "itemalchemy-expansion.config.renderNameUnderSlot": "Render Name Under Slot",
@@ -25,7 +25,7 @@
   "itemalchemy-expansion.config.shulkerBoxMode.option.disable": "Disable",
 
   "itemalchemy-expansion.config.shulkerNoEmcPolicy": "No-EMC Item Policy (Shulker Box)",
-  "itemalchemy-expansion.config.shulkerNoEmcPolicy.tooltip": "Reject: block if any item has no EMC.\nAllow as zero: treat no-EMC items as 0, allow placing.",
+  "itemalchemy-expansion.config.shulkerNoEmcPolicy.tooltip": "How to handle shulker boxes with no-EMC items inside.\nReject: block placing.\nAllow as zero: treat as 0 EMC, allow placing.",
   "itemalchemy-expansion.config.shulkerNoEmcPolicy.option.reject": "Reject",
   "itemalchemy-expansion.config.shulkerNoEmcPolicy.option.allow_as_zero": "Allow as zero",
 
@@ -89,7 +89,7 @@
   "itemalchemy-expansion.search.match_list_more": "%s more...",
 
   "itemalchemy-expansion.config.autoPricingFromRecipes": "Recipe Auto-Pricing",
-  "itemalchemy-expansion.config.autoPricingFromRecipes.tooltip": "Scans all recipes (including mod custom types) and auto-prices undefined items by material EMC sum.\nManual EMC is not affected. A reprice confirmation dialog appears on first enable.",
+  "itemalchemy-expansion.config.autoPricingFromRecipes.tooltip": "Scan all recipes (including mod custom types) and auto-price undefined items by material EMC sum.\nManual EMC is not affected. On first enable, prompt whether to re-price already-set items.",
 
   "itemalchemy-expansion.config.autoPricingStrategy": "Multi-Recipe Strategy",
   "itemalchemy-expansion.config.autoPricingStrategy.tooltip": "How to pick a price when multiple recipes produce the same item.\nMin: cheapest recipe (recommended)\nOther options are not yet implemented.",
@@ -101,12 +101,18 @@
   "itemalchemy-expansion.config.autoPricingRespectUpstream": "Don't Override Upstream Values",
   "itemalchemy-expansion.config.autoPricingRespectUpstream.tooltip": "Keep vanilla/upstream default EMC, don't override with auto-pricing. Recommended.",
 
+  "itemalchemy-expansion.config.autoPricingBatchSize": "Recipes Per Tick",
+  "itemalchemy-expansion.config.autoPricingBatchSize.tooltip": "Max recipes processed per server tick during auto-pricing scan. Time-sliced to avoid lag.\nLarger: faster first scan; smaller: smoother TPS.",
+
+  "itemalchemy-expansion.config.autoPricingTickBudgetMs": "Tick Time Budget (ms)",
+  "itemalchemy-expansion.config.autoPricingTickBudgetMs.tooltip": "Per-tick time budget for auto-pricing scan. Yields main thread when exceeded. Default 8ms balances scan speed and TPS.",
+
   "itemalchemy-expansion.new_feature_toast.title": "Item Alchemy Expansion New Features",
   "itemalchemy-expansion.new_feature_toast.desc1": "Added 'Recipe Auto-Pricing' feature.",
   "itemalchemy-expansion.new_feature_toast.desc2": "Enable in Mod Menu -> Item Alchemy Expansion -> Experimental.",
 
   "itemalchemy-expansion.reprice.title": "Re-price Already-Set Items?",
-  "itemalchemy-expansion.reprice.selective_desc": "Checked = re-price automatically, unchecked = keep manual value",
+  "itemalchemy-expansion.reprice.selective_desc": "Checked = re-price automatically; unchecked = keep manual value",
   "itemalchemy-expansion.reprice.recompute_all": "Recompute All",
   "itemalchemy-expansion.reprice.keep_all": "Keep All",
   "itemalchemy-expansion.reprice.confirm_selection": "Confirm",
@@ -115,6 +121,6 @@
   "itemalchemy-expansion.reprice.layer_precise": "(precise)",
   "itemalchemy-expansion.reprice.empty": "No items need re-pricing",
   "itemalchemy-expansion.reprice.hint2": "Run /itemalchemy-expansion reprice later to trigger again.",
-  "itemalchemy-expansion.reprice.feedback.done": "[IAExp] Re-priced %s candidate items and recomputed auto-pricing.",
-  "itemalchemy-expansion.reprice.feedback.kept": "[IAExp] Kept your settings; auto-pricing will only handle undefined items."
+  "itemalchemy-expansion.reprice.feedback.done": "[IAExp] Re-priced %s items and recomputed auto-pricing.",
+  "itemalchemy-expansion.reprice.feedback.kept": "[IAExp] Kept manual settings; auto-pricing will only handle undefined items."
 }

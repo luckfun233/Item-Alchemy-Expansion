@@ -74,6 +74,8 @@ public final class IAExpClothConfigScreen {
             IAExpConfigHolder.get().fullIgnoreDamageAndRepairCost = editing.fullIgnoreDamageAndRepairCost;
             IAExpConfigHolder.get().autoPricingStrategy = editing.autoPricingStrategy;
             IAExpConfigHolder.get().autoPricingRespectUpstream = editing.autoPricingRespectUpstream;
+            IAExpConfigHolder.get().autoPricingBatchSize = editing.autoPricingBatchSize;
+            IAExpConfigHolder.get().autoPricingTickBudgetMs = editing.autoPricingTickBudgetMs;
             // 精确模式始终开启（已从 GUI 移除开关）
             IAExpConfigHolder.get().preciseMode = true;
             IAExpConfigHolder.get().autoPricingFromRecipes = editing.autoPricingFromRecipes;
@@ -240,6 +242,22 @@ public final class IAExpClothConfigScreen {
                 .setDefaultValue(true)
                 .setTooltip(Text.translatable("itemalchemy-expansion.config.autoPricingRespectUpstream.tooltip"))
                 .setSaveConsumer(v -> c.autoPricingRespectUpstream = v)
+                .build());
+
+        experimental.addEntry(entries
+                .startIntField(Text.translatable("itemalchemy-expansion.config.autoPricingBatchSize"),
+                        c.autoPricingBatchSize)
+                .setDefaultValue(256)
+                .setTooltip(Text.translatable("itemalchemy-expansion.config.autoPricingBatchSize.tooltip"))
+                .setSaveConsumer(v -> c.autoPricingBatchSize = v)
+                .build());
+
+        experimental.addEntry(entries
+                .startIntField(Text.translatable("itemalchemy-expansion.config.autoPricingTickBudgetMs"),
+                        c.autoPricingTickBudgetMs)
+                .setDefaultValue(8)
+                .setTooltip(Text.translatable("itemalchemy-expansion.config.autoPricingTickBudgetMs.tooltip"))
+                .setSaveConsumer(v -> c.autoPricingTickBudgetMs = v)
                 .build());
     }
 }

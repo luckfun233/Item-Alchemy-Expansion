@@ -42,8 +42,8 @@ public class IAExpConfig {
         @SerializedName("first") FIRST
     }
 
-    /** 配置版本号，用于旧配置自动升级。缺省（旧配置）视为 0，当前为 8。 */
-    public int configVersion = 8;
+    /** 配置版本号，用于旧配置自动升级。缺省（旧配置）视为 0，当前为 9。 */
+    public int configVersion = 9;
 
     /** 转换桌展示方式，默认 图标+名称 */
     public DisplayMode displayMode = DisplayMode.ICON_AND_NAME;
@@ -128,6 +128,23 @@ public class IAExpConfig {
     public boolean autoPricingRespectUpstream = true;
 
     /**
+     * 自动定价每个服务器 tick 处理的最大配方数（实验性，默认 256）。
+     * <p>自动定价采用「分批 + 时间片」扫描：每 tick 最多处理这么多条配方，
+     * 同时受 {@link #autoPricingTickBudgetMs} 时间预算限制（取两者先达上限）。
+     * 这样即使 300+ 模组、数万条配方也不会阻塞主线程、不会卡顿。
+     * 配方越多可适当调大；TPS 紧张时调小。完成后结果一次性写入并缓存。</p>
+     */
+    public int autoPricingBatchSize = 256;
+
+    /**
+     * 自动定价每 tick 的时间预算（毫秒，实验性，默认 8）。
+     * <p>每 tick 处理配方时一旦耗时超过此值就提前让出主线程，保护 TPS。
+     * 50ms = 一 tick 总预算，留 8ms 给自动定价已足够且不影响游戏逻辑。
+     * 调大可加快首次定价，调小更保护 TPS。</p>
+     */
+    public int autoPricingTickBudgetMs = 8;
+
+    /**
      * 「重新定价」对话框是否已弹过（默认 false）。
      * <p>仅在 autoPricingFromRecipes 首次从 OFF→ON 时弹一次；弹过置 true 写盘。
      * 想再次触发可用命令 {@code /itemalchemy-expansion reprice}。</p>
@@ -158,6 +175,8 @@ public class IAExpConfig {
         c.autoPricingFromRecipes = autoPricingFromRecipes;
         c.autoPricingStrategy = autoPricingStrategy;
         c.autoPricingRespectUpstream = autoPricingRespectUpstream;
+        c.autoPricingBatchSize = autoPricingBatchSize;
+        c.autoPricingTickBudgetMs = autoPricingTickBudgetMs;
         c.autoPricingRepricePromptShown = autoPricingRepricePromptShown;
         c.featureNoticeShown = featureNoticeShown;
         return c;

@@ -11,6 +11,7 @@ import itemalchemy.expansion.network.SetEmcNetwork;
 import itemalchemy.expansion.recipe.RecipeAutoPricer;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.pitan76.mcpitanlib.api.command.CommandRegistry;
 
@@ -35,6 +36,12 @@ public class ItemAlchemyExpansion implements ModInitializer {
 
 		// 注册命令 /itemalchemy-expansion reprice（强制重算自动定价）
 		CommandRegistry.register(MOD_ID, new IAExpCommand());
+
+		// 自动定价分批扫描：每 tick 处理一批配方（受 batch size + 时间预算限制），不阻塞主线程。
+		// 监听器常驻但未扫描时零开销（computeAndStore/startAsyncCompute 置 computing=true 后才真正工作）。
+		ServerTickEvents.END_SERVER_TICK.register(RecipeAutoPricer::onServerTick);
+		// 服务器关闭时若扫描未完成则丢弃状态，避免下次启动残留（缓存未写即等于未定价，下次重扫）
+		ServerLifecycleEvents.SERVER_STOPPING.register(RecipeAutoPricer::onServerStopping);
 
 		// 服务端启动后（EMCManager 已 init）应用本存档 EMC 覆盖 + 精确覆盖 + 自动定价。
 		// SERVER_STARTED 在世界加载、EMCManager.init 之后触发，
