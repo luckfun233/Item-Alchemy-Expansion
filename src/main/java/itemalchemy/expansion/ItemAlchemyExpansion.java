@@ -25,27 +25,19 @@ public class ItemAlchemyExpansion implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
-		// 加载配置 + 初始化 NBT 指纹器等服务
 		IAExpServices.init();
 
-		// 注册「设置 EMC」C2S 网络包接收器（服务端）
 		SetEmcNetwork.registerServer();
-
-		// 注册「筛选模式切换」C2S 网络包接收器（服务端）
 		FilterModeNetwork.registerServer();
-
-		// 注册命令 /itemalchemy-expansion reprice（强制重算自动定价）
 		CommandRegistry.register(MOD_ID, new IAExpCommand());
 
-		// 自动定价分批扫描：每 tick 处理一批配方（受 batch size + 时间预算限制），不阻塞主线程。
-		// 监听器常驻但未扫描时零开销（computeAndStore/startAsyncCompute 置 computing=true 后才真正工作）。
+		// 自动定价分批扫描：每 tick 处理一批配方，未扫描时零开销
 		ServerTickEvents.END_SERVER_TICK.register(RecipeAutoPricer::onServerTick);
-		// 服务器关闭时若扫描未完成则丢弃状态，避免下次启动残留（缓存未写即等于未定价，下次重扫）
+		// 服务器关闭时若扫描未完成则丢弃状态，避免下次启动残留
 		ServerLifecycleEvents.SERVER_STOPPING.register(RecipeAutoPricer::onServerStopping);
 
-		// 服务端启动后（EMCManager 已 init）应用本存档 EMC 覆盖 + 精确覆盖 + 自动定价。
-		// SERVER_STARTED 在世界加载、EMCManager.init 之后触发，
-		// 此时 emc_config.json 全局值已在内存 map，本存档 overrides 覆盖其上。
+		// SERVER_STARTED 在 EMCManager.init 之后触发：此时全局 emc_config.json 已在内存 map，
+		// 本存档 overrides 覆盖其上
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
 			try {
 				PerSaveEmcStore.load(server);
@@ -53,13 +45,12 @@ public class ItemAlchemyExpansion implements ModInitializer {
 				LOGGER.warn("[IAExp] Failed to apply per-save emc overrides on server start: {}", t.toString());
 			}
 			try {
-				// 精确覆盖加载（不依赖 autoPricing，玩家手动精确值在任何精确模式 ON 时都生效）
+				// 精确覆盖加载不依赖 autoPricing，玩家手动精确值始终生效
 				PreciseEmcStore.load(server);
 			} catch (Throwable t) {
 				LOGGER.warn("[IAExp] Failed to load precise emc store: {}", t.toString());
 			}
 			try {
-				// 配方自动定价（仅开启时执行；缓存命中则跳过重算）
 				IAExpConfig cfg = IAExpConfigHolder.get();
 				if (cfg.autoPricingFromRecipes) {
 					RecipeAutoPricer.computeAndStore(server);
@@ -71,7 +62,7 @@ public class ItemAlchemyExpansion implements ModInitializer {
 			}
 		});
 
-		// 玩家加入时推送精确 map + 自动定价 map + 检查是否需要弹「新功能」toast
+		// 玩家加入时推送精确/自动定价 map + 升级/重新定价提示
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			try {
 				SetEmcNetwork.pushPreciseMapTo(handler.player);
@@ -83,7 +74,7 @@ public class ItemAlchemyExpansion implements ModInitializer {
 			} catch (Throwable t) {
 				LOGGER.warn("[IAExp] Failed to push auto emc map on player join: {}", t.toString());
 			}
-			// 升级 toast：仅当配置从旧版本升级 && 未提示过时弹一次
+			// 升级 toast：仅当配置从旧版本升级且未提示过时弹一次
 			try {
 				if (IAExpConfigHolder.wasUpgradedFromLegacy()
 						&& !IAExpConfigHolder.get().featureNoticeShown) {
@@ -97,7 +88,6 @@ public class ItemAlchemyExpansion implements ModInitializer {
 			} catch (Throwable t) {
 				LOGGER.warn("[IAExp] Failed to push new feature toast: {}", t.toString());
 			}
-			// 重新定价提示：autoPricing 开启且未弹过时，扫描手动定价候选并推给客户端
 			try {
 				IAExpConfig cfg = IAExpConfigHolder.get();
 				if (cfg.autoPricingFromRecipes && !cfg.autoPricingRepricePromptShown) {
@@ -113,9 +103,8 @@ public class ItemAlchemyExpansion implements ModInitializer {
 	}
 
 	/**
-	 * 调试日志开关：仅当 {@code config.debugLogging=true} 时输出 INFO 级别日志。
-	 * <p>用于变体键生成、提取槽重建、注册/移除等高频路径的详细日志，关闭时静默以避免刷屏。
-	 * warn/error 始终通过 {@link #LOGGER} 直接输出。</p>
+	 * 调试日志：仅当 {@code config.debugLogging=true} 时输出 INFO 级别日志，关闭时静默以避免刷屏。
+	 * warn/error 始终通过 {@link #LOGGER} 直接输出。
 	 */
 	public static void debug(String format, Object... args) {
 		if (IAExpConfigHolder.get().debugLogging) {

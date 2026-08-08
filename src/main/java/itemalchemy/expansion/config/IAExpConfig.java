@@ -9,9 +9,7 @@ import java.util.List;
  * Item Alchemy Expansion 配置模型。
  *
  * <p>序列化为 {@code config/itemalchemy-expansion.json5}（实际是标准 JSON，扩展名仅便于人工编辑）。
- * 无 Cloth Config 时用 Gson 读写；有 Cloth Config 时由 {@code ModMenuIntegration} 渲染 GUI（阶段 6）。</p>
- *
- * <p>所有默认值即用户主需求（见 plan.md §5）。</p>
+ * 无 Cloth Config 时用 Gson 读写；有 Cloth Config 时由 {@code ModMenuIntegration} 渲染 GUI。</p>
  */
 public class IAExpConfig {
 
@@ -56,15 +54,14 @@ public class IAExpConfig {
 
     /**
      * 搜索时是否同时检索潜影盒内部内容物（默认 true）。
-     * <p>开启后，搜索词会匹配潜影盒内每个内容物的 id/翻译名/显示名，
-     * 匹配的潜影盒会出现在搜索结果中（排在直接物品之后），
-     * 并在槽位右下角显示第一个匹配物的小标志。</p>
+     * 开启后搜索词会匹配潜影盒内每个内容物的 id/翻译名/显示名，匹配的潜影盒会出现在搜索结果中
+     * （排在直接物品之后），并在槽位右下角显示第一个匹配物的小标志。
      */
     public boolean searchShulkerContents = true;
 
     /**
      * Shift 预览时是否对匹配搜索词的内容物格子画红框标记（默认 true）。
-     * <p>焦点白框优先级高于红框（同一格既是焦点又匹配时，只显示白框）。</p>
+     * 焦点白框优先级高于红框（同一格既是焦点又匹配时只显示白框）。
      */
     public boolean shulkerMatchRedFrame = true;
 
@@ -81,16 +78,15 @@ public class IAExpConfig {
     public boolean builtInShulkerPreview = true;
 
     /**
-     * 调试日志开关（默认 false）。
-     * <p>开启后输出变体键生成、提取槽重建、注册/移除等详细 INFO 日志，便于排查兼容性问题；
-     * 关闭时仅输出 warn/error。配置页可切换。</p>
+     * 调试日志开关（默认 false）。开启后输出变体键生成、提取槽重建、注册/移除等详细 INFO 日志，
+     * 便于排查兼容性问题；关闭时仅输出 warn/error。
      */
     public boolean debugLogging = false;
 
     /**
      * 是否忽略 Damage 与 RepairCost（默认 true）。
-     * <p>工具/武器的 Damage（耐久）和 RepairCost（修复花费）会让同一工具因耐久不同产生大量变体。
-     * 默认忽略这两个 key 以避免变体爆炸；想要严格全 NBT 区分时设为 false。</p>
+     * 工具/武器的 Damage（耐久）和 RepairCost（修复花费）会让同一工具因耐久不同产生大量变体，
+     * 默认忽略以避免变体爆炸；想要严格全 NBT 区分时设为 false。
      */
     public boolean fullIgnoreDamageAndRepairCost = true;
 
@@ -98,62 +94,60 @@ public class IAExpConfig {
 
     /**
      * 精确模式（默认 true）。
-     * <p>EMC 按变体键（itemId + NBT 指纹）查询：同 ID 不同 NBT 的物品可各自有价。
+     * EMC 按变体键（itemId + NBT 指纹）查询：同 ID 不同 NBT 的物品可各自有价。
      * 已从 GUI 移除开关——自动定价需要它，手动定价在 SetEmcScreen 中可选精确/通用，
-     * 全局精确模式始终开启不影响「通用」手动定价（查询时精确层 miss 自然落到通用层）。</p>
+     * 全局精确模式始终开启不影响「通用」手动定价（查询时精确层 miss 自然落到通用层）。
      */
     public boolean preciseMode = true;
 
     /**
      * 配方自动定价总开关（实验性，默认 false）。
-     * <p>开启后扫描所有注册到原版 RecipeManager 的配方（含模组自定义类型），
-     * 对未定义 EMC 的物品按材料 EMC 之和定价。开启时建议同时开启 {@link #preciseMode}，
+     * 开启后扫描所有注册到原版 RecipeManager 的配方（含模组自定义类型），
+     * 对未定义 EMC 的物品按材料 EMC 之和定价。建议同时开启 {@link #preciseMode}，
      * 否则同 ID 不同 NBT 的物品（如不同 AmmoId 的子弹）无法各自定价。
-     * GUI 保存时若 preciseMode 仍为 false，会自动置 true。</p>
-     * <p>优先级：手动（精确/通用）> 自动（精确/通用）；上游已定义值不被覆盖。</p>
+     * GUI 保存时若 preciseMode 仍为 false，会自动置 true。
+     * 优先级：手动（精确/通用）> 自动（精确/通用）；上游已定义值不被覆盖。
      */
     public boolean autoPricingFromRecipes = false;
 
     /**
      * 多条配方产出相同变体时的取值策略（实验性，默认 MIN）。
-     * <p>MIN 取最便宜配方（推荐，防套利）；MAX 取最贵；AVG 平均；FIRST 第一个找到。
-     * 当前实现仅 MIN，其余预留枚举位。</p>
+     * MIN 取最便宜配方（推荐，防套利）；MAX 取最贵；AVG 平均；FIRST 第一个找到。
+     * 当前实现仅 MIN，其余预留枚举位。
      */
     public AutoPricingStrategy autoPricingStrategy = AutoPricingStrategy.MIN;
 
     /**
      * 自动定价是否跳过上游 defaultEMCMap 已定义的物品（实验性，默认 true）。
-     * <p>开启后原版/上游默认值不被自动定价覆盖。强烈不建议关闭。</p>
+     * 开启后原版/上游默认值不被自动定价覆盖。强烈不建议关闭。
      */
     public boolean autoPricingRespectUpstream = true;
 
     /**
      * 自动定价每个服务器 tick 处理的最大配方数（实验性，默认 256）。
-     * <p>自动定价采用「分批 + 时间片」扫描：每 tick 最多处理这么多条配方，
-     * 同时受 {@link #autoPricingTickBudgetMs} 时间预算限制（取两者先达上限）。
-     * 这样即使 300+ 模组、数万条配方也不会阻塞主线程、不会卡顿。
-     * 配方越多可适当调大；TPS 紧张时调小。完成后结果一次性写入并缓存。</p>
+     * 自动定价采用「分批 + 时间片」扫描：每 tick 最多处理这么多条配方，
+     * 同时受 {@link #autoPricingTickBudgetMs} 时间预算限制（取两者先达上限），
+     * 这样即使 300+ 模组、数万条配方也不会阻塞主线程。配方越多可适当调大；TPS 紧张时调小。
      */
     public int autoPricingBatchSize = 256;
 
     /**
      * 自动定价每 tick 的时间预算（毫秒，实验性，默认 8）。
-     * <p>每 tick 处理配方时一旦耗时超过此值就提前让出主线程，保护 TPS。
-     * 50ms = 一 tick 总预算，留 8ms 给自动定价已足够且不影响游戏逻辑。
-     * 调大可加快首次定价，调小更保护 TPS。</p>
+     * 每 tick 处理配方时一旦耗时超过此值就提前让出主线程，保护 TPS。
+     * 调大可加快首次定价，调小更保护 TPS。
      */
     public int autoPricingTickBudgetMs = 8;
 
     /**
      * 「重新定价」对话框是否已弹过（默认 false）。
-     * <p>仅在 autoPricingFromRecipes 首次从 OFF→ON 时弹一次；弹过置 true 写盘。
-     * 想再次触发可用命令 {@code /itemalchemy-expansion reprice}。</p>
+     * 仅在 autoPricingFromRecipes 首次从 OFF→ON 时弹一次；弹过置 true 写盘。
+     * 想再次触发可用命令 {@code /itemalchemy-expansion reprice}。
      */
     public boolean autoPricingRepricePromptShown = false;
 
     /**
      * 新功能提醒是否已显示（默认 false）。
-     * <p>检测到 configVersion 从旧版升级时进世界弹一次 toast，弹过置 true 写盘。</p>
+     * 检测到 configVersion 从旧版升级时进世界弹一次 toast，弹过置 true 写盘。
      */
     public boolean featureNoticeShown = false;
 

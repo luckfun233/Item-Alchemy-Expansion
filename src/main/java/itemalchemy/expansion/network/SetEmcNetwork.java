@@ -27,29 +27,20 @@ import java.util.Set;
  * <pre>{ itemId: String, emc: long, scope: varint (0=本存档, 1=全局),
  *         precise: boolean, variantKey: String }</pre></p>
  *
- * <p>服务端接收后：
+ * <p>服务端接收后由 {@link #applyOnServer} 根据定价精度分发：
  * <ul>
- *   <li>{@link #applyOnServer} 根据定价精度分发：
- *     <ul>
- *       <li><b>通用</b>（{@code precise=false}）：更新 {@link EMCManager#set(String, long)} 内存 map；
- *           按 scope 写 {@link PerSaveEmcStore} 或 {@link GlobalEmcStore}</li>
- *       <li><b>精确</b>（{@code precise=true}）：写入 {@link PreciseEmcStore}（变体键存储），
- *           按 scope 决定本存档或全局层。不动 {@code EMCManager.map}</li>
- *     </ul>
- *   </li>
- *   <li>{@link #resyncAll} 重同步 emc_map + precise_emc_map 给所有在线玩家</li>
- *   <li>给发送者回一条聊天消息确认</li>
+ *   <li><b>通用</b>（{@code precise=false}）：更新 {@link EMCManager#set(String, long)} 内存 map，
+ *       按 scope 写 {@link PerSaveEmcStore} 或 {@link GlobalEmcStore}</li>
+ *   <li><b>精确</b>（{@code precise=true}）：写入 {@link PreciseEmcStore}（按变体键存储），
+ *       按 scope 决定本存档或全局层，不动 {@code EMCManager.map}</li>
  * </ul>
- * </p>
+ * 再由 {@link #resyncAll} 重同步 emc_map + precise_emc_map 给所有在线玩家，并给发送者回一条聊天消息确认。</p>
  *
  * <p><b>注意</b>：客户端发送方法在 {@code SetEmcClientNetwork}（client source set）中，
  * 因为 {@code ClientPlayNetworking} 是客户端专属 API，不能在 main source set 引用。</p>
  *
- * <p><b>安全</b>：服务端校验 {@code itemId} 非空、emc >= 0。scope 仅 0/1。
- * 权限：任意玩家可设（EMC 修改是创作向功能，单人世界无权限问题；
- * 服主若需限制可在服务端配置加 op 检查——当前实现遵循前置模组的设计：
- * {@code /itemalchemy reloademc} 也是 permissionLevel 2，但本模组面向单人/小型联机，
- * 暂不强制 op，保持易用性。需要时可在 {@code applyOnServer} 加 {@code player.hasPermissionLevel(2)} 判断）。</p>
+ * <p><b>安全</b>：服务端校验 {@code itemId} 非空、emc >= 0，scope 仅 0/1。
+ * 任意玩家可设（EMC 修改是创作向功能）。服主若需限制可在 {@code applyOnServer} 加 {@code player.hasPermissionLevel(2)} 判断。</p>
  */
 public final class SetEmcNetwork {
 
@@ -146,7 +137,6 @@ public final class SetEmcNetwork {
                               ServerPlayerEntity player,
                               String itemId, long emc, int scope,
                               boolean precise, String variantKey) {
-        // 1. 基础校验
         if (itemId == null || itemId.isEmpty()) {
             sendFeedback(player, "itemalchemy-expansion.set_emc.fail.invalid_id");
             return;
@@ -160,13 +150,12 @@ public final class SetEmcNetwork {
             return;
         }
 
-        // 2. 规范化 itemId（带命名空间）
         String normalizedId = normalizeItemId(itemId);
 
         try {
             if (precise) {
                 // 精确模式：写入 PreciseEmcStore（按变体键），不动 EMCManager.map
-                // 变体键兜底：若客户端没传，用纯 itemId 作为变体键（无 NBT 物品等价于通用）
+                // 变体键兜底：客户端未传时用纯 itemId 作为变体键（无 NBT 物品等价于通用）
                 String vk = (variantKey == null || variantKey.isEmpty())
                         ? normalizedId : variantKey;
                 boolean global = (scope == SCOPE_GLOBAL);
@@ -174,7 +163,6 @@ public final class SetEmcNetwork {
                 ItemAlchemyExpansion.debug("[IAExp] precise emc set server-side: {} -> {} (scope={}, global={})",
                         vk, emc, scope, global);
             } else {
-                // 通用模式：原行为，更新 EMCManager.map + PerSave/Global
                 EMCManager.set(normalizedId, emc);
                 if (scope == SCOPE_THIS_SAVE) {
                     PerSaveEmcStore.set(server, normalizedId, emc);
@@ -183,10 +171,8 @@ public final class SetEmcNetwork {
                 }
             }
 
-            // 3. 重同步给所有在线玩家（通用 + 精确）
             resyncAll(server);
 
-            // 4. 回执
             sendFeedback(player, "itemalchemy-expansion.set_emc.success",
                     Text.literal(normalizedId), Text.literal(String.valueOf(emc)),
                     Text.translatable(scope == SCOPE_THIS_SAVE
@@ -202,13 +188,11 @@ public final class SetEmcNetwork {
     /** 更新内存中的 map 并把当前所有条目同步给在线玩家（通用 + 精确 + 自动） */
     static void resyncAll(net.minecraft.server.MinecraftServer server) {
         for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
-            // 用前置模组的同步方法（包名 itemalchemy）：通用 map
+            // 通用 map 用前置模组的同步方法，精确/自动定价 map 用自定义 S2C 包
             net.pitan76.mcpitanlib.api.entity.Player mcpPlayer =
                     new net.pitan76.mcpitanlib.api.entity.Player(p);
             EMCManager.syncS2C_emc_map(mcpPlayer);
-            // 精确 map：自定义 S2C 包
             pushPreciseMapTo(p);
-            // 自动定价 map：自定义 S2C 包
             pushAutoEmcMapTo(p);
         }
     }
@@ -348,7 +332,6 @@ public final class SetEmcNetwork {
     static void handleRepriceSelective(net.minecraft.server.MinecraftServer server,
                                        ServerPlayerEntity player,
                                        List<String> generalIds, List<String> preciseVkStrs) {
-        // 标记已弹过
         IAExpConfigHolder.get().autoPricingRepricePromptShown = true;
         IAExpConfigHolder.save();
 
@@ -362,7 +345,6 @@ public final class SetEmcNetwork {
             return;
         }
 
-        // 有条目被移除：强制重算自动定价并重同步
         try {
             RecipeAutoPricer.forceRecompute(server);
         } catch (Throwable t) {

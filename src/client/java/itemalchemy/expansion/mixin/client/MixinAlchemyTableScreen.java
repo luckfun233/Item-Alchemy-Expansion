@@ -25,17 +25,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * 拦截 {@link AlchemyTableScreen} 的 {@code keyPressed} / {@code keyReleased}，
  * 在 Shift 预览激活时消费 WASD / 方向键事件，阻止焦点被切换到搜索框。
  *
- * <p><b>问题根因</b>：原版 {@code AlchemyTableScreen.keyPressed} 在搜索框未聚焦时调用
- * {@code super.keyPressed(args)}，mcpitanlib/vanilla 的 {@code HandledScreen} 会把焦点
- * 切换到下一个 widget（搜索框）。一旦搜索框获得焦点，{@code keyReleased} 中的
- * {@code PlayerRegisteredItemUtil.getItems()} 被触发，对变体键解析崩溃。</p>
+ * <p>原版 {@code AlchemyTableScreen.keyPressed} 在搜索框未聚焦时调用 {@code super.keyPressed(args)}，
+ * mcpitanlib/vanilla 的 {@code HandledScreen} 会把焦点切换到下一个 widget（搜索框）；
+ * 一旦搜索框获得焦点，{@code keyReleased} 中的 {@code PlayerRegisteredItemUtil.getItems()}
+ * 会对变体键解析崩溃。</p>
  *
- * <p><b>修复策略</b>：当 Shift 按下（预览激活条件之一）+ 预览功能已开启 + 搜索框未聚焦时，
- * 消费 WASD / 方向键的 {@code keyPressed} 和 {@code keyReleased} 事件（返回 true），
- * 阻止事件向上传递。焦点导航由 {@link AlchemyTableScreenShulkerPreview#updateFocus} 通过
- * {@code InputUtil.isKeyPressed} 轮询 GLFW 状态实现，不依赖事件传递，所以消费事件不影响导航。</p>
- *
- * <p><b>搜索框已聚焦时放行</b>：让搜索框正常处理方向键（移动文本光标）。</p>
+ * <p>策略：Shift 按下 + 预览功能已开启 + 搜索框未聚焦时，消费 WASD / 方向键的
+ * {@code keyPressed} 和 {@code keyReleased} 事件（返回 true）。焦点导航由
+ * {@link AlchemyTableScreenShulkerPreview#updateFocus} 通过 {@code InputUtil.isKeyPressed}
+ * 轮询 GLFW 状态实现，不依赖事件传递，所以消费事件不影响导航。搜索框已聚焦时放行
+ * （让搜索框正常处理方向键移动文本光标）。</p>
  *
  * <p><b>筛选按钮</b>：在 {@code initOverride} 末尾注入一个三档循环按钮（全部 / 仅物品 / 仅潜影盒），
  * 点击切换 filterMode、发送 C2S 包同步服务端、立即本地 {@code sortBySearch}。</p>
@@ -69,17 +68,10 @@ public abstract class MixinAlchemyTableScreen {
     }
 
     /**
-     * 把控件加入 Screen（修复「筛选按钮不出现」）。
+     * 把控件加入 Screen。
      *
-     * <p><b>原 bug 根因</b>：旧实现用反射 {@code getDeclaredMethod("addDrawableChild_compatibility",
-     * ClickableWidget.class)}，但该方法擦除后的形参类型是 {@code Element}（vanilla {@code class_364}），
-     * 而不是 {@link ClickableWidget}，{@code Class.getDeclaredMethod} 要求形参 Class <b>精确</b>匹配，
-     * 故永远抛 {@code NoSuchMethodException}；回退分支又用字符串 {@code "addDrawableChild"} 在生产环境
-     * （intermediary 下该方法名为 {@code method_37063}）查找，同样失败。结果按钮对象被构造却从未注册到
-     * {@code drawables}/{@code selectableChildren}，既不渲染也无法点击。</p>
-     *
-     * <p><b>修复</b>：{@code addDrawableChild_compatibility} 是 mcpitanlib {@code SimpleHandledScreen}
-     * 上的 <b>public</b> 方法，内部直接委托 vanilla {@code HandledScreen.addDrawableChild}。
+     * <p>{@code addDrawableChild_compatibility} 是 mcpitanlib {@code SimpleHandledScreen} 上的
+     * <b>public</b> 方法，内部直接委托 vanilla {@code HandledScreen.addDrawableChild}。
      * 直接强转 {@code this} 调用即可：方法名是 mcpitanlib 自有（不重映射），描述符里的 vanilla 类引用
      * 由 loom 自动重映射，dev 与 prod 行为一致。{@link ClickableWidget} 满足泛型上界
      * {@code <T extends Element & Drawable & Selectable>}。</p>
@@ -99,10 +91,9 @@ public abstract class MixinAlchemyTableScreen {
     private void iaexp$interceptDirectionKeys(KeyEventArgs args, CallbackInfoReturnable<Boolean> cir) {
         // 只在 Shift 按下（预览激活条件之一）时拦截
         if (!Screen.hasShiftDown()) return;
-        // 预览功能未开启时不拦截
         if (!AlchemyTableScreenShulkerPreview.isPreviewFeatureEnabled()) return;
 
-        // Shift 按下时强制搜索框失焦，让方向键/WASD 控制预览焦点
+        // 强制搜索框失焦，让方向键/WASD 控制预览焦点
         if (searchBox != null && searchBox.isFocused()) {
             searchBox.setFocused(false);
         }
@@ -135,22 +126,18 @@ public abstract class MixinAlchemyTableScreen {
     // ====== 筛选按钮注入 ======
 
     /**
-     * 在 initOverride 末尾添加筛选按钮。
-     *
-     * <p>按钮位置：搜索框右侧，尺寸 48×14。
-     * 文字根据当前 filterMode：全部 / 物品 / 盒子。
-     * 点击：cycleFilterMode → 发包 → 本地 sortBySearch → 更新按钮文字。</p>
+     * 在 initOverride 末尾添加筛选按钮。按钮位于搜索框右侧（48×14），
+     * 文字根据当前 filterMode 显示，点击切换 filterMode 并发包同步服务端、本地重排、更新按钮文字。
      */
     @Inject(method = "initOverride", at = @At("RETURN"), remap = false)
     private void iaexp$addFilterButton(CallbackInfo ci) {
-        // 按钮位置：基于 searchBox 推算（搜索框 x+85,y+5 宽60高9）
-        // 按钮放在搜索框右侧，垂直居中对齐
+        // 基于搜索框位置推算按钮坐标，垂直居中对齐
         int bx, by;
         if (searchBox != null) {
             bx = searchBox.getX() + searchBox.getWidth() + 3;
             by = searchBox.getY() - 2;
         } else {
-            // searchBox 不可用时回退（不应该发生）
+            // searchBox 不可用时回退
             bx = 0;
             by = 0;
         }
@@ -180,24 +167,21 @@ public abstract class MixinAlchemyTableScreen {
         if (!(handler instanceof IAlchemyTableScreenHandlerExt)) return;
         IAlchemyTableScreenHandlerExt ext = (IAlchemyTableScreenHandlerExt) handler;
 
-        // 1. 切换到下一档
         SearchFilterMode newMode = ext.iaexp$cycleFilterMode();
 
-        // 2. 发包同步服务端
+        // 发包同步服务端，客户端独立运行时无网络则忽略
         try {
             FilterModeClientNetwork.send(newMode);
         } catch (Throwable ignored) {
-            // 客户端独立运行时无网络，忽略
         }
 
-        // 3. 立即本地重新搜索（客户端预测，立即响应）
+        // 客户端预测：立即本地重新搜索
         try {
             handler.index = 0;
             handler.sortBySearch();
         } catch (Throwable ignored) {
         }
 
-        // 4. 更新按钮文字
         btn.setMessage(Text.literal(iaexp$labelFor(newMode)));
     }
 

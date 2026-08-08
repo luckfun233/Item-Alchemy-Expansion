@@ -16,16 +16,12 @@ import net.pitan76.mcpitanlib.api.util.ItemStackUtil;
 /**
  * EMC 查询工具：供配方自动定价等场景调用，<b>绕过 {@link MixinEMCManager}</b>，避免递归。
  *
- * <p>本类是 {@link MixinEMCManager} 中 public 静态方法的搬迁归宿：Mixin 规则要求
- * Mixin 类内的静态方法必须是 {@code private}，因此原本放在 Mixin 类里的
- * {@code resolveEmcForInput} / {@code resolveEmcForIngredient} 被移到这里。</p>
+ * <p>本类是 {@link MixinEMCManager} 中 public 静态方法的搬迁归宿：Mixin 规则要求 Mixin 类内的静态方法必须是 {@code private}，
+ * 因此原本放在 Mixin 类里的 {@code resolveEmcForInput} / {@code resolveEmcForIngredient} 被移到这里。</p>
  *
  * <h3>查询优先级（始终生效，不再依赖 preciseMode 开关）</h3>
- * <ul>
- *   <li>L1（玩家精确）→ L3（自动精确）→ L2（原版 {@link EMCManager#get(net.minecraft.item.Item)}）→ L4（自动通用）→ 0</li>
- * </ul>
- *
- * <p>注意：L2 在此处<b>直接调用 {@link EMCManager#contains} + {@link EMCManager#get(net.minecraft.item.Item)}</b>
+ * <p>L1（玩家精确）→ L3（自动精确）→ L2（原版 {@link EMCManager#get(net.minecraft.item.Item)}）→ L4（自动通用）→ 0。
+ * L2 <b>直接调用 {@link EMCManager#contains} + {@link EMCManager#get(net.minecraft.item.Item)}</b>
  * 而非 {@link EMCManager#get(ItemStack)}，避免触发本 Mixin 的递归（精确查询 → 查输入材料 EMC → 又查 ItemStack → 又走精确查询）。</p>
  */
 public final class EmcQueryUtil {

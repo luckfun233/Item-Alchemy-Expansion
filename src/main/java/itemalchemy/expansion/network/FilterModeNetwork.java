@@ -12,13 +12,8 @@ import net.pitan76.itemalchemy.gui.screen.AlchemyTableScreenHandler;
  *
  * <p>客户端点击转换桌左侧筛选按钮时发送：<pre>{ filterMode: byte (ordinal 0-2) }</pre></p>
  *
- * <p>服务端接收后：
- * <ol>
- *   <li>校验玩家当前 ScreenHandler 是 {@link AlchemyTableScreenHandler}；</li>
- *   <li>cast 为 {@link IAlchemyTableScreenHandlerExt}，设置 filterMode；</li>
- *   <li>调用 {@code sortBySearch()} 重新排序（会触发本模组 Mixin 的新逻辑）。</li>
- * </ol>
- * </p>
+ * <p>服务端接收后：校验玩家当前 ScreenHandler 是 {@link AlchemyTableScreenHandler}，
+ * cast 为 {@link IAlchemyTableScreenHandlerExt} 设置 filterMode，再调用 {@code sortBySearch()} 重新排序。</p>
  *
  * <p><b>客户端发送</b>在 {@code FilterModeClientNetwork}（client source set），
  * 因为 {@code ClientPlayNetworking} 是客户端专属 API。</p>
@@ -50,7 +45,6 @@ public final class FilterModeNetwork {
                 if (!(screenHandler instanceof IAlchemyTableScreenHandlerExt)) return;
                 IAlchemyTableScreenHandlerExt ext = (IAlchemyTableScreenHandlerExt) screenHandler;
                 ext.iaexp$setFilterMode(newMode);
-                // 重置到第一页并重新搜索
                 screenHandler.index = 0;
                 screenHandler.sortBySearch();
             });

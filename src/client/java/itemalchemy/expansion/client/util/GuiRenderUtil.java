@@ -11,11 +11,9 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 /**
- * 客户端 GUI 渲染共享工具：边框绘制与悬停槽位反射读取。
- *
- * <p>提取自 {@code AlchemyTableScreenShulkerPreview}、{@code AlchemyTableSlotMatchOverlay}、
- * {@code SetEmcScreen}、{@code RepriceConfirmScreen} 中重复的 {@code drawBorder} 与
- * {@code getHoveredSlot} 实现，统一维护反射字段名与缓存。</p>
+ * 客户端 GUI 渲染共享工具：边框绘制与悬停槽位反射读取。统一维护反射字段名与缓存，
+ * 供 {@code AlchemyTableScreenShulkerPreview}、{@code AlchemyTableSlotMatchOverlay}、
+ * {@code SetEmcScreen}、{@code RepriceConfirmScreen} 复用。
  */
 public final class GuiRenderUtil {
 
@@ -37,17 +35,8 @@ public final class GuiRenderUtil {
     private GuiRenderUtil() {}
 
     /**
-     * 绘制 1px 粗的矩形边框（4 条线）。
-     *
-     * <p>调用前应已通过 {@code matrices.translate(0, 0, z)} 设定所需的 z-level，
-     * 边框与背景同 z。颜色为 ARGB 格式（如 {@code 0xFF505050}）。</p>
-     *
-     * @param context 当前 DrawContext
-     * @param x       矩形左上角 x
-     * @param y       矩形左上角 y
-     * @param width   矩形宽度
-     * @param height  矩形高度
-     * @param color   ARGB 颜色
+     * 绘制 1px 粗的矩形边框（4 条线）。调用前应已通过 {@code matrices.translate(0, 0, z)}
+     * 设定所需的 z-level，边框与背景同 z。颜色为 ARGB 格式（如 {@code 0xFF505050}）。
      */
     public static void drawBorder(DrawContext context, int x, int y, int width, int height, int color) {
         context.fill(x, y, x + width, y + 1, color);                   // top
@@ -58,11 +47,7 @@ public final class GuiRenderUtil {
 
     /**
      * 反射读取 {@link HandledScreen#focusedSlot}（intermediary: {@code field_2787}）。
-     *
-     * <p>Field 对象懒加载并缓存，仅首次调用时查找。查找/读取失败返回 null（调用方应静默跳过）。</p>
-     *
-     * @param screen 当前 HandledScreen
-     * @return 鼠标悬停的 Slot；不可用或异常时返回 null
+     * Field 懒加载并缓存，查找/读取失败返回 null（调用方应静默跳过）。
      */
     public static Slot getHoveredSlot(HandledScreen<?> screen) {
         Field f = resolveHoveredSlotField();
@@ -92,12 +77,7 @@ public final class GuiRenderUtil {
 
     /**
      * 反射调用 {@link AlchemyTableScreen#getScreenHandlerOverride()} 获取 ScreenHandler。
-     *
-     * <p>Method 对象懒加载并缓存，避免每帧 {@code getMethod} 反射查找。
-     * 调用失败返回 null（调用方应静默跳过）。</p>
-     *
-     * @param screen 当前 AlchemyTableScreen
-     * @return AlchemyTableScreenHandler；不可用或异常时返回 null
+     * Method 懒加载并缓存以避免每帧反射查找；调用失败返回 null（调用方应静默跳过）。
      */
     public static AlchemyTableScreenHandler getScreenHandler(AlchemyTableScreen screen) {
         Method m = resolveGetHandlerMethod();

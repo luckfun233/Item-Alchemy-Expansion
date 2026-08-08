@@ -23,18 +23,11 @@ import java.util.Map;
  * <p>{@link SetEmcScreen} 点击「确认」时调用 {@link #sendSetEmc} 发送 C2S 包，
  * 服务端由 {@link SetEmcNetwork#registerServer()} 接收处理。</p>
  *
- * <p>客户端通过 {@link #registerClientReceiver} 注册 S2C 接收器：
- * <ul>
- *   <li>{@link SetEmcNetwork#SYNC_PRECISE_EMC_ID}：玩家精确 map 快照（玩家上线/他人修改时触发），
- *       写入 {@link PreciseEmcStore#applyFromSnapshot} 供 {@link SetEmcScreen} 显示「当前 EMC」。</li>
- *   <li>{@link SetEmcNetwork#SYNC_AUTO_EMC_ID}：自动定价结果（精确层 + 通用层）快照，
- *       写入 {@link AutoEmcStore#applyFromSnapshot} 供 {@code MixinEMCManager} 查询 L3/L4。</li>
- *   <li>{@link SetEmcNetwork#REPRICE_CANDIDATES_ID}：候选 itemId 列表，
- *       打开 {@link RepriceConfirmScreen} 让玩家选择是否重新定价。</li>
- *   <li>{@link SetEmcNetwork#NEW_FEATURE_TOAST_ID}：升级提醒，
- *       弹 {@link NewFeatureToast} 一次。</li>
- * </ul>
- * </p>
+ * <p>{@link #registerClientReceiver} 注册的 S2C 接收器：精确 map 同步
+ * （{@code SYNC_PRECISE_EMC_ID}，写入 {@link PreciseEmcStore}）、自动定价结果同步
+ * （{@code SYNC_AUTO_EMC_ID}，写入 {@link AutoEmcStore} 供 {@code MixinEMCManager} 查询 L3/L4）、
+ * 重新定价候选（{@code REPRICE_CANDIDATES_ID}，打开 {@link RepriceConfirmScreen}）、
+ * 升级提醒（{@code NEW_FEATURE_TOAST_ID}，弹 {@link NewFeatureToast} 一次）。</p>
  */
 public final class SetEmcClientNetwork {
 
@@ -116,7 +109,7 @@ public final class SetEmcClientNetwork {
      * <p>应在 ClientModInitializer 中调用一次。</p>
      */
     public static void registerClientReceiver() {
-        // 1. 玩家精确 map 同步
+        // 玩家精确 map 同步
         ClientPlayNetworking.registerGlobalReceiver(SetEmcNetwork.SYNC_PRECISE_EMC_ID,
                 (client, handler, buf, responseSender) -> {
                     Map<String, Long> snapshot = SetEmcNetwork.readEmcMap(buf);
@@ -132,7 +125,7 @@ public final class SetEmcClientNetwork {
                     });
                 });
 
-        // 2. 自动定价结果同步（精确层 + 通用层）
+        // 自动定价结果同步（精确层 + 通用层）
         ClientPlayNetworking.registerGlobalReceiver(SetEmcNetwork.SYNC_AUTO_EMC_ID,
                 (client, handler, buf, responseSender) -> {
                     Map<String, Long> precise = SetEmcNetwork.readEmcMap(buf);
@@ -149,10 +142,9 @@ public final class SetEmcClientNetwork {
                     });
                 });
 
-        // 3. 重新定价候选列表（通用层 + 精确层）→ 打开 RepriceConfirmScreen 逐个选择
+        // 重新定价候选列表（通用层 + 精确层）→ 打开 RepriceConfirmScreen 逐个选择
         ClientPlayNetworking.registerGlobalReceiver(SetEmcNetwork.REPRICE_CANDIDATES_ID,
                 (client, handler, buf, responseSender) -> {
-                    // 通用层候选：itemId + oldEmc
                     int generalCount = buf.readVarInt();
                     List<RepriceConfirmScreen.RepriceEntry> entries = new ArrayList<>(generalCount);
                     for (int i = 0; i < generalCount; i++) {
@@ -160,7 +152,6 @@ public final class SetEmcClientNetwork {
                         long oldEmc = buf.readLong();
                         entries.add(RepriceConfirmScreen.RepriceEntry.general(id, oldEmc));
                     }
-                    // 精确层候选：变体键 + oldEmc
                     int preciseCount = buf.readVarInt();
                     for (int i = 0; i < preciseCount; i++) {
                         String vkStr = buf.readString();
@@ -182,7 +173,7 @@ public final class SetEmcClientNetwork {
                     });
                 });
 
-        // 4. 新功能 toast（升级提醒）
+        // 新功能 toast（升级提醒）
         ClientPlayNetworking.registerGlobalReceiver(SetEmcNetwork.NEW_FEATURE_TOAST_ID,
                 (client, handler, buf, responseSender) -> {
                     client.execute(() -> {

@@ -46,7 +46,7 @@ public final class IAExpServices {
     /** 从 ItemStack 生成变体键 */
     public static ItemVariantKey variantKeyOf(ItemStack stack) {
         ItemVariantKey vk = ItemVariantKey.fromStack(stack, fingerprinter());
-        // 用 debugEnabled() 守卫，避免 debug 关闭时仍拼接 toStorageString()（含 NBT 指纹计算）
+        // 用 debugEnabled() 守卫，避免 debug 关闭时仍拼接 toStorageString()
         if (ItemAlchemyExpansion.debugEnabled()) {
             ItemAlchemyExpansion.debug("[IAExp] variantKeyOf: item={}, hasNbt={}, nbt={}, variant={}",
                     stack.getItem(), stack.hasNbt(),
@@ -57,10 +57,7 @@ public final class IAExpServices {
     }
 
     /**
-     * 从变体键重建带 NBT 的 ItemStack（count=1）。
-     *
-     * <p>用于 ExtractInventory.placeExtractSlots：把 registeredItems 里的变体键
-     * 还原为可展示/可购买的 ItemStack。解析失败的物品（id 不存在或 SNBT 非法）返回空堆。</p>
+     * 从变体键重建带 NBT 的 ItemStack（count=1）。解析失败（id 不存在或 SNBT 非法）返回空堆。
      */
     public static ItemStack rebuildStack(ItemVariantKey key) {
         Identifier id = Identifier.tryParse(key.itemId);

@@ -14,8 +14,8 @@ import java.util.ArrayList;
 /**
  * 配置持有者与加载/保存器。
  *
- * <p>无 Cloth Config 时的回退路径：直接用 Gson 读写 {@code config/itemalchemy-expansion.json5}。
- * 有 Cloth Config 时，GUI 修改后会调用 {@link #save()} 持久化，并 {@link #reload()} 刷新内存。</p>
+ * <p>无 Cloth Config 时直接用 Gson 读写 {@code config/itemalchemy-expansion.json5}。
+ * 有 Cloth Config 时，GUI 修改后会调用 {@link #save()} 持久化并 {@link #reload()} 刷新内存。</p>
  */
 public final class IAExpConfigHolder {
 
@@ -60,7 +60,7 @@ public final class IAExpConfigHolder {
         if (Files.exists(path)) {
             try {
                 String content = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
-                // json5 兼容：剥离行注释 // 与块注释 /* */（简易处理，足够人工编辑）
+                // json5 兼容：剥离行注释与块注释（简易处理，足够人工编辑）
                 content = stripJson5Comments(content);
                 IAExpConfig loaded = GSON.fromJson(content, IAExpConfig.class);
                 if (loaded != null) {
@@ -124,7 +124,7 @@ public final class IAExpConfigHolder {
         }
 
         // configVersion < 8: 重新定价提示流程已重写（旧的全量确认 → 新的逐个选择 UI），
-        // 旧标记 autoPricingRepricePromptShown=true 是旧 UI 遗留的，重置为 false 让新 UI 有机会弹出。
+        // 旧标记 autoPricingRepricePromptShown=true 重置为 false 让新 UI 有机会弹出
         if (loaded.configVersion < 8) {
             ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 8 (reset reprice prompt flag)", loaded.configVersion);
             loaded.autoPricingRepricePromptShown = false;
@@ -133,7 +133,7 @@ public final class IAExpConfigHolder {
         }
 
         // configVersion < 9: 自动定价引入「分批 + 时间片」扫描，新增两个性能调参字段。
-        // Gson Unsafe 会把 int 零初始化为 0，0 会导致每 tick 不处理任何配方，故补默认值。
+        // Gson Unsafe 会把 int 零初始化为 0，0 会导致每 tick 不处理任何配方，故补默认值
         if (loaded.configVersion < 9) {
             ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 9 (add auto-pricing perf tuning)", loaded.configVersion);
             if (loaded.autoPricingBatchSize <= 0) loaded.autoPricingBatchSize = def.autoPricingBatchSize;
@@ -145,9 +145,7 @@ public final class IAExpConfigHolder {
         return loaded;
     }
 
-    // 需要的 import 已在顶部
-
-    /** 简易 JSON5 注释剥离：去掉 // 行注释与 /* 块注释（不处理字符串内的 //，但配置值几乎不会含此） */
+    /** 简易 JSON5 注释剥离：去掉行注释与块注释（不处理字符串内的 //，但配置值几乎不会含此） */
     private static String stripJson5Comments(String s) {
         StringBuilder out = new StringBuilder(s.length());
         int i = 0;

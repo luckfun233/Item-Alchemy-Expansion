@@ -19,36 +19,18 @@ import net.minecraft.util.Formatting;
 import net.pitan76.itemalchemy.EMCManager;
 
 /**
- * 「设置物品 EMC」GUI：手持物品按快捷键打开。
- *
- * <p>界面布局（简约居中面板）：
- * <pre>
- *   ┌──────────────────────────────────────┐
- *   │           设置物品 EMC 值              │  标题
- *   │                                       │
- *   │   [物品图标]  物品名称                  │  目标物品
- *   │              minecraft:stone          │  物品 ID（灰色小字）
- *   │              当前 EMC: 1               │  当前值（黄色）
- *   │              变体: {AmmoId:...}         │  精确模式 ON 时显示（灰色小字）
- *   │                                       │
- *   │   新 EMC 值: [________________]       │  输入框
- *   │   定价精度: [精确 ⇄ 通用]               │  循环按钮（新增）
- *   │   作用范围: [仅本存档 ⇄]               │  循环按钮
- *   │                                       │
- *   │      [确认]        [取消]              │  操作按钮
- *   └──────────────────────────────────────┘
- * </pre></p>
+ * 「设置物品 EMC」GUI：手持物品按快捷键打开。简约居中面板，显示目标物品信息
+ * （图标 / 名称 / ID / 当前 EMC / 变体简要）+ 新 EMC 输入框 + 定价精度循环按钮
+ * + 作用范围循环按钮 + 确认 / 取消按钮。
  *
  * <p><b>定价精度</b>：
  * <ul>
- *   <li>{@link Precision#PRECISE}：写入 {@link PreciseEmcStore}（按变体键，精确模式 ON 时使用）</li>
- *   <li>{@link Precision#GENERAL}：写入原有 {@code PerSaveEmcStore}/{@code GlobalEmcStore}（按 id，通用模式使用）</li>
+ *   <li>{@link Precision#PRECISE}：写入 {@link PreciseEmcStore}（按变体键）</li>
+ *   <li>{@link Precision#GENERAL}：写入原有 {@code PerSaveEmcStore}/{@code GlobalEmcStore}（按 id）</li>
  * </ul>
- * 初始值跟随全局 {@code preciseMode} 配置；无 NBT 物品两者等价。
- * </p>
+ * 无 NBT 物品两者等价。</p>
  *
- * <p><b>暂停世界</b>：覆写 {@link #shouldPause()} 返回 true，行为类似 ESC 菜单，
- * 单人世界中打开此界面时世界 tick 暂停。</p>
+ * <p>覆写 {@link #shouldPause()} 返回 true，单人世界中打开此界面时暂停世界 tick。</p>
  */
 public class SetEmcScreen extends Screen {
 
@@ -86,13 +68,11 @@ public class SetEmcScreen extends Screen {
         super(Text.translatable("itemalchemy-expansion.set_emc.title"));
         this.targetStack = targetStack.copy();
         this.itemId = EmcQueryUtil.resolveItemId(targetStack);
-        // 算变体键（依赖 IAExpServices 已 init）
+        // 算变体键，依赖 IAExpServices 已 init
         ItemVariantKey vk = IAExpServices.variantKeyOf(targetStack);
         this.variantKey = vk.toStorageString();
         this.nbtBrief = extractNbtBrief(targetStack);
-        // 初始定价精度：有 NBT 的物品默认 PRECISE（精确配置的意义所在），
-        // 无 NBT 的物品默认 GENERAL（两者等价，更简单）。
-        // 不再跟随全局 preciseMode 开关——精确配置始终可用。
+        // 有 NBT 的物品默认 PRECISE（精确配置的意义所在），无 NBT 默认 GENERAL（两者等价）
         NbtCompound nbt = targetStack.getNbt();
         this.precision = (nbt != null && !nbt.isEmpty()) ? Precision.PRECISE : Precision.GENERAL;
         this.currentEmc = resolveCurrentEmc(this.itemId, this.variantKey, this.precision);
@@ -103,7 +83,6 @@ public class SetEmcScreen extends Screen {
         NbtCompound nbt = stack.getNbt();
         if (nbt == null || nbt.isEmpty()) return "";
         String s = nbt.toString();
-        // 截断过长 NBT
         return s.length() > 30 ? s.substring(0, 30) + "..." : s;
     }
 
@@ -113,7 +92,7 @@ public class SetEmcScreen extends Screen {
             if (precision == Precision.PRECISE) {
                 Long v = PreciseEmcStore.get(variantKey);
                 if (v != null) return v;
-                // 回退到通用
+                // 精确 map 无值时回退到通用
                 Long g = EMCManager.getMap().get(itemId);
                 return g == null ? 0L : g;
             }
@@ -126,7 +105,6 @@ public class SetEmcScreen extends Screen {
 
     @Override
     public boolean shouldPause() {
-        // 单人世界中打开此界面时暂停世界 tick（与 ESC 菜单一致）
         return true;
     }
 
@@ -135,7 +113,6 @@ public class SetEmcScreen extends Screen {
         errorText = null;
         int centerX = this.width / 2;
 
-        // ===== EMC 输入框 =====
         int fieldWidth = 160;
         int fieldX = centerX - fieldWidth / 2;
         int fieldY = this.height / 2 - 18;
@@ -147,7 +124,6 @@ public class SetEmcScreen extends Screen {
         emcField.setTextPredicate(this::isValidEmcInput);
         addDrawableChild(emcField);
 
-        // ===== 定价精度循环按钮 =====
         int precisionY = fieldY + 26;
         int precisionWidth = 160;
         precisionButton = CyclingButtonWidget.<Precision>builder(SetEmcScreen::precisionDisplayName)
@@ -157,13 +133,12 @@ public class SetEmcScreen extends Screen {
                         Text.translatable("itemalchemy-expansion.set_emc.precision_label"),
                         (button, value) -> {
                             precision = value;
-                            // 切换精度时刷新输入框默认值（按当前精度查）
+                            // 切换精度时刷新输入框默认值
                             long refreshed = resolveCurrentEmc(itemId, variantKey, precision);
                             emcField.setText(String.valueOf(refreshed));
                         });
         addDrawableChild(precisionButton);
 
-        // ===== 作用范围循环按钮 =====
         int scopeY = precisionY + 26;
         int scopeWidth = 160;
         scopeButton = CyclingButtonWidget.<Scope>builder(SetEmcScreen::scopeDisplayName)
@@ -174,7 +149,6 @@ public class SetEmcScreen extends Screen {
                         (button, value) -> scope = value);
         addDrawableChild(scopeButton);
 
-        // ===== 操作按钮 =====
         int btnY = scopeY + 30;
         int btnWidth = 80;
         int btnGap = 8;
@@ -232,7 +206,7 @@ public class SetEmcScreen extends Screen {
             return;
         }
 
-        // 发送 C2S 设置 EMC 请求：根据定价精度决定写入精确/通用存储
+        // 按定价精度决定写入精确/通用存储
         boolean precise = (precision == Precision.PRECISE);
         String vkPayload = precise ? variantKey : "";
         SetEmcClientNetwork.sendSetEmc(itemId, emc,
@@ -252,15 +226,13 @@ public class SetEmcScreen extends Screen {
         int panelHeight = 196;
         int panelBottom = panelTop + panelHeight;
 
-        // 面板背景（深色半透明 + 边框）
+        // 面板背景：深色半透明 + 边框
         context.fill(panelLeft, panelTop, panelLeft + PANEL_WIDTH, panelBottom, 0xC0101010);
         GuiRenderUtil.drawBorder(context, panelLeft, panelTop, PANEL_WIDTH, panelHeight, 0xFF404040);
 
-        // 标题
         context.drawCenteredTextWithShadow(this.textRenderer, this.title,
                 centerX, panelTop + PADDING, 0xFFFFFF);
 
-        // 物品行：图标 + 名称 + ID + 当前 EMC + 变体（精确模式时）
         int itemY = panelTop + PADDING + 18;
         int itemIconX = panelLeft + PADDING + 2;
         context.drawItem(targetStack, itemIconX, itemY - 4);
@@ -273,7 +245,7 @@ public class SetEmcScreen extends Screen {
                 String.format("%,d", currentEmc)).formatted(Formatting.YELLOW);
         context.drawText(this.textRenderer, currentText,
                 itemIconX + 20, itemY + 21, 0xFFFF00, false);
-        // 精确模式 + 有 NBT：显示变体简要
+        // 精确模式且有 NBT 时显示变体简要
         if (!nbtBrief.isEmpty()) {
             Text variantText = Text.translatable("itemalchemy-expansion.set_emc.variant_label",
                     nbtBrief).formatted(Formatting.DARK_GRAY);
@@ -281,25 +253,21 @@ public class SetEmcScreen extends Screen {
                     itemIconX + 20, itemY + 32, 0x808080, false);
         }
 
-        // EMC 输入框标签
         Text fieldLabel = Text.translatable("itemalchemy-expansion.set_emc.new_emc_label");
         context.drawText(this.textRenderer, fieldLabel,
                 panelLeft + PADDING, emcField.getY() - 11, 0xC0C0C0, false);
 
-        // 定价精度说明（按钮下方）
         Text precisionHint = Text.translatable(
                 "itemalchemy-expansion.set_emc.precision." + precision.name().toLowerCase() + ".hint")
                 .formatted(Formatting.DARK_GRAY);
         context.drawText(this.textRenderer, precisionHint,
                 panelLeft + PADDING, precisionButton.getY() + 22, 0x808080, false);
 
-        // 作用范围说明
         Text scopeHint = Text.translatable("itemalchemy-expansion.set_emc.scope." + scope.name().toLowerCase() + ".hint")
                 .formatted(Formatting.DARK_GRAY);
         context.drawText(this.textRenderer, scopeHint,
                 panelLeft + PADDING, scopeButton.getY() + 22, 0x808080, false);
 
-        // 错误提示
         if (errorText != null) {
             context.drawCenteredTextWithShadow(this.textRenderer, errorText,
                     centerX, scopeButton.getY() + 38, 0xFF5555);
@@ -316,7 +284,7 @@ public class SetEmcScreen extends Screen {
         GLOBAL
     }
 
-    /** 定价精度枚举（新增） */
+    /** 定价精度枚举 */
     public enum Precision {
         /** 精确：按变体键（itemId + NBT 指纹）存储与查询 */
         PRECISE,

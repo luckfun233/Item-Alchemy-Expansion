@@ -17,16 +17,9 @@ import org.lwjgl.glfw.GLFW;
  * <p>默认绑定到 K 键。玩家可在「选项 → 控制 → 按键绑定」中的
  * 「Item Alchemy Expansion」分类重新绑定或解绑。</p>
  *
- * <p>触发条件（在 {@link ClientTickEvents#END_CLIENT_TICK} 中检测）：
- * <ul>
- *   <li>按键被按下（wasPressed，每 tick 至多触发一次）</li>
- *   <li>玩家在主世界（非 GUI 中）</li>
- *   <li>玩家主手或副手有物品</li>
- * </ul>
- * </p>
- *
- * <p><b>选物优先级</b>：主手优先；主手为空时用副手。两手都空则不打开 GUI
- * （没有物品可设置 EMC）。</p>
+ * <p>触发条件（在 {@link ClientTickEvents#END_CLIENT_TICK} 中检测）：按键被按下
+ * （wasPressed，每 tick 至多触发一次）、玩家在主世界（非 GUI 中）、玩家主手或副手有物品。
+ * 选物优先级：主手优先，主手为空时用副手；两手都空则不打开 GUI。</p>
  */
 public final class SetEmcKeybind {
 
@@ -72,7 +65,7 @@ public final class SetEmcKeybind {
             return;
         }
 
-        // 切到主线程打开 GUI（tick 回调本身在主线程，直接 setScreen 即可）
+        // tick 回调本身在主线程，直接 setScreen 即可
         client.setScreen(new SetEmcScreen(target));
     }
 

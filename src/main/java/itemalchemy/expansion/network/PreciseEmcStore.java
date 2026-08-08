@@ -19,8 +19,8 @@ import java.util.Map;
 /**
  * 玩家「精确覆盖」存储：按变体键（itemId + NBT 指纹）记录玩家手动设定的 EMC 值。
  *
- * <p><b>设计目的</b>：精确模式（{@code preciseMode=true}）下，EMC 查询优先级最高的是
- * 玩家手动设定的精确值。本类提供本存档 + 全局两层持久化：
+ * <p>精确模式（{@code preciseMode=true}）下，EMC 查询优先级最高的是玩家手动设定的精确值。
+ * 本类提供本存档 + 全局两层持久化：
  * <ul>
  *   <li>本存档：{@code <world>/itemalchemy_expansion_precise_overrides.json}</li>
  *   <li>全局：{@code config/itemalchemy-expansion/precise_emc.json}</li>
@@ -28,16 +28,10 @@ import java.util.Map;
  * </ul>
  * </p>
  *
- * <p><b>key 格式</b>：{@code ItemVariantKey.toStorageString()}，
- * 即 {@code <itemId>} 或 {@code <itemId>\u0001<nbtFingerprint>}。</p>
- *
- * <p><b>与通用 EMC 的关系</b>：
- * <ul>
- *   <li>通用层（{@link EMCManager#map} + {@link PerSaveEmcStore} + {@link GlobalEmcStore}）按物品 ID 计价。</li>
- *   <li>精确层（本类）按变体键计价，仅精确模式开启时参与查询。</li>
- *   <li>玩家在 K 键 GUI 选择「精确」作用范围时写入本类；选「通用」时走原有 {@link PerSaveEmcStore}/{@link GlobalEmcStore}。</li>
- * </ul>
- * </p>
+ * <p><b>key 格式</b>：{@code ItemVariantKey.toStorageString()}，即 {@code <itemId>} 或 {@code <itemId>\u0001<nbtFingerprint>}。
+ * 通用层（{@link EMCManager#map} + {@link PerSaveEmcStore} + {@link GlobalEmcStore}）按物品 ID 计价；
+ * 精确层（本类）按变体键计价，仅精确模式开启时参与查询。玩家在 K 键 GUI 选择「精确」作用范围时写入本类，
+ * 选「通用」时走原有 {@link PerSaveEmcStore}/{@link GlobalEmcStore}。</p>
  *
  * <p><b>线程安全</b>：所有方法在服务端主线程调用。</p>
  */

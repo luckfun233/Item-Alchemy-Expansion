@@ -31,11 +31,10 @@ import java.util.List;
 /**
  * 重写 sortBySearch 以支持变体键、潜影盒内容物搜索、权重排序与筛选模式。
  *
- * <p><b>重写要点</b>：</p>
+ * <p><b>重写要点</b>：
  * <ul>
  *   <li><b>变体键保留</b>：原 {@code CompatIdentifier.of(id)} 对变体键（含 \u0001）解析失败，
- *       且 {@code id.toLowerCase()} 破坏 NBT 指纹大小写。本 Mixin 在 HEAD cancel 重写，
- *       保留原变体键。</li>
+ *       且 {@code id.toLowerCase()} 破坏 NBT 指纹大小写。本 Mixin 在 HEAD cancel 重写，保留原变体键。</li>
  *   <li><b>潜影盒内容物搜索</b>：对每个潜影盒变体键重建 ItemStack，用 {@link SearchMatcher}
  *       检查「自身名 + 内容物 id/翻译名/显示名」是否匹配搜索词。</li>
  *   <li><b>权重排序</b>：直接物品匹配在前，潜影盒匹配在后（用户需求：直接拥有的物品优先）。</li>
@@ -43,7 +42,7 @@ import java.util.List;
  *       仅直接物品 / {@link SearchFilterMode#SHULKER_ONLY} 仅潜影盒。</li>
  *   <li><b>筛选模式状态</b>：通过 {@link IAlchemyTableScreenHandlerExt} 接口暴露的 @Unique 字段，
  *       客户端与服务端各持一份，客户端切换时通过 {@code filter_mode} 网络包同步。</li>
- * </ul>
+ * </ul></p>
  */
 @Mixin(value = AlchemyTableScreenHandler.class, priority = 500)
 public abstract class MixinAlchemyTableScreenHandler implements IAlchemyTableScreenHandlerExt {

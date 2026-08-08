@@ -43,13 +43,12 @@ public final class NbtFingerprinter {
         // 计算应忽略的 key 集合
         Set<String> ignore = collectIgnoreKeys();
 
-        // 追加按 namespace 的内置易变键（如 TACZ 的弹药数/开火模式/配件等）
-        // 确保存储/查询指纹一致，不因运行时状态变化而失配
+        // 追加按 namespace 的内置易变键（如 TACZ 的弹药数/开火模式/配件等），避免运行时状态变化导致失配
         String itemId = net.minecraft.registry.Registries.ITEM.getId(stack.getItem()).toString();
         String namespace = NbtIgnoreRules.namespaceOf(itemId);
         ignore.addAll(NbtIgnoreRules.builtinIgnoreKeysFor(namespace));
 
-        // 保留全部 NBT，但扣除 ignore 集合
+        // 保留全部 NBT，扣除 ignore 集合
         if (ignore.isEmpty()) {
             return nbt.toString();
         }

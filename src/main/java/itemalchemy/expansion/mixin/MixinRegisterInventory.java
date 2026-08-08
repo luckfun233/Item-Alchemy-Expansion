@@ -15,15 +15,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /**
  * 让输入槽注册物品时存「变体键（含 NBT 指纹）」而非纯物品 ID。
  *
- * <p>原 {@code items.add(stack.getItem().getId().toString())} 只存物品 ID，
- * 导致同 ID 不同 NBT 的物品（tacz 子弹、药水）坍缩为一条。</p>
- *
- * <p>本 Mixin 用 {@code @Inject HEAD} 捕获原始 {@code net.minecraft.item.ItemStack}（带 NBT），
+ * <p>原 {@code items.add(stack.getItem().getId().toString())} 只存物品 ID，导致同 ID 不同 NBT 的物品（tacz 子弹、药水）坍缩为一条。
+ * 本 Mixin 用 {@code @Inject HEAD} 捕获原始 {@code net.minecraft.item.ItemStack}（带 NBT），
  * 再用 {@code @ModifyArg} 把第 0 处 {@code List.add(Object)} 的参数（纯 ID）替换为变体键。</p>
  *
- * <p>注意：原方法签名是 {@code setStack(int, net.minecraft.item.ItemStack)}，
- * 方法体内转成 midohra {@code ItemStack.of(_stack)}。我们 capture 的是原版 _stack，
- * 其 NBT 完整保留。</p>
+ * <p>原方法签名是 {@code setStack(int, net.minecraft.item.ItemStack)}，方法体内转成 midohra {@code ItemStack.of(_stack)}。
+ * capture 的是原版 _stack，其 NBT 完整保留。</p>
  */
 @Mixin(value = RegisterInventory.class, priority = 500)
 public abstract class MixinRegisterInventory {

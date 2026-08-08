@@ -12,22 +12,9 @@ import net.pitan76.itemalchemy.EMCManager;
 /**
  * 潜影盒支持工具：解析内容物、计算内容物 EMC 之和、查找无 EMC 物品。
  *
- * <p>1.20.1 潜影盒 NBT 结构：
- * <pre>
- * {
- *   BlockEntityTag: {
- *     Items: [
- *       {Slot: 0b, id: "minecraft:stone", count: 64},  // count 在 1.20.1 为小写 int
- *       ...
- *     ]
- *   },
- *   display: { Name: '{"text":"Custom Name"}' }
- * }
- * </pre>
- * 颜色由物品 id 决定（minecraft:white_shulker_box 等），名称在 display.Name，
- * 内容物在 BlockEntityTag.Items。</p>
- *
- * <p>本类只做「读」操作，不修改潜影盒 NBT，确保取出时属性（颜色/名称/内容物）完整保留。</p>
+ * <p>1.20.1 潜影盒 NBT 结构：颜色由物品 id 决定（如 {@code minecraft:white_shulker_box}），
+ * 自定义名称在 {@code display.Name}，内容物在 {@code BlockEntityTag.Items}。
+ * 本类只做「读」操作，不修改潜影盒 NBT，确保取出时属性完整保留。</p>
  */
 public final class ShulkerBoxSupport {
 
@@ -49,19 +36,16 @@ public final class ShulkerBoxSupport {
     /**
      * 计算装了物品的潜影盒的总 EMC = 内容物 EMC 之和 + 潜影盒本身的 EMC。
      *
-     * <p><b>定价规则</b>（修复「漏算盒子本身价格」）：
+     * <p>定价规则：
      * <ul>
-     *   <li>空潜影盒（无内容物）：返回 0。保持原行为——空盒被注册槽原逻辑
-     *       （{@code EMCManager.get(stack) != 0}）拒绝，避免玩家放入无意义空容器。</li>
-     *   <li>有内容物的潜影盒：返回 {@code 内容物 EMC 之和 + 盒子本身的 EMC}。
-     *       此前只算内容物，导致装了东西的盒子实际 EMC 偏低（少算了盒子本体）。
+     *   <li>空潜影盒（无内容物）：返回 0。空盒被注册槽原逻辑（{@code EMCManager.get(stack) != 0}）拒绝。</li>
+     *   <li>有内容物的潜影盒：返回 {@code 内容物 EMC 之和 + 盒子本身的 EMC}，
      *       盒子本身的 EMC 按 id 查 {@link EMCManager#get(Item)}（同 id 同价，与上游口径一致）。</li>
      * </ul>
      * </p>
      *
-     * <p>注意：此处 {@code EMCManager.get(Item)} 不会触发本模组对潜影盒的 Mixin
-     * （Mixin 拦截的是 {@code get(ItemStack)} 重载），避免递归。盒子本体不在自身的
-     * {@code BlockEntityTag.Items} 内，故不会与内容物重复计算。</p>
+     * <p>{@code EMCManager.get(Item)} 不会触发本模组 Mixin（拦截的是 {@code get(ItemStack)} 重载），避免递归。
+     * 盒子本体不在自身的 {@code BlockEntityTag.Items} 内，故不会与内容物重复计算。</p>
      */
     public static long sumEmc(ItemStack stack) {
         if (!isShulkerBox(stack)) return 0;
@@ -80,8 +64,7 @@ public final class ShulkerBoxSupport {
             long itemEmc = EMCManager.get(contentStack.getItem());
             sum += itemEmc * contentStack.getCount();
         }
-        // 有内容物时加上潜影盒本身的 EMC（修复「漏算盒子本体价格」）。
-        // 空盒 hasContents=false 返回 0，保持原「空盒被拒绝」行为。
+        // 有内容物时加上潜影盒本身的 EMC；空盒 hasContents=false 返回 0
         if (hasContents) {
             sum += EMCManager.get(stack.getItem());
         }
@@ -126,9 +109,7 @@ public final class ShulkerBoxSupport {
             long itemEmc = EMCManager.get(contentStack.getItem());
             sum += itemEmc * contentStack.getCount();
         }
-        // 有内容物时加上潜影盒本身的 EMC（修复「漏算盒子本体价格」）。
-        // 空盒 hasContents=false 返回 0，保持原「空盒被拒绝」行为。
-        // 盒子本体按 id 查 get(Item)（不被 MixinEMCManager 拦截，无递归）。
+        // 有内容物时加上潜影盒本身的 EMC；空盒 hasContents=false 返回 0
         if (hasContents) {
             sum += EMCManager.get(stack.getItem());
         }

@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
 /**
  * 搜索匹配工具：统一服务端排序与客户端渲染的匹配逻辑。
  *
- * <p><b>匹配范围</b>（搜索词 = 去掉 {@code @namespace} 前缀后小写化的文本）：</p>
+ * <p><b>匹配范围</b>（搜索词 = 去掉 {@code @namespace} 前缀后小写化的文本）：
  * <ul>
  *   <li><b>直接物品（非潜影盒）</b>：物品 id path / 翻译名 / 物品显示名 包含搜索词。</li>
  *   <li><b>潜影盒</b>：
@@ -27,9 +27,8 @@ import java.util.regex.Pattern;
  *   </li>
  * </ul>
  *
- * <p><b>命名空间过滤</b>：搜索词形如 {@code @minecraft stone} 时，{@code @minecraft} 限制命名空间，
- * 剩余 {@code stone} 作为搜索词。直接物品与潜影盒内容物都会检查命名空间；
- * 潜影盒自身名匹配时不检查命名空间（潜影盒自身 id 固定为 {@code minecraft:*_shulker_box}，
+ * <p><b>命名空间过滤</b>：搜索词形如 {@code @minecraft stone} 时，{@code @minecraft} 限制命名空间，剩余 {@code stone} 作为搜索词。
+ * 直接物品与潜影盒内容物都会检查命名空间；潜影盒自身名匹配时不检查（自身 id 固定为 {@code minecraft:*_shulker_box}，
  * 限制 ns 会误伤「按自定义名搜索潜影盒」的语义）。</p>
  *
  * <p>注：{@code translations} 为 mcpitanlib {@link NbtCompound}（key=translationKey, value=翻译名），
@@ -76,11 +75,9 @@ public final class SearchMatcher {
     private static final Pattern NS_PATTERN = Pattern.compile("@([a-zA-Z0-9_-]+)");
 
     /**
-     * 解析搜索文本为上下文。
-     *
-     * <p>提取 {@code @(NAMESPACE)} 前缀，剩余部分小写化作为搜索词。
+     * 解析搜索文本为上下文。提取 {@code @(NAMESPACE)} 前缀，剩余部分小写化作为搜索词。
      * 与原版 {@code AlchemyTableScreenHandler.sortBySearch} 的解析逻辑一致，
-     * 确保客户端重算与服务端排序使用相同的上下文。</p>
+     * 确保客户端重算与服务端排序使用相同的上下文。
      */
     public static SearchContext parse(String searchText, NbtCompound translations) {
         if (searchText == null) searchText = "";
@@ -104,9 +101,7 @@ public final class SearchMatcher {
 
     /**
      * 判断 path / 翻译名 / 显示名三者中是否有任一包含搜索词。
-     *
-     * <p>统一直接物品、潜影盒自身名、内容物三处的字段匹配逻辑。
-     * 调用方负责空搜索与命名空间过滤的前置判断。</p>
+     * 统一直接物品、潜影盒自身名、内容物三处的字段匹配逻辑，调用方负责空搜索与命名空间过滤的前置判断。
      */
     private static boolean matchesAnyField(String path, String translated, String displayName, SearchContext ctx) {
         String search = ctx.searchLower;

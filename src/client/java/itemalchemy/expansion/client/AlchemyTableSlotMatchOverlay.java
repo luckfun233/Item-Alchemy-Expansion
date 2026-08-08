@@ -44,14 +44,8 @@ public final class AlchemyTableSlotMatchOverlay {
 
     /**
      * 在 {@code SimpleInventoryScreen.renderOverride} RETURN 后触发。
-     *
-     * @param screen 当前 AlchemyTableScreen
-     * @param context DrawContext
-     * @param mouseX 鼠标 X
-     * @param mouseY 鼠标 Y
      */
     public static void onAfterRender(AlchemyTableScreen screen, DrawContext context, int mouseX, int mouseY) {
-        // 1. 配置开关
         try {
             IAExpConfig config = IAExpConfigHolder.get();
             if (!config.searchShulkerContents) return;
@@ -59,7 +53,6 @@ public final class AlchemyTableSlotMatchOverlay {
             return;
         }
 
-        // 2. 获取 handler + extractInventory
         AlchemyTableScreenHandler handler = GuiRenderUtil.getScreenHandler(screen);
         if (handler == null) return;
         ExtractInventory extractInv;
@@ -70,11 +63,9 @@ public final class AlchemyTableSlotMatchOverlay {
         }
         if (extractInv == null) return;
 
-        // 3. 计算匹配
         Map<Integer, SearchMatchCache.SlotMatch> matches = SearchMatchCache.computeSlotMatches(handler, extractInv);
         if (matches.isEmpty()) return; // 无匹配或空搜索
 
-        // 4. 渲染小标志
         int screenX = getScreenX(screen);
         int screenY = getScreenY(screen);
         if (screenX == Integer.MIN_VALUE || screenY == Integer.MIN_VALUE) return;
@@ -98,7 +89,7 @@ public final class AlchemyTableSlotMatchOverlay {
             renderBadge(context, slotScreenX, slotScreenY, match.firstMatchedContent);
         }
 
-        // 5. 匹配列表 tooltip（鼠标悬停 + 非 Shift）
+        // Shift 时让出，由 Shift 预览显示内容物 + 红框标记
         if (!Screen.hasShiftDown()) {
             Slot hovered = GuiRenderUtil.getHoveredSlot(screen);
             if (hovered != null) {
@@ -140,7 +131,7 @@ public final class AlchemyTableSlotMatchOverlay {
         int screenW = client.getWindow().getScaledWidth();
         int screenH = client.getWindow().getScaledHeight();
 
-        // 去重名称（按物品 id 去重，保留第一个名称）
+        // 按物品 id 去重，保留第一个名称
         java.util.LinkedHashMap<String, String> seen = new java.util.LinkedHashMap<>();
         for (ItemStack s : matchedContents) {
             if (s == null || s.isEmpty()) continue;
@@ -151,11 +142,9 @@ public final class AlchemyTableSlotMatchOverlay {
         }
         if (seen.isEmpty()) return;
 
-        // 标题
         Text title = Text.translatable("itemalchemy-expansion.search.match_list_title");
         int titleWidth = client.textRenderer.getWidth(title);
 
-        // 计算每行宽度
         int maxLineWidth = titleWidth;
         java.util.List<String> names = new java.util.ArrayList<>(seen.values());
         int shownCount = Math.min(names.size(), 6);
@@ -175,10 +164,9 @@ public final class AlchemyTableSlotMatchOverlay {
         int boxWidth = maxLineWidth + padding * 2;
         int boxHeight = padding * 2 + lineHeight + (shownCount + (overflow ? 1 : 0)) * lineHeight;
 
-        // 位置：鼠标右下方
+        // 默认鼠标右下方，超出屏幕时翻到左侧 / 上侧
         int boxX = mouseX + 12;
         int boxY = mouseY + 12;
-        // 边界检查
         if (boxX + boxWidth > screenW) boxX = mouseX - boxWidth - 12;
         if (boxY + boxHeight > screenH) boxY = mouseY - boxHeight - 12;
         if (boxX < 0) boxX = 0;
@@ -188,23 +176,18 @@ public final class AlchemyTableSlotMatchOverlay {
         try {
             context.getMatrices().translate(0, 0, 400); // 在普通 tooltip 之上
 
-            // 背景
             context.fill(boxX, boxY, boxX + boxWidth, boxY + boxHeight, 0xF0101010);
-            // 边框
             GuiRenderUtil.drawBorder(context, boxX, boxY, boxWidth, boxHeight, 0xFF505050);
 
-            // 标题
             int textX = boxX + padding;
             int textY = boxY + padding;
             context.drawTextWithShadow(client.textRenderer, title, textX, textY, 0xFFFFD700);
             textY += lineHeight;
 
-            // 匹配物名称
             for (int i = 0; i < shownCount; i++) {
                 context.drawTextWithShadow(client.textRenderer, names.get(i), textX, textY, 0xFFFFFF);
                 textY += lineHeight;
             }
-            // 溢出提示
             if (overflow) {
                 Text more = Text.translatable("itemalchemy-expansion.search.match_list_more", names.size() - 6);
                 context.drawTextWithShadow(client.textRenderer, more, textX, textY, 0xFFAAAAAA);

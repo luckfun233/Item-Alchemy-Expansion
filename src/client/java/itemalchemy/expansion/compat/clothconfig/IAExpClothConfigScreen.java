@@ -19,8 +19,7 @@ import java.util.function.Function;
  * Cloth Config GUI 构建器：把 {@link IAExpConfig} 的字段渲染为可编辑界面。
  *
  * <p>设计目标：<b>可扩展</b>。新增配置项时只需在 {@link #buildCategories} 里追加一个
- * {@code addEntry(...)} 调用，无需改动其它基础设施。每个条目自带默认值（用于「重置」按钮）
- * 与 saveConsumer（写入待保存副本）。</p>
+ * {@code addEntry(...)} 调用。每个条目自带默认值（用于「重置」按钮）与 saveConsumer（写入待保存副本）。</p>
  *
  * <p>本类仅在已安装 cloth-config 时被 {@code ModMenuIntegration} 反射/直接调用，
  * 不会在无 cloth-config 的环境被加载（避免 NoClassDefFoundError）。</p>
@@ -29,9 +28,8 @@ import java.util.function.Function;
  * 点击「完成」时 setSavingRunnable 把副本写回 {@link IAExpConfigHolder} 的 active 并落盘 +
  * {@link IAExpServices#refresh()} 刷新指纹器等服务。</p>
  *
- * <p><b>枚举显示名</b>：用 {@link EnumSelectorBuilder#setEnumNamingProvider} 把
- * 枚举常量（如 {@code ALLOW}/{@code REJECT}）映射为直观的本地化文本（如「开启」「拒绝」），
- * 避免直接暴露字段名给玩家。</p>
+ * <p>枚举显示名通过 {@link EnumSelectorBuilder#setEnumNamingProvider} 把枚举常量
+ * 映射为本地化文本，避免直接暴露字段名给玩家。</p>
  */
 public final class IAExpClothConfigScreen {
 
@@ -76,7 +74,7 @@ public final class IAExpClothConfigScreen {
             IAExpConfigHolder.get().autoPricingRespectUpstream = editing.autoPricingRespectUpstream;
             IAExpConfigHolder.get().autoPricingBatchSize = editing.autoPricingBatchSize;
             IAExpConfigHolder.get().autoPricingTickBudgetMs = editing.autoPricingTickBudgetMs;
-            // 精确模式始终开启（已从 GUI 移除开关）
+            // 精确模式始终开启
             IAExpConfigHolder.get().preciseMode = true;
             IAExpConfigHolder.get().autoPricingFromRecipes = editing.autoPricingFromRecipes;
             IAExpConfigHolder.save();

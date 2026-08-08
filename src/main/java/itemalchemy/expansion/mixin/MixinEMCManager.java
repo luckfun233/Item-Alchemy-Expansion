@@ -20,9 +20,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 /**
  * 让 {@link EMCManager} 支持「精确 EMC」与「配方自动定价」。
  *
- * <p>原 {@code EMCManager.get(ItemStack)} 按「物品 id × 数量」计价（同 id 同价，F2 契约）。
- * 本 Mixin 改为按变体键优先查询，使同 ID 不同 NBT 的物品可各自有价。
- * 同时为潜影盒特例返回 sumEmc（内容物之和），保留原有行为。</p>
+ * <p>原 {@code EMCManager.get(ItemStack)} 按「物品 id × 数量」计价（同 id 同价）。
+ * 本 Mixin 改为按变体键优先查询，使同 ID 不同 NBT 的物品可各自有价，
+ * 同时为潜影盒特例返回 sumEmc（内容物之和）。</p>
  *
  * <h3>查询优先级（始终生效，不再依赖 preciseMode 开关）</h3>
  * <ul>
@@ -33,11 +33,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  *   <li><b>L4</b> 自动通用（{@link AutoEmcStore#getGeneral}，仅 autoPricing 开启且 L2 未定义时）</li>
  * </ul>
  *
- * <p>设计理由：精确 EMC（手动或自动）<b>始终</b>优先于通用。
- * 玩家在 K 键 GUI 选择「精确」即可为特定变体定价，无需全局开关。
- * {@code preciseMode} 配置字段已弃用但保留以兼容旧配置文件。</p>
- *
- * <p>回退到 L2 时<b>不</b> cancel，让原方法执行（{@code get(Item) × count}）。
+ * <p>精确 EMC（手动或自动）<b>始终</b>优先于通用。玩家在 K 键 GUI 选择「精确」即可为特定变体定价，无需全局开关。
+ * {@code preciseMode} 配置字段已弃用但保留以兼容旧配置文件。回退到 L2 时不 cancel，让原方法执行（{@code get(Item) × count}）。
  * 自动通用（L4）只在原方法会返回 0 且物品 id 未定义时查询，避免重复计算。</p>
  *
  * <p>{@code get(Item)} 重载<b>不拦截</b>：避免按 id 计价语义被破坏，且不携带 NBT 信息。

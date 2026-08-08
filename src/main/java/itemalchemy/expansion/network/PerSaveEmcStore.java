@@ -17,20 +17,11 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * 单存档 EMC 覆盖存储：把本存档的 EMC 覆盖持久化到
- * {@code <world>/itemalchemy_expansion_overrides.json}。
+ * 单存档 EMC 覆盖存储：把本存档的 EMC 覆盖持久化到 {@code <world>/itemalchemy_expansion_overrides.json}。
  *
- * <p><b>设计目的</b>：玩家在 SetEmcScreen 选择「仅本存档」时，EMC 修改只影响当前存档，
- * 不污染全局 {@code config/itemalchemy/emc_config.json}。每次世界加载时（服务端启动），
- * 通过 {@link #load(MinecraftServer)} 读取本文件并把覆盖应用到 {@link EMCManager} 内存 map。</p>
- *
- * <p><b>与全局配置的关系</b>：
- * <ul>
- *   <li>全局 {@code emc_config.json} 由前置模组在 {@link EMCManager#init} 时加载到内存 map。</li>
- *   <li>本存档 overrides 在全局加载之后应用，相同 itemId 覆盖全局值。</li>
- *   <li>「仅本存档」写本文件；「全局」写 {@code emc_config.json}（见 {@link GlobalEmcStore}）。</li>
- * </ul>
- * </p>
+ * <p>玩家在 SetEmcScreen 选择「仅本存档」时，EMC 修改只影响当前存档，不污染全局 {@code config/itemalchemy/emc_config.json}。
+ * 每次世界加载时（服务端启动），通过 {@link #load(MinecraftServer)} 读取本文件并把覆盖应用到 {@link EMCManager} 内存 map。
+ * 全局 {@code emc_config.json} 由前置模组在 {@link EMCManager#init} 时加载到内存 map，本存档 overrides 在其后应用，相同 itemId 覆盖全局值。</p>
  *
  * <p><b>文件格式</b>：简单的 {@code Map<String, Long>} JSON，如：
  * <pre>{"minecraft:stone": 2, "minecraft:diamond": 8192}</pre></p>
@@ -61,11 +52,8 @@ public final class PerSaveEmcStore {
      * @param emc    新 EMC 值（>= 0）
      */
     public static void set(MinecraftServer server, String itemId, long emc) {
-        // 1. 读现有 overrides（不存在则空 map）
         Map<String, Long> overrides = read(server);
-        // 2. 更新条目
         overrides.put(itemId, emc);
-        // 3. 写回文件
         write(server, overrides);
         ItemAlchemyExpansion.debug("[IAExp] per-save emc override set: {}={} (file={})",
                 itemId, emc, getFile(server));

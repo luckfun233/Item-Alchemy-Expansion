@@ -22,17 +22,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * <p>顺序：先画小标志（在槽位图标之上但低于 Shift 预览面板），再画 Shift 预览，
  * 确保 Shift 预览的红框/焦点框覆盖在小标志之上。</p>
  *
- * <p><b>为什么不用 {@code ScreenEvents.afterRender}？</b>
- * Fabric 的 {@code afterRender} 注入到 {@code Screen.render()} 的 RETURN，
- * 但 mcpitanlib 的 {@code SimpleHandledScreen} 重写了 {@code render()}，
- * 内部调用 {@code super.render()}（{@code HandledScreen.render()}）。
- * {@code afterRender} 在 {@code Screen.render()} 返回时触发，
- * 但此时 {@code HandledScreen.render()} 尚未渲染槽位和 tooltip——
- * 预览会被后续渲染的 tooltip 遮挡。</p>
- *
- * <p>{@code SimpleInventoryScreen.renderOverride()} 在最后调用
- * {@code callDrawMouseoverTooltip()}（渲染 tooltip），然后返回。
- * Mixin 注入到它的 RETURN，确保覆盖渲染在 tooltip 之后。</p>
+ * <p>不用 {@code ScreenEvents.afterRender}：Fabric 的 {@code afterRender} 注入到
+ * {@code Screen.render()} 的 RETURN，但 mcpitanlib 的 {@code SimpleHandledScreen} 重写了
+ * {@code render()}，{@code afterRender} 在 {@code Screen.render()} 返回时触发，
+ * 此时 {@code HandledScreen.render()} 尚未渲染槽位和 tooltip，预览会被后续渲染的 tooltip 遮挡。
+ * {@code SimpleInventoryScreen.renderOverride()} 在最后调用 {@code callDrawMouseoverTooltip()}
+ * 渲染 tooltip 后返回，Mixin 注入到它的 RETURN 即可确保覆盖渲染在 tooltip 之后。</p>
  *
  * <p><b>target 为第三方模组类</b>：{@code SimpleInventoryScreen} 是 mcpitanlib 的类，
  * {@code renderOverride} 不是 Minecraft 原版方法，因此 {@code remap = false}。
@@ -48,10 +43,8 @@ public class MixinSimpleInventoryScreen {
         AlchemyTableScreen screen = (AlchemyTableScreen) (Object) this;
         DrawContext context = args.drawObjectDM.getContext();
 
-        // 1. 搜索匹配小标志 + 匹配列表 tooltip（非 Shift 时）
+        // 先画小标志，再画 Shift 预览，确保 Shift 预览的红框/焦点框覆盖在小标志之上
         AlchemyTableSlotMatchOverlay.onAfterRender(screen, context, args.mouseX, args.mouseY);
-
-        // 2. Shift 潜影盒预览（含匹配红框）
         AlchemyTableScreenShulkerPreview.onAfterRender(screen, context, args.mouseX, args.mouseY, args.delta);
     }
 }

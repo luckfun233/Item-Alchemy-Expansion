@@ -27,18 +27,9 @@ import java.lang.reflect.Method;
  *       改为 sumEmc，故空盒 sumEmc=0 仍会被原逻辑拒绝）。</li>
  * </ol>
  *
- * <p>注意：放行后原逻辑 {@code EMCManager.get(stack) != 0} 会用 sumEmc 判断，
- * 空潜影盒（sumEmc=0）会被拒绝，避免玩家放入无意义物品。</p>
- *
- * <p><b>无 EMC 提示方式</b>：原版用 {@code player.sendMessage} 发聊天消息，
- * 在激烈的物品交互场景下容易被忽略。改为：
- * <ul>
- *   <li>客户端（{@code player.isClient()} 为 true）：通过反射调用
- *       {@code itemalchemy.expansion.client.NoEmcShulkerBoxToast.show(ItemStack)}
- *       显示 Toast 弹窗（屏幕右上角，醒目）。</li>
- *   <li>服务端：保留 {@code sendMessage} 作为后备（客户端如果没装本模组就不会看到 Toast）。</li>
- * </ul>
- * </p>
+ * <p><b>无 EMC 提示方式</b>：原版用 {@code player.sendMessage} 发聊天消息，在激烈的物品交互场景下容易被忽略。
+ * 改为：客户端通过反射调用 {@code itemalchemy.expansion.client.NoEmcShulkerBoxToast.show(ItemStack)}
+ * 显示 Toast 弹窗；服务端保留 {@code sendMessage} 作为后备（客户端未装本模组时不会看到 Toast）。</p>
  *
  * <p><b>反射调用原因</b>：本类在 main 源集中（服务端也加载），不能直接 import 客户端类
  * （{@code NoEmcShulkerBoxToast} 依赖 {@code MinecraftClient}，服务端运行时
@@ -61,13 +52,11 @@ public abstract class MixinRegisterSlot {
 
         IAExpConfig config = IAExpConfigHolder.get();
 
-        // 1. 潜影盒功能关闭
         if (config.shulkerBoxMode == IAExpConfig.ShulkerBoxMode.DISABLE) {
             cir.setReturnValue(false);
             return;
         }
 
-        // 2. 无 EMC 物品策略 = REJECT
         if (config.shulkerNoEmcPolicy == IAExpConfig.ShulkerNoEmcPolicy.REJECT) {
             ItemStack noEmcItem = ShulkerBoxSupport.findNoEmcItem(stack);
             if (noEmcItem != null) {
@@ -77,8 +66,8 @@ public abstract class MixinRegisterSlot {
             }
         }
 
-        // 3. 放行：不 cancel，让原 canInsert 用 EMCManager.get(stack)=sumEmc 判断
-        //    空潜影盒 sumEmc=0 会被原逻辑拒绝；有内容物 sumEmc>0 可放入
+        // 放行：不 cancel，让原 canInsert 用 EMCManager.get(stack)=sumEmc 判断
+        // 空潜影盒 sumEmc=0 会被原逻辑拒绝；有内容物 sumEmc>0 可放入
     }
 
     private static void sendNoEmcRejectMessage(Player player, ItemStack noEmcItem) {
@@ -103,13 +92,8 @@ public abstract class MixinRegisterSlot {
 
     /**
      * 反射调用客户端 {@code NoEmcShulkerBoxToast.show(ItemStack)} 显示 Toast 弹窗。
-     *
-     * <p>反射 Method 缓存，仅首次调用时查找。返回 false 表示：
-     * <ul>
-     *   <li>当前是服务端环境（{@code NoEmcShulkerBoxToast} 类不存在）。</li>
-     *   <li>反射调用失败（防御性）。</li>
-     * </ul>
-     * 调用方应回退到 {@code sendMessage}。</p>
+     * 反射 Method 缓存，仅首次调用时查找。返回 false 表示当前是服务端环境（类不存在）或反射调用失败，
+     * 调用方应回退到 {@code sendMessage}。
      */
     private static boolean showClientToast(ItemStack noEmcItem) {
         if (!clientToastResolved) {

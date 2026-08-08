@@ -22,13 +22,11 @@ import java.util.Map;
  * 让提取槽按变体键重建带 NBT 的展示堆。
  *
  * <p>原 {@code placeExtractSlots(List)} 用 {@code CompatIdentifier.of(keys.get(i))} 解析纯物品 ID，
- * 对变体键（含 \u0001 + NBT 指纹）解析失败，导致同 ID 不同 NBT 物品坍缩或被跳过，
- * 药水变成「不可合成的药水」。</p>
- *
- * <p>本 Mixin 在 HEAD 处 cancel 并重写：把每个 key 解析为 {@link ItemVariantKey}，
+ * 对变体键（含 \u0001 + NBT 指纹）解析失败，导致同 ID 不同 NBT 物品坍缩或被跳过。
+ * 本 Mixin 在 HEAD 处 cancel 并重写：把每个 key 解析为 {@link ItemVariantKey}，
  * 用 {@link IAExpServices#rebuildStack(ItemVariantKey)} 重建带 NBT 的 ItemStack。
  * 重建后的堆存入 {@code definedStacks}，{@code AlchemyTableScreenHandler#onSlotClick} 会用其 copy 购买，
- * 自动携带 NBT；{@code EMCManager.get(stack)} 仍按物品 ID 计价（F2）。</p>
+ * 自动携带 NBT；{@code EMCManager.get(stack)} 仍按物品 ID 计价。</p>
  *
  * <p><b>shadow 类型</b>：{@code ExtractInventory} 的 {@code setStack} 与 {@code definedStacks}
  * 用的是原版 {@code net.minecraft.item.ItemStack}（见该类 import）。

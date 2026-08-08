@@ -17,19 +17,10 @@ import java.util.List;
 /**
  * 修复 {@link PlayerRegisteredItemUtil#getItems(Player)} 对变体键的解析崩溃。
  *
- * <p><b>根因</b>：原版代码假设 {@code TeamState.registeredItems} 里都是纯物品 ID（如
- * {@code tacz:ammo}），直接用 {@code CompatIdentifier.of(id)} + {@code ItemUtil.fromId} 解析。
- * 但本模组扩展后，{@code registeredItems} 里可能存变体键
- * （如 {@code tacz:ammo\u0001\{AmmoId:"tacz:22wmr"\}}），其中分隔符 {@code \u0001}
- * 不是合法 Identifier 字符 → 抛 {@code InvalidIdentifierException}（{@code class_151}）。</p>
- *
- * <p><b>触发场景</b>：用户按方向键 → {@code AlchemyTableScreen.keyReleased} →
- * {@code PlayerRegisteredItemUtil.getItems()} → 崩溃。日志堆栈：
- * <pre>
- * class_151: Non [a-z0-9/._-] character in path of location: tacz:ammo\u0001{AmmoId
- *   at PlayerRegisteredItemUtil.getItems(PlayerRegisteredItemUtil.java:28)
- *   at AlchemyTableScreen.keyReleased(AlchemyTableScreen.java:60)
- * </pre></p>
+ * <p>原版假设 {@code TeamState.registeredItems} 里都是纯物品 ID，直接用
+ * {@code CompatIdentifier.of(id)} + {@code ItemUtil.fromId} 解析。但本模组扩展后 registeredItems
+ * 里可能存变体键（如 {@code tacz:ammo\u0001\{AmmoId:"tacz:22wmr"\}}），其中分隔符 {@code \u0001}
+ * 不是合法 Identifier 字符，会抛 {@code InvalidIdentifierException}（{@code class_151}）。</p>
  *
  * <p><b>修复策略</b>：HEAD cancel + 重写。对每个 {@code id}：
  * <ol>

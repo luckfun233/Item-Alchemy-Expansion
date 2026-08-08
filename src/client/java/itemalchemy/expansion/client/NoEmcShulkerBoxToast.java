@@ -14,18 +14,10 @@ import net.minecraft.util.Identifier;
  * <p>当玩家尝试把含无 EMC 物品的潜影盒放入转换桌输入槽时，{@code MixinRegisterSlot}
  * 通过反射调用 {@link #show(ItemStack)} 触发此 Toast，比聊天消息更醒目。</p>
  *
- * <p><b>布局</b>：
- * <pre>
- *   ┌────────────────────────────────────┐
- *   │ [⚠]  无法放入潜影盒                 │  标题（红色）
- *   │      XXX 没有 EMC 值                │  描述（白色，XXX 为物品名）
- *   └────────────────────────────────────┘
- * </pre>
- * 图标用 {@link #WARNING_TEXTURE}（vanilla 的 warning 纹理，16×16）。</p>
+ * <p>布局：标题（红色）+ 描述（白色，XXX 为物品名），图标用 {@link #WARNING_TEXTURE}
+ * （vanilla 的 warning 纹理，16×16）。持续时长 5000ms，与 vanilla SystemToast 一致。</p>
  *
- * <p><b>持续时长</b>：5000ms（5 秒），与 vanilla SystemToast 一致。</p>
- *
- * <p><b>重复抑制</b>：{@link #show(ItemStack)} 内部用 {@code lastShownItem} 记录上次物品，
+ * <p>重复抑制：{@link #show(ItemStack)} 内部用 {@code lastShownItem} 记录上次物品，
  * 500ms 内同物品不重复弹出，避免短时间内多次 canInsert 调用导致刷屏。</p>
  */
 public class NoEmcShulkerBoxToast implements Toast {
@@ -59,14 +51,12 @@ public class NoEmcShulkerBoxToast implements Toast {
     public Visibility draw(DrawContext context, ToastManager manager, long currentTime) {
         if (startTime == -1) startTime = currentTime;
 
-        // 淡入淡出（vanilla Toast 标准逻辑）
+        // vanilla Toast 标准淡入淡出
         int fade;
         long elapsed = currentTime - startTime;
         if (elapsed < 200) {
-            // 淡入
             fade = Math.toIntExact(elapsed * 255 / 200);
         } else if (elapsed > DURATION_MS - 200) {
-            // 淡出
             fade = Math.toIntExact((DURATION_MS - elapsed) * 255 / 200);
         } else {
             fade = 255;
@@ -74,19 +64,16 @@ public class NoEmcShulkerBoxToast implements Toast {
         if (fade < 0) fade = 0;
         if (fade > 255) fade = 255;
 
-        // 背景：用 vanilla toast 纹理（上半部分）
         context.drawTexture(TEXTURE, 0, 0, 0, 0, getWidth(), getHeight());
 
         MinecraftClient client = MinecraftClient.getInstance();
 
-        // 标题：「无法放入潜影盒」（红色 0xFFFF5555）
         Text title = Text.translatable("itemalchemy-expansion.shulker_box.toast.title");
         context.drawText(client.textRenderer, title, 30, 7, 0xFFFF5555, false);
 
-        // 描述：「XXX 没有 EMC 值」（白色）
+        // 描述行超宽时省略号截断
         Text desc = Text.translatable("itemalchemy-expansion.shulker_box.toast.desc",
                 noEmcItem.getName());
-        // 截断过长名称（避免超出 toast 宽度）
         String descStr = desc.getString();
         int maxW = getWidth() - 35;
         if (client.textRenderer.getWidth(descStr) > maxW) {
@@ -97,7 +84,6 @@ public class NoEmcShulkerBoxToast implements Toast {
         }
         context.drawText(client.textRenderer, descStr, 30, 18, 0xFFFFFFFF, false);
 
-        // 物品图标（左侧）
         context.drawItem(noEmcItem, 8, 8);
 
         return elapsed >= DURATION_MS ? Visibility.HIDE : Visibility.SHOW;
@@ -122,7 +108,7 @@ public class NoEmcShulkerBoxToast implements Toast {
         if (client == null) return;
 
         long now = System.currentTimeMillis();
-        // 重复抑制：500ms 内同物品不重复
+        // 500ms 内同物品不重复弹出
         if (now - lastShownTime < 500 && ItemStack.areEqual(lastShownItem, noEmcItem)) {
             return;
         }

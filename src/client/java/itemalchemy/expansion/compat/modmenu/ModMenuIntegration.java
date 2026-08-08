@@ -12,19 +12,11 @@ import net.minecraft.client.gui.screen.Screen;
  * <p>仅在已安装 modmenu 时由 modmenu 通过 {@code entrypoints.modmenu} 调用；
  * 未安装 modmenu 时本类不会被加载。</p>
  *
- * <p><b>关键设计</b>：配置界面依赖 cloth-config（软依赖）。
- * <b>cloth-config 是否可用，必须在 {@link #getModConfigScreenFactory()} 返回前判断</b>：
- * <ul>
- *   <li>已加载 → 返回非 null 工厂，工厂 {@code create()} 必须返回非 null {@link Screen}。</li>
- *   <li>未加载 → 返回 {@code null} 工厂。ModMenu 据此<b>隐藏</b>配置按钮，
- *       而非显示一个点击无响应的「死按钮」。</li>
- * </ul>
- * </p>
- *
- * <p><b>历史 bug</b>：旧版把 {@code null} 判断放在 lambda 内部（{@code create()} 返回 null），
- * 导致 ModMenu 显示了按钮但点击静默不切换屏幕（ModMenu 7.x 的点击处理为
- * {@code if (screen != null) setScreen(screen); else /* 静默 *&#47;}）。
- * 现在把判断提前到工厂创建处，从根本上消除「死按钮」。</p>
+ * <p><b>关键设计</b>：配置界面依赖 cloth-config（软依赖）。cloth-config 是否可用必须在
+ * {@link #getModConfigScreenFactory()} 返回前判断：已加载返回非 null 工厂
+ * （工厂 {@code create()} 也必须返回非 null {@link Screen}）；未加载返回 {@code null} 工厂，
+ * ModMenu 据此<b>隐藏</b>配置按钮，避免出现点击无响应的「死按钮」
+ * （把判断放在 lambda 内部会导致 ModMenu 7.x 静默不切换屏幕）。</p>
  *
  * <p><b>延迟类加载</b>：{@code IAExpClothConfigScreen} 引用只在 {@link #createClothConfigScreen}
  * 方法体内出现，JVM 懒加载保证无 cloth-config 时不会触发其类初始化（NoClassDefFoundError）。</p>

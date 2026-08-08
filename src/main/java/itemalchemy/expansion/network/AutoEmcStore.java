@@ -28,20 +28,17 @@ import java.util.Map;
  *
  * <p><b>缓存文件</b>：{@code <world>/itemalchemy_expansion_auto_emc.json}
  * <pre>{ "version": 1, "precise": {...}, "general": {...} }</pre>
- * 命中则跳过重算（启动快）；配方变更时可手动 {@code /itemalchemy-expansion reprice} 强制重算。
- * </p>
+ * 命中则跳过重算；配方变更时可手动 {@code /itemalchemy-expansion reprice} 强制重算。</p>
  *
- * <p><b>查询语义</b>：精确模式 ON 时优先查 preciseMap，回退到通用层；
- * 精确模式 OFF 时直接查 generalMap。详见 {@code MixinEMCManager}。</p>
+ * <p><b>查询语义</b>：精确模式 ON 时优先查 preciseMap，回退到通用层；OFF 时直接查 generalMap。
+ * 详见 {@code MixinEMCManager}。</p>
  */
 public final class AutoEmcStore {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
     private static final Type MAP_TYPE = new TypeToken<LinkedHashMap<String, Long>>(){}.getType();
     private static final String SAVE_FILE_NAME = "itemalchemy_expansion_auto_emc.json";
-    /** 缓存版本：提升此值会让旧缓存失效，强制重新扫描配方。
-     *  v4: 自动定价改用「标签 Ingredient 取最便宜匹配堆」+「本轮中间产物参与下轮解析」，
-     *  计算结果与旧版不同，需重算。 */
+    /** 缓存版本：提升此值会让旧缓存失效，强制重新扫描配方。v4: 改用「标签 Ingredient 取最便宜匹配堆」+「本轮中间产物参与下轮解析」，计算结果与旧版不同需重算 */
     private static final int CACHE_VERSION = 4;
 
     /** 精确层缓存（变体键 -> EMC） */

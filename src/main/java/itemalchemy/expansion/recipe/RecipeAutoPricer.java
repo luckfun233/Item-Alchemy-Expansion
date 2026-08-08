@@ -26,15 +26,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 配方自动定价器：扫描所有注册到原版 RecipeManager 的配方，
- * 对未定义 EMC 的物品按材料 EMC 之和自动定价。
+ * 配方自动定价器：扫描所有注册到原版 RecipeManager 的配方，对未定义 EMC 的物品按材料 EMC 之和自动定价。
  *
  * <h3>分批 + 时间片扫描（防卡顿，300+ 模组可用）</h3>
- * <p>借鉴 JEI 的延迟执行 / 时间预算思想：扫描不再在 {@code SERVER_STARTED} 同步一次性完成，
+ * <p>借鉴 JEI 的延迟执行 / 时间预算思想：扫描不在 {@code SERVER_STARTED} 同步一次性完成，
  * 而是切分为多个批次，每个服务器 tick 处理一批（受 {@link IAExpConfig#autoPricingBatchSize}
  * 与 {@link IAExpConfig#autoPricingTickBudgetMs} 双重限制，先达上限即让出主线程）。
- * 由 {@link #onServerTick} 驱动，完成后一次性写入 {@link AutoEmcStore} 并落盘缓存。
- * 这样即使 300+ 模组、数万条配方也不会阻塞主线程、不会卡顿。首次扫描后缓存命中即秒开。</p>
+ * 由 {@link #onServerTick} 驱动，完成后一次性写入 {@link AutoEmcStore} 并落盘缓存。</p>
  *
  * <h3>核心算法</h3>
  * <ol>
@@ -58,10 +56,8 @@ import java.util.Map;
  *       元素若是 {@link Ingredient} 直接用；若是含 {@code getIngredient()} 的包装类
  *       （如 TACZ {@code GunSmithTableIngredient}）解包并乘以 count。</li>
  *   <li><b>标签 Ingredient 取最便宜</b>：对多可替代输入（如 {@code #minecraft:planks}）
- *       遍历所有匹配堆取单价最低的（防套利：产出价不高于最便宜输入成本）。
- *       这对应 JEI 用 {@code IIngredientHelper.getUid} 归一化后建反向索引的思路。</li>
- *   <li><b>异常隔离</b>：单条配方异常不影响整体（try-catch 跳过）；借鉴 JEI
- *       {@code PluginManager.safeCallPlugin}，慢配方（&gt;2ms）在 debug 下告警。</li>
+ *       遍历所有匹配堆取单价最低的（防套利）。</li>
+ *   <li><b>异常隔离</b>：单条配方异常不影响整体扫描（try-catch 跳过），慢配方（&gt;2ms）在 debug 下告警。</li>
  * </ul>
  * </p>
  *
@@ -72,20 +68,17 @@ import java.util.Map;
  *   <li>已在 {@link EMCManager#map} 中的物品（玩家或上游设定）：通用层不覆盖，
  *       精确层仍算（精确模式优先精确值，回退通用）。</li>
  * </ul>
- * </p>
  *
  * <h3>触发时机</h3>
  * <ul>
  *   <li>服务端 {@code SERVER_STARTED}：在 {@code PerSaveEmcStore.load} 与 {@code PreciseEmcStore.load} 之后</li>
- *   <li>缓存命中跳过重算（启动快）</li>
+ *   <li>缓存命中跳过重算</li>
  *   <li>玩家手动 {@code /itemalchemy-expansion reprice} 强制重算</li>
  * </ul>
- * </p>
  *
- * <p><b>注</b>：JEI 的 {@code IRecipeManager} 运行时仅在客户端可用（其配方数据来自服务端
- * {@code ClientboundUpdateRecipesPacket} 同步），而本定价器在服务端 {@code SERVER_STARTED} 运行，
- * 无法直接复用 JEI 运行时。故此处采用 JEI 的<b>设计技巧</b>（通用化配方遍历、归一化取最便宜、
- * 时间预算、异常隔离）增强对原版 RecipeManager 的扫描，而非依赖 JEI 运行时。</p>
+ * <p><b>注</b>：JEI 的 {@code IRecipeManager} 运行时仅在客户端可用，而本定价器在服务端 {@code SERVER_STARTED} 运行，
+ * 无法直接复用 JEI 运行时。故此处采用 JEI 的<b>设计技巧</b>（通用化配方遍历、归一化取最便宜、时间预算、异常隔离）
+ * 增强对原版 RecipeManager 的扫描，而非依赖 JEI 运行时。</p>
  */
 public final class RecipeAutoPricer {
 
@@ -138,7 +131,6 @@ public final class RecipeAutoPricer {
      * 缓存未命中时启动<b>分批时间片扫描</b>（不阻塞当前 tick），由 {@link #onServerTick} 推进。</p>
      */
     public static void computeAndStore(MinecraftServer server) {
-        // 1. 缓存命中跳过
         if (AutoEmcStore.tryLoadCache(server)) {
             ItemAlchemyExpansion.LOGGER.info("[IAExp] RecipeAutoPricer: cache hit, skip recompute");
             return;
@@ -196,7 +188,7 @@ public final class RecipeAutoPricer {
             try {
                 processRecipe(recipe, currentWorld, preciseAcc, deferred, false);
             } catch (Throwable t) {
-                // 单条配方异常隔离（JEI safeCallPlugin 风格：不让单条炸掉整体）
+                // 单条配方异常隔离（JEI safeCallPlugin 风格：不让单条影响整体扫描）
                 ItemAlchemyExpansion.debug("[IAExp] recipe threw, skipped: id={}, {}",
                         recipe.getId(), t.toString());
             }
@@ -376,7 +368,6 @@ public final class RecipeAutoPricer {
             Map<String, Long> acc, List<Recipe<?>> deferred, boolean forceLast) {
         if (recipe == null) return;
 
-        // 1. 拿输出
         ItemStack outStack = extractOutput(recipe, world);
         if (outStack == null || outStack.isEmpty()) {
             ItemAlchemyExpansion.debug("[IAExp] recipe skipped (output empty after init): id={}",
@@ -387,7 +378,7 @@ public final class RecipeAutoPricer {
         String itemId = EmcQueryUtil.resolveItemId(outStack);
         if ("minecraft:air".equals(itemId)) return;
 
-        // 2. 过滤：尊重上游默认值（精确层仍算，但通用层会在最后移除）
+        // 尊重上游默认值（精确层仍算，但通用层会在最后移除）
         IAExpConfig cfg = IAExpConfigHolder.get();
         if (cfg.autoPricingRespectUpstream) {
             try {
@@ -399,11 +390,10 @@ public final class RecipeAutoPricer {
             } catch (Throwable ignore) {}
         }
 
-        // 3. 拿输入
         List<InputEntry> inputs = extractInputs(recipe);
         if (inputs.isEmpty()) return;
 
-        // 4. 算总 EMC：对每个 Ingredient 取所有匹配堆中单价最低的（标签类多可替代输入取最便宜，防套利）
+        // 对每个 Ingredient 取所有匹配堆中单价最低的（标签类多可替代输入取最便宜，防套利）
         long totalEmc = 0;
         boolean allInputsKnown = true;
         int outCount = outStack.getCount();
@@ -454,7 +444,6 @@ public final class RecipeAutoPricer {
             return;
         }
 
-        // 5. 算变体键并按 MIN 聚合
         ItemVariantKey vk = IAExpServices.variantKeyOf(outStack);
         String vkStr = vk.toStorageString();
         acc.merge(vkStr, totalEmc, Math::min);
@@ -466,10 +455,8 @@ public final class RecipeAutoPricer {
     /**
      * 解析输入物品的 EMC，<b>优先查本轮已算出的精确层</b>（让 A→B→C 多步合成链在迭代中逐步解析），
      * 再回退到 {@link EmcQueryUtil#resolveEmcForInput}（上游/手动/已缓存自动值）。
-     *
-     * <p>这是相对原版的关键增强：原版只查 {@link AutoEmcStore}（扫描期间为空），
-     * 导致同一次扫描内的中间产物无法被下游配方感知，多步链最终落到强制轮按缺失材料=0 算（偏低）。
-     * 现在中间产物一旦在某轮算出，下一轮即可被依赖它的配方正确取价。</p>
+     * 关键增强：让中间产物一旦在某轮算出，下一轮即可被依赖它的配方正确取价，
+     * 避免多步链最终落到强制轮按缺失材料=0 算（偏低）。
      */
     private static long resolveInputEmc(ItemStack stack, Map<String, Long> acc) {
         if (stack == null || stack.isEmpty()) return 0;

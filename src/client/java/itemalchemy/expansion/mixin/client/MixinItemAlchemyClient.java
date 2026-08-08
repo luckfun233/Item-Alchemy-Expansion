@@ -18,15 +18,8 @@ import java.util.List;
  * 修正 EMC tooltip 显示：用 {@link EMCManager#get(ItemStack)} 替代原版的 {@code getMap().get(id)}。
  *
  * <p>原版 {@link ItemAlchemyClient#getEmcText} 直接从 {@code EMCManager.getMap()} 按 item id
- * 查询 EMC，只能查到通用层（L2）的值。这导致：
- * <ul>
- *   <li>精确模式设置的变体 EMC（L1）不显示</li>
- *   <li>自动定价的精确/通用 EMC（L3/L4）不显示</li>
- *   <li>潜影盒内容物之和（MixinEMCManager 逻辑）不显示</li>
- * </ul>
- * </p>
- *
- * <p>本 Mixin 在方法头部拦截，统一调用 {@link EMCManager#get(ItemStack)}（已被 MixinEMCManager
+ * 查询 EMC，只能查到通用层（L2），无法显示精确层（L1/L3）、自动定价通用层（L4）、潜影盒内容物之和。
+ * 本 Mixin 在方法头部拦截，统一调用 {@link EMCManager#get(ItemStack)}（已被 MixinEMCManager
  * 拦截，走 L1→L3→L2→L4 优先级链），使 tooltip 显示的 EMC 与实际转换行为一致。</p>
  *
  * <p>文本格式与原版保持一致：{@code §eEMC: §r<单价>}，数量 > 1 时追加 {@code §eStack EMC: §r<总价>}。</p>
@@ -49,7 +42,7 @@ public abstract class MixinItemAlchemyClient {
         } catch (Throwable t) {
             return; // 异常时回退原方法
         }
-        if (totalEmc <= 0) return; // EMC=0 时不显示，回退原方法（原方法也会 return 空 list）
+        if (totalEmc <= 0) return; // EMC=0 时不显示，回退原方法
 
         int count = ItemStackUtil.getCount(stack);
         long unitEmc = count > 1 ? totalEmc / count : totalEmc;

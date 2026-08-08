@@ -19,42 +19,18 @@ import java.util.List;
  * 「重新定价」逐个选择对话框：玩家首次开启「配方自动定价」并存在手动定价时弹出一次。
  *
  * <p>由 {@code SetEmcClientNetwork} 收到 {@code reprice_candidates} S2C 包（通用层 + 精确层候选，
- * 含旧 EMC）后打开。界面为可滚动列表，每行一个候选，玩家可逐个勾选「重算 / 保留」：</p>
- *
- * <p><b>界面布局</b>：
- * <pre>
- *   ┌──────────────────────────────────────────────┐
- *   │            重新定价已设置的物品？                │  标题
- *   │   勾选=重新自动定价，取消勾选=保留手动值         │  说明
- *   ├──────────────────────────────────────────────┤
- *   │ [✓] [图] tacz:ak47  (精确)   旧:1200 → 新:980 │  可滚动列表
- *   │ [✓] [图] tacz:glock (精确)   旧:800  → 新:600 │
- *   │ [ ] [图] minecraft:iron      旧:64            │
- *   │ ...                                           │
- *   ├──────────────────────────────────────────────┤
- *   │         [全部重算] [全部保留] [确认]            │  按钮
- *   └──────────────────────────────────────────────┘
- * </pre>
- *
- * <p><b>选择语义</b>：
- * <ul>
- *   <li>勾选的条目从对应存储移除（通用层 {@code PerSaveEmcStore} / 精确层 {@code PreciseEmcStore}），
- *       随后服务端强制重算自动定价并重同步给所有在线玩家。</li>
- *   <li>未勾选的条目保留原手动值，自动定价不覆盖（手动优先级 > 自动）。</li>
- * </ul>
- * </p>
+ * 含旧 EMC）后打开。界面为可滚动列表，每行一个候选，玩家可逐个勾选「重算 / 保留」。
+ * 勾选条目会从对应存储移除并触发服务端重算自动定价；未勾选保留原手动值（手动优先级 &gt; 自动）。</p>
  *
  * <p>无论选什么，服务端都会置 {@code autoPricingRepricePromptShown=true} 写盘，对话框只弹一次。
  * 玩家想再次触发可用命令 {@code /itemalchemy-expansion reprice}。</p>
  *
- * <p><b>「新」EMC 来源</b>：客户端已同步的 {@link AutoEmcStore}（自动定价结果），仅用于预览；
- * 实际重算后的值由服务端 {@code RecipeAutoPricer} 决定。无自动值时只显示「旧」。</p>
+ * <p>「新」EMC 来自客户端同步的 {@link AutoEmcStore}（仅用于预览），实际重算值由服务端
+ * {@code RecipeAutoPricer} 决定；无自动值时只显示「旧」。</p>
  *
- * <p><b>实现说明</b>：用自包含的滚动列表（{@code enableScissor} + {@code mouseScrolled}）而非
- * {@code EntryListWidget}，避免对 Minecraft 原版类字段/方法签名的依赖（本项目无 refmap），
- * 零 API 风险、布局可控。候选通常 &lt; 50 条，性能无忧。</p>
- *
- * <p><b>暂停世界</b>：覆写 {@link #shouldPause()} 返回 true，与 {@link SetEmcScreen} 一致。</p>
+ * <p>实现说明：用自包含的滚动列表（{@code enableScissor} + {@code mouseScrolled}）而非
+ * {@code EntryListWidget}，避免对 Minecraft 原版类字段/方法签名的依赖（本项目无 refmap）。
+ * 覆写 {@link #shouldPause()} 返回 true，与 {@link SetEmcScreen} 一致。</p>
  */
 public class RepriceConfirmScreen extends Screen {
 
@@ -152,19 +128,16 @@ public class RepriceConfirmScreen extends Screen {
         int totalW = btnW * 3 + gap * 2;
         int startX = panelX + (panelW - totalW) / 2;
 
-        // 「全部重算」：所有条目勾选
         addDrawableChild(ButtonWidget.builder(
                 Text.translatable("itemalchemy-expansion.reprice.recompute_all"),
                 b -> setAllRecompute(true))
                 .dimensions(startX, btnY, btnW, 20).build());
 
-        // 「全部保留」：所有条目取消勾选
         addDrawableChild(ButtonWidget.builder(
                 Text.translatable("itemalchemy-expansion.reprice.keep_all"),
                 b -> setAllRecompute(false))
                 .dimensions(startX + btnW + gap, btnY, btnW, 20).build());
 
-        // 「确认」：发送勾选结果并关闭
         addDrawableChild(ButtonWidget.builder(
                 Text.translatable("itemalchemy-expansion.reprice.confirm_selection"),
                 b -> onConfirm())
@@ -249,19 +222,15 @@ public class RepriceConfirmScreen extends Screen {
         int listRight = panelX + panelW - 14;
         int listWidth = listRight - listLeft;
 
-        // 面板背景
         context.fill(panelX, panelY, panelX + panelW, panelY + panelH, 0xC0101010);
         GuiRenderUtil.drawBorder(context, panelX, panelY, panelW, panelH, 0xFF404040);
 
-        // 标题
         context.drawCenteredTextWithShadow(this.textRenderer, this.title,
                 this.width / 2, panelY + 10, 0xFFFFFF);
-        // 说明
         context.drawText(this.textRenderer,
                 Text.translatable("itemalchemy-expansion.reprice.selective_desc"),
                 listLeft, panelY + 26, 0xA0A0A0, false);
 
-        // 列表区域背景
         context.fill(listLeft, listTop, listRight, listBottom, 0x60000000);
         GuiRenderUtil.drawBorder(context, listLeft, listTop, listWidth, listBottom - listTop, 0xFF303030);
 
@@ -271,7 +240,7 @@ public class RepriceConfirmScreen extends Screen {
                     Text.translatable("itemalchemy-expansion.reprice.empty"),
                     (listLeft + listRight) / 2, (listTop + listBottom) / 2 - 4, 0xA0A0A0);
         } else {
-            // 滚动列表（裁剪到列表区域内）
+            // 裁剪到列表区域
             context.enableScissor(listLeft, listTop, listRight, listBottom);
             int hoverIdx = hitListRow(mouseX, mouseY);
             for (int i = 0; i < entries.size(); i++) {
@@ -280,11 +249,9 @@ public class RepriceConfirmScreen extends Screen {
                 drawRow(context, entries.get(i), listLeft, listRight, rowY, i == hoverIdx);
             }
             context.disableScissor();
-            // 滚动条
             drawScrollbar(context, listRight, listTop, listBottom);
         }
 
-        // 底部提示：以后可用命令再次触发
         context.drawText(this.textRenderer,
                 Text.translatable("itemalchemy-expansion.reprice.hint2"),
                 listLeft, panelY + panelH - 16, 0x707070, false);
@@ -292,27 +259,22 @@ public class RepriceConfirmScreen extends Screen {
         super.render(context, mouseX, mouseY, delta);
     }
 
-    /** 渲染一行候选：复选框 + 物品图标 + 名称 + (精确) + 旧/新 EMC */
     private void drawRow(DrawContext context, RepriceEntry e, int listLeft, int listRight, int rowY, boolean hovered) {
         int textY = rowY + (ROW_H - 8) / 2;
         if (hovered) {
             context.fill(listLeft + 1, rowY, listRight - 1, rowY + ROW_H, 0x30FFFFFF);
         }
-        // 复选框
         drawCheckbox(context, listLeft + 2, rowY + (ROW_H - CHECKBOX) / 2, e.recompute);
-        // 物品图标
         context.drawItem(e.stack, listLeft + 20, rowY + (ROW_H - 16) / 2);
-        // 名称（截断到 16 字符）
+        // 名称截断到 16 字符
         String name = e.displayName();
         if (name.length() > 16) name = name.substring(0, 15) + "...";
         context.drawText(this.textRenderer, name, listLeft + 42, textY, 0xFFFFFF, false);
-        // 精确层标记
         if (e.isPrecise()) {
             int nameW = this.textRenderer.getWidth(name);
             Text precise = Text.translatable("itemalchemy-expansion.reprice.layer_precise");
             context.drawText(this.textRenderer, precise, listLeft + 42 + nameW + 6, textY, 0x55FFFF, false);
         }
-        // 旧 / 新 EMC（右对齐）
         drawEmc(context, e, listRight, textY);
     }
 
@@ -323,7 +285,7 @@ public class RepriceConfirmScreen extends Screen {
         context.fill(x, y, x + CHECKBOX, y + CHECKBOX, fill);
         GuiRenderUtil.drawBorder(context, x, y, CHECKBOX, CHECKBOX, border);
         if (checked) {
-            // 内部白色实心方块作为勾选标记（避免依赖字体字形）
+            // 用白色实心方块作勾选标记，避免依赖字体字形
             context.fill(x + 3, y + 3, x + CHECKBOX - 3, y + CHECKBOX - 3, 0xFFFFFFFF);
         }
     }
@@ -342,7 +304,7 @@ public class RepriceConfirmScreen extends Screen {
         int groupW = oldW + (newT == null ? 0 : sepW + newW);
         int startX = rightX - groupW - 4;
 
-        // 旧值：勾选=黄色（将被重算），未勾选=灰色（保留）
+        // 旧值颜色：勾选=黄色（将被重算），未勾选=灰色（保留）
         int oldColor = e.recompute ? 0xFFFFE040 : 0xFFA0A0A0;
         context.drawText(this.textRenderer, oldT, startX, y, oldColor, false);
         if (newT != null) {
