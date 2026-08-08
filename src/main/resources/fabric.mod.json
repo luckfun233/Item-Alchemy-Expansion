@@ -1,0 +1,44 @@
+{
+	"schemaVersion": 1,
+	"id": "itemalchemy-expansion",
+	"version": "${version}",
+	"name": "Item Alchemy Expansion",
+	"description": "This is an example description! Tell everyone what your mod is about!",
+	"authors": [
+		"Me!"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/FabricMC/fabric-example-mod"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/itemalchemy-expansion/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"itemalchemy.expansion.ItemAlchemyExpansion"
+		],
+		"client": [
+			"itemalchemy.expansion.ItemAlchemyExpansionClient"
+		],
+		"fabric-datagen": [
+			"itemalchemy.expansion.ItemAlchemyExpansionDataGenerator"
+		]
+	},
+	"mixins": [
+		"itemalchemy-expansion.mixins.json",
+		{
+			"config": "itemalchemy-expansion.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~1.21.1",
+		"java": ">=21",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"another-mod": "*"
+	}
+}
