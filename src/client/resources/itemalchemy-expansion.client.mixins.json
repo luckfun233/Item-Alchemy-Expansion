@@ -3,9 +3,11 @@
 	"package": "itemalchemy.expansion.mixin.client",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
-		"ExampleClientMixin"
+		"MixinSimpleInventoryScreen",
+		"MixinAlchemyTableScreen",
+		"MixinItemAlchemyClient"
 	],
 	"injectors": {
-		"defaultRequire": 1
+		"defaultRequire": 0
 	}
 }

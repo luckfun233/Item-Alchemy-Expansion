@@ -3,7 +3,14 @@
 	"package": "itemalchemy.expansion.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
-		"ExampleMixin"
+		"MixinRegisterInventory",
+		"MixinRegisterSlot",
+		"MixinExtractInventory",
+		"MixinExtractSlot",
+		"MixinRemoveSlot",
+		"MixinAlchemyTableScreenHandler",
+		"MixinEMCManager",
+		"MixinPlayerRegisteredItemUtil"
 	],
 	"injectors": {
 		"defaultRequire": 1

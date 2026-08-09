@@ -3,15 +3,20 @@
 	"id": "itemalchemy-expansion",
 	"version": "${version}",
 	"name": "Item Alchemy Expansion",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"description": "Item Alchemy 的附属模组：在炼金台中实现 NBT 物品区分（如 tacz 弹药）、药水 NBT 修复、潜影盒整体支持与可配置展示。An Item Alchemy addon: NBT-aware item distinction, potion NBT fix, shulker box support and configurable display in the Alchemy Table.",
 	"authors": [
-		"Me!"
+		"luckyfun233"
+	],
+	"contributors": [
+		"Pitan (Item Alchemy 上游作者)",
+		"MisterPeModder (ShulkerBoxTooltip 上游作者)"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"homepage": "https://github.com/luckfun233/Item-Alchemy-Expansion",
+		"sources": "https://github.com/luckfun233/Item-Alchemy-Expansion",
+		"issues": "https://github.com/luckfun233/Item-Alchemy-Expansion/issues"
 	},
-	"license": "CC0-1.0",
+	"license": "MIT",
 	"icon": "assets/itemalchemy-expansion/icon.png",
 	"environment": "*",
 	"entrypoints": {
@@ -23,6 +28,9 @@
 		],
 		"fabric-datagen": [
 			"itemalchemy.expansion.ItemAlchemyExpansionDataGenerator"
+		],
+		"modmenu": [
+			"itemalchemy.expansion.compat.modmenu.ModMenuIntegration"
 		]
 	},
 	"mixins": [
@@ -33,12 +41,15 @@
 		}
 	],
 	"depends": {
-		"fabricloader": ">=0.19.3",
+		"fabricloader": ">=0.18.6",
 		"minecraft": "~1.21.1",
 		"java": ">=21",
-		"fabric-api": "*"
+		"fabric-api": "*",
+		"itemalchemy": "*",
+		"mcpitanlib": "*"
 	},
 	"suggests": {
-		"another-mod": "*"
+		"cloth-config": "*",
+		"modmenu": "*"
 	}
 }
