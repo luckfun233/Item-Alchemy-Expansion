@@ -142,6 +142,16 @@ public final class IAExpConfigHolder {
             needsSave = true;
         }
 
+        // configVersion < 10: applyFromSnapshot bug 修复（之前客户端 S2C 同步会清空 saveLayer，
+        // 导致 reprice check 找不到候选→误标 autoPricingRepricePromptShown=true）。
+        // 重置标志让修复后的提示有机会弹出
+        if (loaded.configVersion < 10) {
+            ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 10 (reset reprice prompt flag after applyFromSnapshot fix)", loaded.configVersion);
+            loaded.autoPricingRepricePromptShown = false;
+            loaded.configVersion = 10;
+            needsSave = true;
+        }
+
         return loaded;
     }
 

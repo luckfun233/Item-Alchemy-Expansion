@@ -110,5 +110,13 @@ public abstract class MixinEMCManager {
             }
         }
         // L2: 走原方法（不 cancel，让 EMCManager.get(Item) × count 执行）
+        if (ItemAlchemyExpansion.debugEnabled()) {
+            String itemId = EmcQueryUtil.resolveItemId(stack);
+            boolean l2Has = EMCManager.contains(itemId);
+            long l2Val = l2Has ? EMCManager.get(stack.getItem()) : 0L;
+            ItemAlchemyExpansion.debug(
+                    "[IAExp] emc fallthrough L2: itemId='{}', contains={}, rawGet={}, count={}, vkStr='{}', hasNbt={}, autoPricing={}",
+                    itemId, l2Has, l2Val, count, vkStr, stack.hasNbt(), cfg.autoPricingFromRecipes);
+        }
     }
 }

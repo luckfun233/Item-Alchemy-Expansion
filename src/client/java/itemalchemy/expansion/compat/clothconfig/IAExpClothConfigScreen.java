@@ -50,9 +50,10 @@ public final class IAExpClothConfigScreen {
                 .setParentScreen(parent)
                 .setTitle(Text.translatable("itemalchemy-expansion.config.title"));
 
-        // 透明背景，让 modmenu 背景透出（视觉更统一）
-        builder.setTransparentBackground(true);
-
+        // 用 cloth-config 默认背景（深色半透 + 渲染游戏世界）。
+        // 之前用 setTransparentBackground(true) 会让配置页背景透明，但父界面
+        // （ModMenu 列表）在 Screen 切换后已停止渲染，导致配置页后方只剩下
+        // 游戏世界或上一帧残影，看起来「模糊不清后方的内容」。
         ConfigEntryBuilder entries = builder.entryBuilder();
 
         buildCategories(builder, entries, editing);
@@ -80,8 +81,10 @@ public final class IAExpClothConfigScreen {
             IAExpConfigHolder.save();
             IAExpServices.refresh();
 
-            // 自动定价首次 OFF→ON：弹重新定价对话框
+            // 自动定价 OFF→ON：重置「已弹过」标志并弹重新定价对话框
+            // 每次从关闭切回开启都可能覆盖新的手动定价条目，必须每次都弹
             if (!wasAutoPricingOn && editing.autoPricingFromRecipes) {
+                IAExpConfigHolder.get().autoPricingRepricePromptShown = false;
                 RepriceTriggerClient.sendRepriceCheck();
             }
         });

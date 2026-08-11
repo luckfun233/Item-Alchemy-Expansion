@@ -33,6 +33,15 @@ public final class ShulkerBoxSupport {
         return ((BlockItem) item).getBlock() instanceof ShulkerBoxBlock;
     }
 
+    /** 判断潜影盒是否有内容物（非空 Items 列表） */
+    public static boolean hasContents(ItemStack stack) {
+        if (!isShulkerBox(stack)) return false;
+        NbtCompound blockEntityTag = getBlockEntityTag(stack);
+        if (blockEntityTag == null) return false;
+        NbtList items = blockEntityTag.getList("Items", NbtElement.COMPOUND_TYPE);
+        return !items.isEmpty();
+    }
+
     /**
      * 计算装了物品的潜影盒的总 EMC = 内容物 EMC 之和 + 潜影盒本身的 EMC。
      *

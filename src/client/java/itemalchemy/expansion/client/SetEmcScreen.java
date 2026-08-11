@@ -4,9 +4,11 @@ import itemalchemy.expansion.IAExpServices;
 import itemalchemy.expansion.client.util.GuiRenderUtil;
 import itemalchemy.expansion.config.IAExpConfigHolder;
 import itemalchemy.expansion.nbt.ItemVariantKey;
+import itemalchemy.expansion.network.AutoEmcStore;
 import itemalchemy.expansion.network.PreciseEmcStore;
 import itemalchemy.expansion.network.SetEmcNetwork;
 import itemalchemy.expansion.util.EmcQueryUtil;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -86,7 +88,7 @@ public class SetEmcScreen extends Screen {
         return s.length() > 30 ? s.substring(0, 30) + "..." : s;
     }
 
-    /** 按定价精度查询当前 EMC：精确 → 精确 map → 通用 map；通用 → 通用 map */
+    /** 按定价精度查询当前 EMC：精确 → 精确 map → 通用 map；通用 → 通用 map → 自动通用 map */
     private static long resolveCurrentEmc(String itemId, String variantKey, Precision precision) {
         try {
             if (precision == Precision.PRECISE) {
@@ -96,8 +98,12 @@ public class SetEmcScreen extends Screen {
                 Long g = EMCManager.getMap().get(itemId);
                 return g == null ? 0L : g;
             }
+            // 通用模式：先查 L2 通用层，再回退查 L4 自动通用层
+            // 不回退查 L3 自动精确层（变体键级别），否则会显示「自动精确值」而非「通用值」
             Long v = EMCManager.getMap().get(itemId);
-            return v == null ? 0L : v;
+            if (v != null) return v;
+            Long auto = AutoEmcStore.getGeneral(itemId);
+            return auto == null ? 0L : auto;
         } catch (Throwable t) {
             return 0L;
         }
@@ -120,9 +126,12 @@ public class SetEmcScreen extends Screen {
                 Text.translatable("itemalchemy-expansion.set_emc.emc_field"));
         emcField.setMaxLength(18);
         emcField.setText(String.valueOf(currentEmc));
-        emcField.setFocused(true);
         emcField.setTextPredicate(this::isValidEmcInput);
         addDrawableChild(emcField);
+        // 关键：必须让 Screen.focused 指向输入框，否则 keyPressed/charTyped
+        // 会因为 this.focused==null 而直接返回 false，键盘事件全部丢失
+        // （退格删除、数字键、IME 字符都进不来，表现为「卡输入法」）
+        this.setFocused(emcField);
 
         int precisionY = fieldY + 26;
         int precisionWidth = 160;
@@ -136,6 +145,10 @@ public class SetEmcScreen extends Screen {
                             // 切换精度时刷新输入框默认值
                             long refreshed = resolveCurrentEmc(itemId, variantKey, precision);
                             emcField.setText(String.valueOf(refreshed));
+                            // Screen.mouseClicked 在 widget.mouseClicked 返回 true 后会
+                            // 把焦点设到按钮上，同步 setFocused 会被覆盖。延迟到下一帧
+                            // 把焦点还给输入框，让用户切换精度后能直接继续输入新值。
+                            MinecraftClient.getInstance().execute(() -> this.setFocused(emcField));
                         });
         addDrawableChild(precisionButton);
 
@@ -146,7 +159,10 @@ public class SetEmcScreen extends Screen {
                 .initially(scope)
                 .build(centerX - scopeWidth / 2, scopeY, scopeWidth, 20,
                         Text.translatable("itemalchemy-expansion.set_emc.scope_label"),
-                        (button, value) -> scope = value);
+                        (button, value) -> {
+                            scope = value;
+                            MinecraftClient.getInstance().execute(() -> this.setFocused(emcField));
+                        });
         addDrawableChild(scopeButton);
 
         int btnY = scopeY + 30;
@@ -187,6 +203,9 @@ public class SetEmcScreen extends Screen {
     /** 确认按钮回调：解析 EMC 值，发送网络包，关闭界面。 */
     private void onConfirm() {
         String raw = emcField.getText().trim();
+        itemalchemy.expansion.ItemAlchemyExpansion.debug(
+                "[IAExp][SetEmc] onConfirm raw: precision={}, scope={}, rawField='{}' (len={}), itemId='{}', variantKey='{}'",
+                precision, scope, raw, raw.length(), itemId, variantKey);
         if (raw.isEmpty()) {
             errorText = Text.translatable("itemalchemy-expansion.set_emc.fail.empty")
                     .formatted(Formatting.RED);
@@ -198,6 +217,8 @@ public class SetEmcScreen extends Screen {
         } catch (NumberFormatException e) {
             errorText = Text.translatable("itemalchemy-expansion.set_emc.fail.parse")
                     .formatted(Formatting.RED);
+            itemalchemy.expansion.ItemAlchemyExpansion.LOGGER.warn(
+                    "[IAExp][SetEmc] parse failed: raw='{}'", raw);
             return;
         }
         if (emc < 0) {
@@ -208,12 +229,40 @@ public class SetEmcScreen extends Screen {
 
         // 按定价精度决定写入精确/通用存储
         boolean precise = (precision == Precision.PRECISE);
-        String vkPayload = precise ? variantKey : "";
-        SetEmcClientNetwork.sendSetEmc(itemId, emc,
-                scope == Scope.THIS_SAVE ? SetEmcNetwork.SCOPE_THIS_SAVE : SetEmcNetwork.SCOPE_GLOBAL,
-                precise, vkPayload);
+        int scopeCode = scope == Scope.THIS_SAVE ? SetEmcNetwork.SCOPE_THIS_SAVE : SetEmcNetwork.SCOPE_GLOBAL;
 
-        this.close();
+        if (precise) {
+            // 精确模式：直接发送，无需查询 L1 候选
+            SetEmcClientNetwork.sendSetEmc(itemId, emc, scopeCode, true, variantKey, null);
+            this.close();
+            return;
+        }
+
+        // 通用模式：先查询该 ID 是否有 L1 精确覆盖，有则弹覆盖确认框
+        final long finalEmc = emc;
+        final int finalScopeCode = scopeCode;
+        SetEmcClientNetwork.setPendingPreciseQueryCallback(variants -> {
+            MinecraftClient mc = MinecraftClient.getInstance();
+            if (variants == null || variants.isEmpty()) {
+                // 无 L1 覆盖：直接设通用价，不清除
+                SetEmcClientNetwork.sendSetEmc(itemId, finalEmc, finalScopeCode, false, "", null);
+                if (mc != null) mc.setScreen(null);
+                return;
+            }
+            // 有 L1 覆盖：弹精美确认框（复选框逐个选择 + 物品图标/名称/旧EMC）
+            mc.setScreen(new OverwritePreciseConfirmScreen(
+                    itemId, finalEmc, variants,
+                    toClear -> {
+                        // 确认：发送 set_emc 包，带要清除的变体键列表
+                        SetEmcClientNetwork.sendSetEmc(itemId, finalEmc, finalScopeCode, false, "", toClear);
+                    },
+                    () -> {
+                        // 取消：回到 SetEmcScreen
+                        if (mc != null) mc.setScreen(this);
+                    }
+            ));
+        });
+        SetEmcClientNetwork.sendQueryPreciseByItem(itemId);
     }
 
     @Override

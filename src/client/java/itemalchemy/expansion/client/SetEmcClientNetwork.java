@@ -34,6 +34,14 @@ public final class SetEmcClientNetwork {
     /** 客户端缓存的当前变体键（用于 SetEmcScreen 显示「当前 EMC」时按定价精度查询） */
     private static String cachedVariantKey = "";
 
+    /**
+     * 待处理的 L1 候选查询回调（设通用价前查询该 ID 是否有 L1 精确覆盖）。
+     *
+     * <p>SetEmcScreen 发送查询包前设置此回调，收到 S2C 结果后调用并清空。
+     * 回调参数为候选 map（空 map 表示无 L1 覆盖，可直接设通用价）。</p>
+     */
+    private static java.util.function.Consumer<Map<String, Long>> pendingPreciseQueryCallback;
+
     private SetEmcClientNetwork() {}
 
     /**
@@ -45,15 +53,46 @@ public final class SetEmcClientNetwork {
      * @param precise    是否写入精确存储（按变体键）；false=走通用存储（按 id）
      * @param variantKey 精确模式下的变体键存储串（{@code ItemVariantKey.toStorageString()}）；
      *                   通用模式下传空串
+     * @param preciseVkStrsToClear 仅 GENERAL 模式生效：要清除的 L1 精确变体键列表
+     *                             （用户在确认框逐个勾选）；空列表=保留所有 L1。PRECISE 模式忽略此值
      */
-    public static void sendSetEmc(String itemId, long emc, int scope, boolean precise, String variantKey) {
+    public static void sendSetEmc(String itemId, long emc, int scope, boolean precise,
+                                  String variantKey, java.util.List<String> preciseVkStrsToClear) {
+        itemalchemy.expansion.ItemAlchemyExpansion.debug(
+                "[IAExp][SetEmc][C2S] sendSetEmc: itemId='{}', emc={}, scope={}, precise={}, variantKey='{}', clearCount={}",
+                itemId, emc, scope, precise, variantKey,
+                preciseVkStrsToClear == null ? 0 : preciseVkStrsToClear.size());
         PacketByteBuf buf = PacketByteBufs.create();
         buf.writeString(itemId);
         buf.writeLong(emc);
         buf.writeVarInt(scope);
         buf.writeBoolean(precise);
         buf.writeString(variantKey == null ? "" : variantKey);
+        if (preciseVkStrsToClear == null) {
+            buf.writeVarInt(0);
+        } else {
+            buf.writeVarInt(preciseVkStrsToClear.size());
+            for (String vk : preciseVkStrsToClear) buf.writeString(vk == null ? "" : vk);
+        }
         ClientPlayNetworking.send(SetEmcNetwork.SET_EMC_ID, buf);
+    }
+
+    /**
+     * 客户端发送「查询 itemId 的 L1 精确覆盖」C2S 包。
+     *
+     * <p>设通用价前调用，服务端返回该 ID 的所有 L1 变体条目。
+     * 客户端收到 {@link SetEmcNetwork#PRECISE_BY_ITEM_RESULT_ID} 后，
+     * 若非空则弹覆盖确认框。</p>
+     */
+    public static void sendQueryPreciseByItem(String itemId) {
+        try {
+            PacketByteBuf buf = PacketByteBufs.create();
+            buf.writeString(itemId == null ? "" : itemId);
+            ClientPlayNetworking.send(SetEmcNetwork.QUERY_PRECISE_BY_ITEM_ID, buf);
+            ItemAlchemyExpansion.debug("[IAExp] query precise by item sent: itemId='{}'", itemId);
+        } catch (Throwable t) {
+            ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to send query precise by item: {}", t.toString());
+        }
     }
 
     /**
@@ -101,6 +140,15 @@ public final class SetEmcClientNetwork {
     /** 读取缓存的变体键 */
     public static String getCachedVariantKey() {
         return cachedVariantKey;
+    }
+
+    /**
+     * 设置待处理的 L1 候选查询回调。
+     *
+     * <p>SetEmcScreen 在发送查询包前调用，收到 S2C 结果后自动触发并清空。</p>
+     */
+    public static void setPendingPreciseQueryCallback(java.util.function.Consumer<Map<String, Long>> cb) {
+        pendingPreciseQueryCallback = cb;
     }
 
     /**
@@ -181,6 +229,29 @@ public final class SetEmcClientNetwork {
                             NewFeatureToast.show();
                         } catch (Throwable t) {
                             ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to show new feature toast: {}",
+                                    t.toString());
+                        }
+                    });
+                });
+
+        // L1 候选查询结果（设通用价前询问是否有精确覆盖）
+        ClientPlayNetworking.registerGlobalReceiver(SetEmcNetwork.PRECISE_BY_ITEM_RESULT_ID,
+                (client, handler, buf, responseSender) -> {
+                    Map<String, Long> variants = SetEmcNetwork.readEmcMap(buf);
+                    client.execute(() -> {
+                        try {
+                            java.util.function.Consumer<Map<String, Long>> cb = pendingPreciseQueryCallback;
+                            pendingPreciseQueryCallback = null;
+                            if (cb != null) {
+                                cb.accept(variants);
+                                ItemAlchemyExpansion.debug("[IAExp] precise by item result received: {} variants, callback invoked",
+                                        variants.size());
+                            } else {
+                                ItemAlchemyExpansion.debug("[IAExp] precise by item result received: {} variants, no callback (dropped)",
+                                        variants.size());
+                            }
+                        } catch (Throwable t) {
+                            ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to handle precise by item result: {}",
                                     t.toString());
                         }
                     });

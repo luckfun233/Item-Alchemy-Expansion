@@ -1,6 +1,7 @@
 package itemalchemy.expansion.client;
 
 import itemalchemy.expansion.ItemAlchemyExpansion;
+import itemalchemy.expansion.nbt.ShulkerBoxSupport;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.MinecraftClient;
@@ -62,6 +63,13 @@ public final class SetEmcKeybind {
         ItemStack target = pickHeldItem(player);
         if (target.isEmpty()) {
             // 没有手持物品：不打开 GUI，静默（玩家可能误按）
+            return;
+        }
+
+        // 带内容物的潜影盒不允许手动定价：其 EMC 按内容物求和，固定值无意义
+        if (ShulkerBoxSupport.hasContents(target)) {
+            player.sendMessage(net.minecraft.text.Text.translatable(
+                    "itemalchemy-expansion.set_emc.fail.shulker_with_contents"), true);
             return;
         }
 
