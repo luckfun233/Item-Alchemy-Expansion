@@ -1,10 +1,10 @@
 package itemalchemy.expansion.client;
 
 import itemalchemy.expansion.network.FilterModeNetwork;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
-import net.minecraft.network.PacketByteBuf;
 import itemalchemy.expansion.search.SearchFilterMode;
+import net.minecraft.network.PacketByteBuf;
+import net.pitan76.mcpitanlib.api.network.ClientNetworking;
+import net.pitan76.mcpitanlib.api.network.PacketByteUtil;
 
 /**
  * 「筛选模式切换」网络包客户端发送方。
@@ -18,8 +18,8 @@ public final class FilterModeClientNetwork {
 
     /** 发送筛选模式切换包 */
     public static void send(SearchFilterMode mode) {
-        PacketByteBuf buf = PacketByteBufs.create();
+        PacketByteBuf buf = PacketByteUtil.create();
         buf.writeByte(mode.ordinal());
-        ClientPlayNetworking.send(FilterModeNetwork.FILTER_MODE_ID, buf);
+        ClientNetworking.send(FilterModeNetwork.FILTER_MODE_ID, buf);
     }
 }

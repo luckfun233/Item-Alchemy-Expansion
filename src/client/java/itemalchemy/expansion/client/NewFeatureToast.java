@@ -14,23 +14,28 @@ import net.minecraft.util.Identifier;
  * 且 {@code featureNoticeShown=false} 时，服务端在玩家加入时推 {@code new_feature_toast}
  * S2C 包，客户端收到后弹此 toast 一次。</p>
  *
- * <p>布局比 {@link NoEmcShulkerBoxToast} 宽以容纳两行说明：标题（金色）+ 描述行 1（白色）
- * + 描述行 2（灰色）。图标用 vanilla 的 {@code experience_bottle} 纹理。</p>
+ * <p>布局：标题（金色）+ 描述行 1（白色）+ 描述行 2（灰色），左侧经验瓶图标。</p>
  *
  * <p>持续时长 8000ms，比一般 toast 长一倍以确保玩家能读完。服务端已用
  * {@code featureNoticeShown} 标志去重，客户端不重复抑制。</p>
+ *
+ * <p><b>背景绘制</b>：1.21.1 移除了 {@code minecraft:textures/gui/toasts.png}，
+ * 迁移到 gui.png-atlas sprite 系统。这里直接用 {@link DrawContext#fill} 画半透明深色
+ * 矩形 + 边框，不依赖 vanilla 纹理。经验瓶图标仍是独立纹理文件（未迁移到 atlas）。</p>
  */
 public class NewFeatureToast implements Toast {
 
-    /** Toast 背景纹理（vanilla 的 toast 纹理） */
-    private static final Identifier TEXTURE = Identifier.of("minecraft", "textures/gui/toasts.png");
-
-    /** 经验瓶纹理（作为「新功能」图标） */
+    /** 经验瓶纹理（作为「新功能」图标，独立纹理文件，未迁移到 atlas） */
     private static final Identifier ICON_TEXTURE =
             Identifier.of("minecraft", "textures/item/experience_bottle.png");
 
     /** Toast 持续时长（毫秒），比一般 toast 长，确保玩家读完 */
     private static final long DURATION_MS = 8000L;
+
+    /** 背景颜色（ARGB：深色半透明） */
+    private static final int BG_COLOR = 0xC0202020;
+    /** 背景边框颜色（ARGB：浅灰） */
+    private static final int BORDER_COLOR = 0xFF505050;
 
     /** Toast 创建时间，用于淡入淡出 */
     private long startTime = -1;
@@ -62,11 +67,15 @@ public class NewFeatureToast implements Toast {
         if (fade < 0) fade = 0;
         if (fade > 255) fade = 255;
 
-        // vanilla toast 纹理单格是 160x32，需 240x44，分块绘制自适应宽度
-        context.drawTexture(TEXTURE, 0, 0, 0, 0, 160, 32);
-        context.drawTexture(TEXTURE, 160, 0, 160, 0, getWidth() - 160, 32);
-        context.drawTexture(TEXTURE, 0, 32, 0, 0, 160, getHeight() - 32);
-        context.drawTexture(TEXTURE, 160, 32, 160, 0, getWidth() - 160, getHeight() - 32);
+        // 1.21.1 移除了 toasts.png 纹理文件，直接用 fill 画半透明深色背景 + 边框
+        int w = getWidth();
+        int h = getHeight();
+        context.fill(0, 0, w, h, BG_COLOR);
+        // 1px 边框
+        context.fill(0, 0, w, 1, BORDER_COLOR);
+        context.fill(0, h - 1, w, h, BORDER_COLOR);
+        context.fill(0, 0, 1, h, BORDER_COLOR);
+        context.fill(w - 1, 0, w, h, BORDER_COLOR);
 
         MinecraftClient client = MinecraftClient.getInstance();
 

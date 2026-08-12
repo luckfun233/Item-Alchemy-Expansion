@@ -6,7 +6,6 @@ import net.minecraft.client.toast.Toast;
 import net.minecraft.client.toast.ToastManager;
 import net.minecraft.item.ItemStack;
 import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 
 /**
  * 「无法放入潜影盒」Toast 通知（屏幕右上角弹窗）。
@@ -14,19 +13,24 @@ import net.minecraft.util.Identifier;
  * <p>当玩家尝试把含无 EMC 物品的潜影盒放入转换桌输入槽时，{@code MixinRegisterSlot}
  * 通过反射调用 {@link #show(ItemStack)} 触发此 Toast，比聊天消息更醒目。</p>
  *
- * <p>布局：标题（红色）+ 描述（白色，XXX 为物品名），图标用 {@link #WARNING_TEXTURE}
- * （vanilla 的 warning 纹理，16×16）。持续时长 5000ms，与 vanilla SystemToast 一致。</p>
+ * <p>布局：标题（红色）+ 描述（白色，XXX 为物品名），左侧物品图标。持续时长 5000ms。</p>
+ *
+ * <p><b>背景绘制</b>：1.21.1 移除了 {@code minecraft:textures/gui/toasts.png}，
+ * 迁移到 gui.png-atlas sprite 系统。为避免 sprite 路径漂移与跨版本兼容问题，
+ * 这里直接用 {@link DrawContext#fill} 画半透明深色矩形，不依赖 vanilla 纹理。</p>
  *
  * <p>重复抑制：{@link #show(ItemStack)} 内部用 {@code lastShownItem} 记录上次物品，
  * 500ms 内同物品不重复弹出，避免短时间内多次 canInsert 调用导致刷屏。</p>
  */
 public class NoEmcShulkerBoxToast implements Toast {
 
-    /** Toast 背景纹理（vanilla 的 toast 纹理） */
-    private static final Identifier TEXTURE = Identifier.of("minecraft", "textures/gui/toasts.png");
-
     /** Toast 持续时长（毫秒） */
     private static final long DURATION_MS = 5000L;
+
+    /** 背景颜色（ARGB：深色半透明） */
+    private static final int BG_COLOR = 0xC0202020;
+    /** 背景边框颜色（ARGB：浅灰） */
+    private static final int BORDER_COLOR = 0xFF505050;
 
     /** 触发此 Toast 的无 EMC 物品 */
     private final ItemStack noEmcItem;
@@ -64,7 +68,15 @@ public class NoEmcShulkerBoxToast implements Toast {
         if (fade < 0) fade = 0;
         if (fade > 255) fade = 255;
 
-        context.drawTexture(TEXTURE, 0, 0, 0, 0, getWidth(), getHeight());
+        // 1.21.1 移除了 toasts.png 纹理文件，直接用 fill 画半透明深色背景 + 边框
+        int w = getWidth();
+        int h = getHeight();
+        context.fill(0, 0, w, h, BG_COLOR);
+        // 1px 边框
+        context.fill(0, 0, w, 1, BORDER_COLOR);
+        context.fill(0, h - 1, w, h, BORDER_COLOR);
+        context.fill(0, 0, 1, h, BORDER_COLOR);
+        context.fill(w - 1, 0, w, h, BORDER_COLOR);
 
         MinecraftClient client = MinecraftClient.getInstance();
 

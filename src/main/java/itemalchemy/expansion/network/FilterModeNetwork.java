@@ -3,9 +3,9 @@ package itemalchemy.expansion.network;
 import itemalchemy.expansion.ItemAlchemyExpansion;
 import itemalchemy.expansion.search.IAlchemyTableScreenHandlerExt;
 import itemalchemy.expansion.search.SearchFilterMode;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.util.Identifier;
 import net.pitan76.itemalchemy.gui.screen.AlchemyTableScreenHandler;
+import net.pitan76.mcpitanlib.api.network.ServerNetworking;
 
 /**
  * 「筛选模式切换」网络包：C2S。
@@ -30,7 +30,7 @@ public final class FilterModeNetwork {
 
     /** 服务端注册接收器。在 {@code onInitialize}（服务端）中调用。 */
     public static void registerServer() {
-        ServerPlayNetworking.registerGlobalReceiver(FILTER_MODE_ID, (server, player, handler, buf, responseSender) -> {
+        ServerNetworking.registerReceiver(FILTER_MODE_ID, (server, player, buf) -> {
             int ordinal = buf.readByte();
             SearchFilterMode newMode;
             try {

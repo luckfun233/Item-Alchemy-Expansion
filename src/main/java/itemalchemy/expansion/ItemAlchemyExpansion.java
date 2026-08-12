@@ -83,7 +83,7 @@ public class ItemAlchemyExpansion implements ModInitializer {
 					IAExpConfigHolder.save();
 					IAExpConfigHolder.clearUpgradedFromLegacy();
 					LOGGER.info("[IAExp] new feature toast pushed to {} (legacy upgrade detected)",
-							handler.player.getEntityName());
+							handler.player.getName().getString());
 				}
 			} catch (Throwable t) {
 				LOGGER.warn("[IAExp] Failed to push new feature toast: {}", t.toString());

@@ -65,13 +65,9 @@ public abstract class MixinRegisterSlot {
 
     private static void sendNoEmcRejectMessage(Player player, ItemStack noEmcItem) {
         try {
-            if (player.isClient() && showClientToast(noEmcItem)) {
-                return;
+            if (player.isClient()) {
+                showClientToast(noEmcItem);
             }
-            Text msg = Text.translatable(
-                    "itemalchemy-expansion.shulker_box.no_emc_item",
-                    noEmcItem.getName());
-            player.sendMessage(msg);
         } catch (Throwable t) {
             ItemAlchemyExpansion.LOGGER.warn(
                     "[IAExp] Shulker box rejected: contains no-EMC item {}",
@@ -81,7 +77,7 @@ public abstract class MixinRegisterSlot {
 
     /**
      * 反射调用客户端 {@code NoEmcShulkerBoxToast.show(ItemStack)}。
-     * main 源集不能直接 import client 类，故用反射；服务端找不到该类时静默回退到聊天消息。
+     * main 源集不能直接 import client 类，故用反射；服务端玩家（isClient=false）静默跳过。
      */
     private static boolean showClientToast(ItemStack noEmcItem) {
         if (!clientToastResolved) {
