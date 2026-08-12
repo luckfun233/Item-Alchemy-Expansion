@@ -1,0 +1,137 @@
+{
+  "itemalchemy-expansion.config.title": "Item Alchemy Expansion 配置",
+  "itemalchemy-expansion.config.category.general": "通用",
+  "itemalchemy-expansion.config.category.shulker_box": "潜影盒",
+  "itemalchemy-expansion.config.category.advanced": "高级",
+  "itemalchemy-expansion.config.category.experimental": "实验性",
+
+  "itemalchemy-expansion.config.experimental.note": "以下功能仍在测试中，可能影响 EMC 计算。",
+
+  "itemalchemy-expansion.config.displayMode": "展示方式",
+  "itemalchemy-expansion.config.displayMode.tooltip": "提取槽中物品的展示方式。\n仅图标 / 仅名称 / 图标 + 名称（默认）。",
+  "itemalchemy-expansion.config.displayMode.option.icon_only": "仅图标",
+  "itemalchemy-expansion.config.displayMode.option.name_only": "仅名称",
+  "itemalchemy-expansion.config.displayMode.option.icon_and_name": "图标 + 名称",
+
+  "itemalchemy-expansion.config.searchByTranslatedName": "按翻译名搜索",
+  "itemalchemy-expansion.config.searchByTranslatedName.tooltip": "同时按物品 ID 和翻译名搜索。",
+
+  "itemalchemy-expansion.config.renderNameUnderSlot": "槽位下方显示名称",
+  "itemalchemy-expansion.config.renderNameUnderSlot.tooltip": "展示方式为「图标 + 名称」时，在提取槽下方显示物品名称。",
+
+  "itemalchemy-expansion.config.shulkerBoxMode": "潜影盒模式",
+  "itemalchemy-expansion.config.shulkerBoxMode.tooltip": "开启：潜影盒可放入转换桌，内容物计入 EMC。\n关闭：潜影盒不可放入。",
+  "itemalchemy-expansion.config.shulkerBoxMode.option.allow": "开启",
+  "itemalchemy-expansion.config.shulkerBoxMode.option.disable": "关闭",
+
+  "itemalchemy-expansion.config.shulkerNoEmcPolicy": "无 EMC 物品处理（潜影盒）",
+  "itemalchemy-expansion.config.shulkerNoEmcPolicy.tooltip": "盒内存在无 EMC 物品时的处理方式。\n拒绝：禁止放入。\n按 0 计：视为 0 EMC，允许放入。",
+  "itemalchemy-expansion.config.shulkerNoEmcPolicy.option.reject": "拒绝放入",
+  "itemalchemy-expansion.config.shulkerNoEmcPolicy.option.allow_as_zero": "按 0 计",
+
+  "itemalchemy-expansion.config.builtInShulkerPreview": "内置潜影盒预览",
+  "itemalchemy-expansion.config.builtInShulkerPreview.tooltip": "未安装 ShulkerBoxTooltip 时使用内置 Shift 悬停预览。",
+
+  "itemalchemy-expansion.config.debugLogging": "调试日志",
+  "itemalchemy-expansion.config.debugLogging.tooltip": "输出详细调试日志（变体键、提取槽、注册等）。排查问题时开启。",
+
+  "itemalchemy-expansion.config.fullIgnoreDamageAndRepairCost": "忽略 Damage 与 RepairCost",
+  "itemalchemy-expansion.config.fullIgnoreDamageAndRepairCost.tooltip": "忽略 Damage 和 RepairCost，避免同一工具因耐久不同产生大量变体。",
+
+  "itemalchemy-expansion.config.ignoreNbtKeys": "忽略的 NBT 键",
+  "itemalchemy-expansion.config.ignoreNbtKeys.tooltip": "始终从指纹中排除的 NBT 键，避免运行时状态变化导致指纹失配。每行一个。",
+
+  "itemalchemy-expansion.shulker_box.preview_title": "%s（EMC：%s）",
+  "itemalchemy-expansion.shulker_box.toast.title": "无法放入潜影盒",
+  "itemalchemy-expansion.shulker_box.toast.desc": "%s 没有 EMC 值",
+
+  "itemalchemy-expansion.keybind.category": "Item Alchemy Expansion",
+  "itemalchemy-expansion.keybind.set_emc": "设置手持物品 EMC",
+
+  "itemalchemy-expansion.set_emc.title": "设置物品 EMC 值",
+  "itemalchemy-expansion.set_emc.emc_field": "EMC 值",
+  "itemalchemy-expansion.set_emc.current_emc": "当前 EMC：%s",
+  "itemalchemy-expansion.set_emc.new_emc_label": "新 EMC 值",
+  "itemalchemy-expansion.set_emc.variant_label": "变体：%s",
+  "itemalchemy-expansion.set_emc.scope_label": "作用范围",
+  "itemalchemy-expansion.set_emc.scope.this_save": "仅本存档",
+  "itemalchemy-expansion.set_emc.scope.global": "所有存档（全局）",
+  "itemalchemy-expansion.set_emc.scope.this_save.hint": "仅对当前存档生效",
+  "itemalchemy-expansion.set_emc.scope.global.hint": "写入全局配置，对所有存档生效",
+  "itemalchemy-expansion.set_emc.precision_label": "定价精度",
+  "itemalchemy-expansion.set_emc.precision.precise": "精确（按变体）",
+  "itemalchemy-expansion.set_emc.precision.general": "通用（按 ID）",
+  "itemalchemy-expansion.set_emc.precision.precise.hint": "按变体存储，同 ID 不同 NBT 的物品各自定价",
+  "itemalchemy-expansion.set_emc.precision.general.hint": "按 ID 存储，所有同 ID 物品共享价格",
+  "itemalchemy-expansion.set_emc.confirm": "确认",
+  "itemalchemy-expansion.set_emc.cancel": "取消",
+  "itemalchemy-expansion.set_emc.fail.empty": "请输入 EMC 值",
+  "itemalchemy-expansion.set_emc.fail.parse": "无法解析为数字",
+  "itemalchemy-expansion.set_emc.fail.negative": "EMC 值不能为负数",
+
+  "itemalchemy-expansion.set_emc.success": "已设置 %s 的 EMC 为 %s（%s）",
+  "itemalchemy-expansion.set_emc.fail.invalid_id": "物品 ID 无效",
+  "itemalchemy-expansion.set_emc.fail.invalid_scope": "作用范围无效",
+  "itemalchemy-expansion.set_emc.fail.exception": "设置 EMC 时发生错误，请查看日志",
+  "itemalchemy-expansion.set_emc.fail.shulker_with_contents": "带内容物的潜影盒无法手动定价，其 EMC 按内容物自动求和",
+
+  "itemalchemy-expansion.overwrite_precise.title": "发现精确价格设定",
+  "itemalchemy-expansion.overwrite_precise.subtitle": "物品 %s  通用价: %s",
+  "itemalchemy-expansion.overwrite_precise.desc": "勾选=覆盖（清除精确价，统一用通用价）；不勾=保留精确价",
+  "itemalchemy-expansion.overwrite_precise.overwrite_all": "全部覆盖",
+  "itemalchemy-expansion.overwrite_precise.keep_all": "全部保留",
+  "itemalchemy-expansion.overwrite_precise.confirm": "确认选择",
+  "itemalchemy-expansion.overwrite_precise.new_general": "→ 通用: %s",
+  "itemalchemy-expansion.overwrite_precise.empty": "无精确价格设定",
+  "itemalchemy-expansion.overwrite_precise.hint": "点击行切换勾选；滚轮滚动列表",
+
+  "itemalchemy-expansion.config.searchShulkerContents": "搜索潜影盒内容物",
+  "itemalchemy-expansion.config.searchShulkerContents.tooltip": "同时搜索潜影盒内的物品，匹配的盒子排在直接物品之后。",
+  "itemalchemy-expansion.config.shulkerMatchRedFrame": "Shift 预览匹配红框",
+  "itemalchemy-expansion.config.shulkerMatchRedFrame.tooltip": "Shift 预览时对匹配的内容物格子画红框标记。",
+
+  "itemalchemy-expansion.filter_button.tooltip": "筛选模式：点击切换\n全部：直接物品 + 潜影盒\n物品：仅直接物品\n盒子：仅潜影盒",
+  "itemalchemy-expansion.filter_button.all": "全部",
+  "itemalchemy-expansion.filter_button.direct": "物品",
+  "itemalchemy-expansion.filter_button.shulker": "盒子",
+
+  "itemalchemy-expansion.search.match_list_title": "匹配内容：",
+  "itemalchemy-expansion.search.match_list_more": "另有 %s 个...",
+
+  "itemalchemy-expansion.config.autoPricingFromRecipes": "配方自动定价",
+  "itemalchemy-expansion.config.autoPricingFromRecipes.tooltip": "扫描所有配方（含模组自定义类型），按材料 EMC 之和为未定义物品自动定价。\n手动设定的 EMC 不受影响。首次开启时提示是否重新定价已有物品。",
+
+  "itemalchemy-expansion.config.autoPricingStrategy": "多配方策略",
+  "itemalchemy-expansion.config.autoPricingStrategy.tooltip": "多条配方产出相同物品时的取值方式。\n最小值：取最便宜配方（推荐）\n其余选项暂未实现。",
+  "itemalchemy-expansion.config.autoPricingStrategy.option.min": "最小值（推荐）",
+  "itemalchemy-expansion.config.autoPricingStrategy.option.max": "最大值",
+  "itemalchemy-expansion.config.autoPricingStrategy.option.avg": "平均值",
+  "itemalchemy-expansion.config.autoPricingStrategy.option.first": "首个",
+
+  "itemalchemy-expansion.config.autoPricingRespectUpstream": "不覆盖上游已定义值",
+  "itemalchemy-expansion.config.autoPricingRespectUpstream.tooltip": "保留原版/上游默认 EMC，不被自动定价覆盖。建议开启。",
+
+  "itemalchemy-expansion.config.autoPricingBatchSize": "每 tick 处理配方数",
+  "itemalchemy-expansion.config.autoPricingBatchSize.tooltip": "自动定价扫描时每个服务器 tick 处理的最大配方数。分批扫描，避免卡顿。\n调大：首次定价更快；调小：TPS 更稳定。",
+
+  "itemalchemy-expansion.config.autoPricingTickBudgetMs": "每 tick 时间预算（ms）",
+  "itemalchemy-expansion.config.autoPricingTickBudgetMs.tooltip": "自动定价扫描每 tick 的时间预算，超过则让出主线程。默认 8ms，可兼顾扫描速度与 TPS。",
+
+  "itemalchemy-expansion.new_feature_toast.title": "Item Alchemy Expansion 新功能",
+  "itemalchemy-expansion.new_feature_toast.desc1": "新增「配方自动定价」功能。",
+  "itemalchemy-expansion.new_feature_toast.desc2": "可在 Mod 菜单 → Item Alchemy Expansion → 实验性 中开启。",
+
+  "itemalchemy-expansion.reprice.title": "重新定价已设置的物品？",
+  "itemalchemy-expansion.reprice.selective_desc": "勾选：重新自动定价；取消勾选：保留手动值",
+  "itemalchemy-expansion.reprice.recompute_all": "全部重算",
+  "itemalchemy-expansion.reprice.keep_all": "全部保留",
+  "itemalchemy-expansion.reprice.confirm_selection": "确认",
+  "itemalchemy-expansion.reprice.old_emc": "旧：%s",
+  "itemalchemy-expansion.reprice.new_emc": "新：%s",
+  "itemalchemy-expansion.reprice.layer_precise": "（精确）",
+  "itemalchemy-expansion.reprice.variant_count": "共 %s 个变体",
+  "itemalchemy-expansion.reprice.empty": "没有需要重新定价的物品",
+  "itemalchemy-expansion.reprice.hint2": "以后可用 /itemalchemy-expansion reprice 再次触发。",
+  "itemalchemy-expansion.reprice.feedback.done": "[IAExp] 已重新定价 %s 个物品并重算自动定价。",
+  "itemalchemy-expansion.reprice.feedback.kept": "[IAExp] 已保留手动设置，自动定价仅处理未定义物品。"
+}

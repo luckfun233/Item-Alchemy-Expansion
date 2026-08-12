@@ -35,6 +35,13 @@ public final class ShulkerBoxSupport {
         return ((BlockItem) item).getBlock() instanceof ShulkerBoxBlock;
     }
 
+    /** 判断潜影盒是否有内容物（非空 CONTAINER 组件） */
+    public static boolean hasContents(ItemStack stack) {
+        if (!isShulkerBox(stack)) return false;
+        ContainerComponent container = stack.get(DataComponentTypes.CONTAINER);
+        return container != null && container.streamNonEmpty().count() > 0;
+    }
+
     /**
      * 计算装了物品的潜影盒的总 EMC = 内容物 EMC 之和 + 潜影盒本身的 EMC。
      *
@@ -155,14 +162,14 @@ public final class ShulkerBoxSupport {
     }
 
     /**
-     * 用 {@link ContainerComponent#copyInto} 把内容物复制到 DefaultedList。
+     * 用 {@link ContainerComponent#copyTo} 把内容物复制到 DefaultedList。
      * 返回的列表长度为 27，空位为 ItemStack.EMPTY。无 CONTAINER 组件返回 null。
      */
     private static DefaultedList<ItemStack> getContentsAsList(ItemStack stack) {
         ContainerComponent container = stack.get(DataComponentTypes.CONTAINER);
         if (container == null) return null;
         DefaultedList<ItemStack> list = DefaultedList.ofSize(27, ItemStack.EMPTY);
-        container.copyInto(list);
+        container.copyTo(list);
         return list;
     }
 }

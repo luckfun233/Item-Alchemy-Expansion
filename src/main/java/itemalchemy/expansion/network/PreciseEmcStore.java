@@ -125,6 +125,75 @@ public final class PreciseEmcStore {
     }
 
     /**
+     * 删除指定 itemId 在两层（本存档 + 全局）中的所有变体条目。
+     *
+     * <p>用于「通用模式手动定价」：玩家明确选择「同 ID 同价」时，必须清除该 ID 下所有变体键的
+     * 手动精确覆盖（L1），否则查询时 L1 优先于 L2 会覆盖玩家设置的通用值，导致「同 ID 不同价」。
+     * 变体键格式为 {@code <itemId>\u0001<nbtFingerprint>}，用 {@link ItemVariantKey#SEPARATOR}
+     * 作为分隔符匹配前缀；纯 itemId 的变体键（无 NBT 物品）也会被清除。</p>
+     *
+     * @return 实际删除的条目数
+     */
+    public static int removeAllByItemId(MinecraftServer server, String itemId) {
+        if (itemId == null || itemId.isEmpty()) return 0;
+        String prefix = itemId + itemalchemy.expansion.nbt.ItemVariantKey.SEPARATOR;
+        int removed = 0;
+        boolean saveChanged = false;
+        boolean globalChanged = false;
+        for (java.util.Iterator<Map.Entry<String, Long>> it = saveLayer.entrySet().iterator(); it.hasNext(); ) {
+            String key = it.next().getKey();
+            if (key.startsWith(prefix) || key.equals(itemId)) {
+                it.remove();
+                merged.remove(key);
+                removed++;
+                saveChanged = true;
+            }
+        }
+        for (java.util.Iterator<Map.Entry<String, Long>> it = globalLayer.entrySet().iterator(); it.hasNext(); ) {
+            String key = it.next().getKey();
+            if (key.startsWith(prefix) || key.equals(itemId)) {
+                it.remove();
+                merged.remove(key);
+                removed++;
+                globalChanged = true;
+            }
+        }
+        if (saveChanged) writeSave(server);
+        if (globalChanged) writeGlobal();
+        if (removed > 0) {
+            ItemAlchemyExpansion.debug("[IAExp] precise emc removed {} variants for itemId={}", removed, itemId);
+        }
+        return removed;
+    }
+
+    /**
+     * 按变体键列表删除 L1 手动精确覆盖（save + global 两层 + merged）。
+     *
+     * <p>用于「通用价覆盖确认」弹窗：玩家逐个勾选要覆盖的变体，只删除勾选的，
+     * 保留未勾选的精确价。与 {@link #removeAllByItemId} 不同，此方法粒度为单个变体键。</p>
+     *
+     * @param vkStrs 要删除的变体键列表（空或 null 不操作）
+     * @return 实际删除的条目数
+     */
+    public static int removeByVariantKeys(MinecraftServer server, java.util.List<String> vkStrs) {
+        if (vkStrs == null || vkStrs.isEmpty()) return 0;
+        int removed = 0;
+        boolean saveChanged = false;
+        boolean globalChanged = false;
+        for (String vk : vkStrs) {
+            if (vk == null || vk.isEmpty()) continue;
+            if (saveLayer.remove(vk) != null) { merged.remove(vk); removed++; saveChanged = true; }
+            if (globalLayer.remove(vk) != null) { merged.remove(vk); removed++; globalChanged = true; }
+        }
+        if (saveChanged) writeSave(server);
+        if (globalChanged) writeGlobal();
+        if (removed > 0) {
+            ItemAlchemyExpansion.debug("[IAExp] precise emc removed {} variants by key list", removed);
+        }
+        return removed;
+    }
+
+    /**
      * 服务端启动时调用：加载全局层 + 本存档层，合并到内存。
      *
      * <p>本存档层覆盖全局层（同变体键）。</p>
@@ -162,6 +231,26 @@ public final class PreciseEmcStore {
     /** 返回本存档层所有变体键（用于「重新定价」对话框扫描候选） */
     public static Map<String, Long> getSaveLayerSnapshot() {
         return new LinkedHashMap<>(saveLayer);
+    }
+
+    /**
+     * 查询指定 itemId 在合并层中的所有变体条目（用于「通用价覆盖确认」对话框）。
+     *
+     * <p>匹配规则与 {@link #removeAllByItemId} 一致：{@code itemId+SOH} 前缀或纯 itemId。</p>
+     *
+     * @return 变体键 -> EMC 的 LinkedHashMap 副本；无匹配返回空 map
+     */
+    public static Map<String, Long> getVariantsByItemId(String itemId) {
+        Map<String, Long> result = new LinkedHashMap<>();
+        if (itemId == null || itemId.isEmpty()) return result;
+        String prefix = itemId + itemalchemy.expansion.nbt.ItemVariantKey.SEPARATOR;
+        for (Map.Entry<String, Long> e : merged.entrySet()) {
+            String key = e.getKey();
+            if (key.startsWith(prefix) || key.equals(itemId)) {
+                result.put(key, e.getValue());
+            }
+        }
+        return result;
     }
 
     /**
@@ -222,11 +311,14 @@ public final class PreciseEmcStore {
         }
     }
 
-    /** 用 S2C 同步的快照替换内存（客户端专用） */
+    /**
+     * 用 S2C 同步的快照替换内存（客户端专用）。
+     *
+     * <p>仅更新 {@code merged}，<b>不动</b> {@code globalLayer}/{@code saveLayer}。
+     * 集成服务端（单人/局域网）下客户端与服务端共享静态字段，若在此清空两层会连带抹掉
+     * 服务端的本存档手动覆盖，导致开启自动定价后手动价格丢失。</p>
+     */
     public static void applyFromSnapshot(Map<String, Long> snapshot) {
         merged = snapshot == null ? new LinkedHashMap<>() : new LinkedHashMap<>(snapshot);
-        // 客户端不区分 global/save 层（写入仍走 C2S 包到服务端处理）
-        globalLayer = new LinkedHashMap<>();
-        saveLayer = new LinkedHashMap<>();
     }
 }

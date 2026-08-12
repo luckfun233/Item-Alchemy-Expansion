@@ -4,10 +4,10 @@ import itemalchemy.expansion.ItemAlchemyExpansion;
 import itemalchemy.expansion.network.AutoEmcStore;
 import itemalchemy.expansion.network.PreciseEmcStore;
 import itemalchemy.expansion.network.SetEmcNetwork;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.network.PacketByteBuf;
+import net.pitan76.mcpitanlib.api.network.ClientNetworking;
+import net.pitan76.mcpitanlib.api.network.PacketByteUtil;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,6 +34,14 @@ public final class SetEmcClientNetwork {
     /** 客户端缓存的当前变体键（用于 SetEmcScreen 显示「当前 EMC」时按定价精度查询） */
     private static String cachedVariantKey = "";
 
+    /**
+     * 待处理的 L1 候选查询回调（设通用价前查询该 ID 是否有 L1 精确覆盖）。
+     *
+     * <p>SetEmcScreen 发送查询包前设置此回调，收到 S2C 结果后调用并清空。
+     * 回调参数为候选 map（空 map 表示无 L1 覆盖，可直接设通用价）。</p>
+     */
+    private static java.util.function.Consumer<Map<String, Long>> pendingPreciseQueryCallback;
+
     private SetEmcClientNetwork() {}
 
     /**
@@ -45,15 +53,46 @@ public final class SetEmcClientNetwork {
      * @param precise    是否写入精确存储（按变体键）；false=走通用存储（按 id）
      * @param variantKey 精确模式下的变体键存储串（{@code ItemVariantKey.toStorageString()}）；
      *                   通用模式下传空串
+     * @param preciseVkStrsToClear 仅 GENERAL 模式生效：要清除的 L1 精确变体键列表
+     *                             （用户在确认框逐个勾选）；空列表=保留所有 L1。PRECISE 模式忽略此值
      */
-    public static void sendSetEmc(String itemId, long emc, int scope, boolean precise, String variantKey) {
-        PacketByteBuf buf = PacketByteBufs.create();
+    public static void sendSetEmc(String itemId, long emc, int scope, boolean precise,
+                                  String variantKey, java.util.List<String> preciseVkStrsToClear) {
+        ItemAlchemyExpansion.debug(
+                "[IAExp][SetEmc][C2S] sendSetEmc: itemId='{}', emc={}, scope={}, precise={}, variantKey='{}', clearCount={}",
+                itemId, emc, scope, precise, variantKey,
+                preciseVkStrsToClear == null ? 0 : preciseVkStrsToClear.size());
+        PacketByteBuf buf = PacketByteUtil.create();
         buf.writeString(itemId);
         buf.writeLong(emc);
         buf.writeVarInt(scope);
         buf.writeBoolean(precise);
         buf.writeString(variantKey == null ? "" : variantKey);
-        ClientPlayNetworking.send(SetEmcNetwork.SET_EMC_ID, buf);
+        if (preciseVkStrsToClear == null) {
+            buf.writeVarInt(0);
+        } else {
+            buf.writeVarInt(preciseVkStrsToClear.size());
+            for (String vk : preciseVkStrsToClear) buf.writeString(vk == null ? "" : vk);
+        }
+        ClientNetworking.send(SetEmcNetwork.SET_EMC_ID, buf);
+    }
+
+    /**
+     * 客户端发送「查询 itemId 的 L1 精确覆盖」C2S 包。
+     *
+     * <p>设通用价前调用，服务端返回该 ID 的所有 L1 变体条目。
+     * 客户端收到 {@link SetEmcNetwork#PRECISE_BY_ITEM_RESULT_ID} 后，
+     * 若非空则弹覆盖确认框。</p>
+     */
+    public static void sendQueryPreciseByItem(String itemId) {
+        try {
+            PacketByteBuf buf = PacketByteUtil.create();
+            buf.writeString(itemId == null ? "" : itemId);
+            ClientNetworking.send(SetEmcNetwork.QUERY_PRECISE_BY_ITEM_ID, buf);
+            ItemAlchemyExpansion.debug("[IAExp] query precise by item sent: itemId='{}'", itemId);
+        } catch (Throwable t) {
+            ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to send query precise by item: {}", t.toString());
+        }
     }
 
     /**
@@ -64,8 +103,8 @@ public final class SetEmcClientNetwork {
      */
     public static void sendRepriceCheck() {
         try {
-            PacketByteBuf buf = PacketByteBufs.create();
-            ClientPlayNetworking.send(SetEmcNetwork.REPRICE_CHECK_ID, buf);
+            PacketByteBuf buf = PacketByteUtil.create();
+            ClientNetworking.send(SetEmcNetwork.REPRICE_CHECK_ID, buf);
             ItemAlchemyExpansion.debug("[IAExp] reprice check sent to server");
         } catch (Throwable t) {
             ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to send reprice check: {}", t.toString());
@@ -80,12 +119,12 @@ public final class SetEmcClientNetwork {
      */
     public static void sendRepriceSelective(List<String> generalIds, List<String> preciseVkStrs) {
         try {
-            PacketByteBuf buf = PacketByteBufs.create();
+            PacketByteBuf buf = PacketByteUtil.create();
             buf.writeVarInt(generalIds.size());
             for (String id : generalIds) buf.writeString(id);
             buf.writeVarInt(preciseVkStrs.size());
             for (String vk : preciseVkStrs) buf.writeString(vk);
-            ClientPlayNetworking.send(SetEmcNetwork.REPRICE_SELECTIVE_ID, buf);
+            ClientNetworking.send(SetEmcNetwork.REPRICE_SELECTIVE_ID, buf);
             ItemAlchemyExpansion.debug("[IAExp] reprice selective sent: general={} precise={}",
                     generalIds.size(), preciseVkStrs.size());
         } catch (Throwable t) {
@@ -104,14 +143,23 @@ public final class SetEmcClientNetwork {
     }
 
     /**
+     * 设置待处理的 L1 候选查询回调。
+     *
+     * <p>SetEmcScreen 在发送查询包前调用，收到 S2C 结果后自动触发并清空。</p>
+     */
+    public static void setPendingPreciseQueryCallback(java.util.function.Consumer<Map<String, Long>> cb) {
+        pendingPreciseQueryCallback = cb;
+    }
+
+    /**
      * 客户端注册所有 S2C 接收器：精确 map 同步、重新定价候选、新功能 toast。
      *
      * <p>应在 ClientModInitializer 中调用一次。</p>
      */
     public static void registerClientReceiver() {
         // 玩家精确 map 同步
-        ClientPlayNetworking.registerGlobalReceiver(SetEmcNetwork.SYNC_PRECISE_EMC_ID,
-                (client, handler, buf, responseSender) -> {
+        ClientNetworking.registerReceiver(SetEmcNetwork.SYNC_PRECISE_EMC_ID,
+                (client, player, buf) -> {
                     Map<String, Long> snapshot = SetEmcNetwork.readEmcMap(buf);
                     client.execute(() -> {
                         try {
@@ -126,8 +174,8 @@ public final class SetEmcClientNetwork {
                 });
 
         // 自动定价结果同步（精确层 + 通用层）
-        ClientPlayNetworking.registerGlobalReceiver(SetEmcNetwork.SYNC_AUTO_EMC_ID,
-                (client, handler, buf, responseSender) -> {
+        ClientNetworking.registerReceiver(SetEmcNetwork.SYNC_AUTO_EMC_ID,
+                (client, player, buf) -> {
                     Map<String, Long> precise = SetEmcNetwork.readEmcMap(buf);
                     Map<String, Long> general = SetEmcNetwork.readEmcMap(buf);
                     client.execute(() -> {
@@ -143,8 +191,8 @@ public final class SetEmcClientNetwork {
                 });
 
         // 重新定价候选列表（通用层 + 精确层）→ 打开 RepriceConfirmScreen 逐个选择
-        ClientPlayNetworking.registerGlobalReceiver(SetEmcNetwork.REPRICE_CANDIDATES_ID,
-                (client, handler, buf, responseSender) -> {
+        ClientNetworking.registerReceiver(SetEmcNetwork.REPRICE_CANDIDATES_ID,
+                (client, player, buf) -> {
                     int generalCount = buf.readVarInt();
                     List<RepriceConfirmScreen.RepriceEntry> entries = new ArrayList<>(generalCount);
                     for (int i = 0; i < generalCount; i++) {
@@ -174,13 +222,36 @@ public final class SetEmcClientNetwork {
                 });
 
         // 新功能 toast（升级提醒）
-        ClientPlayNetworking.registerGlobalReceiver(SetEmcNetwork.NEW_FEATURE_TOAST_ID,
-                (client, handler, buf, responseSender) -> {
+        ClientNetworking.registerReceiver(SetEmcNetwork.NEW_FEATURE_TOAST_ID,
+                (client, player, buf) -> {
                     client.execute(() -> {
                         try {
                             NewFeatureToast.show();
                         } catch (Throwable t) {
                             ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to show new feature toast: {}",
+                                    t.toString());
+                        }
+                    });
+                });
+
+        // L1 候选查询结果（设通用价前询问是否有精确覆盖）
+        ClientNetworking.registerReceiver(SetEmcNetwork.PRECISE_BY_ITEM_RESULT_ID,
+                (client, player, buf) -> {
+                    Map<String, Long> variants = SetEmcNetwork.readEmcMap(buf);
+                    client.execute(() -> {
+                        try {
+                            java.util.function.Consumer<Map<String, Long>> cb = pendingPreciseQueryCallback;
+                            pendingPreciseQueryCallback = null;
+                            if (cb != null) {
+                                cb.accept(variants);
+                                ItemAlchemyExpansion.debug("[IAExp] precise by item result received: {} variants, callback invoked",
+                                        variants.size());
+                            } else {
+                                ItemAlchemyExpansion.debug("[IAExp] precise by item result received: {} variants, no callback (dropped)",
+                                        variants.size());
+                            }
+                        } catch (Throwable t) {
+                            ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to handle precise by item result: {}",
                                     t.toString());
                         }
                     });

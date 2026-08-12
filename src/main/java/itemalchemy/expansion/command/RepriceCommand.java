@@ -12,7 +12,7 @@ import net.pitan76.mcpitanlib.api.event.ServerCommandEvent;
  * 命令 {@code /itemalchemy-expansion reprice}：强制重新扫描配方、重算自动定价 EMC。
  *
  * <p>用途：安装新模组/新配方后刷新自动定价；或重新定价对话框已弹过（{@code autoPricingRepricePromptShown=true}）
- * 后想再次触发候选流程；等效于删除 {@code <world>/itemalchemy_expansion_auto_emc.json} 缓存后重启。
+ * 后想再次触发候选流程；等效于删除 {@code config/itemalchemy-expansion/auto_emc.json} 缓存后重启。
  * 权限：permissionLevel 2（与上游 {@code /itemalchemy reloademc} 一致）。
  * 自动定价关闭时执行也能跑（强制扫一遍写出缓存，下次开启时直接命中缓存）。
  * 若要清空自动定价结果，请在配置 GUI 关闭「配方自动定价」（调用

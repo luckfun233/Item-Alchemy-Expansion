@@ -1,14 +1,18 @@
 package itemalchemy.expansion.nbt;
 
+import com.mojang.serialization.DataResult;
 import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.ContainerComponent;
 import net.minecraft.component.type.NbtComponent;
 import net.minecraft.component.type.PotionContentsComponent;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtList;
+import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.NbtString;
 import net.minecraft.potion.Potion;
+import net.minecraft.registry.DynamicRegistryManager;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.text.Text;
@@ -32,10 +36,19 @@ import java.util.Optional;
  *   <li>{@code REPAIR_COST}：修复花费 → {@code RepairCost}</li>
  *   <li>{@code BLOCK_ENTITY_DATA}：方块实体数据 → {@code BlockEntityTag}</li>
  *   <li>{@code POTION_CONTENTS}：药水内容 → {@code Potion}（药水 id 字符串）</li>
+ *   <li>{@code CONTAINER}：潜影盒内容物 → {@code __iaexp_container__}（1.21.1 原生 NbtList 格式）</li>
  * </ul>
  *
  * <p>未收集的组件（如 ENCHANTMENTS、CUSTOM_MODEL_DATA、LORE）不参与指纹，
  * 这些不影响 TACZ 子弹区分、潜影盒内容物区分与原版药水区分的核心需求。</p>
+ *
+ * <p><b>潜影盒内容物</b>：1.20.1 中内容物存在 {@code BlockEntityTag.Items} NBT 中，
+ * 1.21.1 迁移到独立的 {@code CONTAINER} data component。本类用 {@link ContainerComponent#CODEC}
+ * 把整个组件序列化为 {@code NbtList}，存到 {@code __iaexp_container__} key，
+ * apply 时反向解析回 {@link ContainerComponent} 写回 stack。
+ * 不复用 {@code BlockEntityTag.Items} 格式是因为 1.21.1 的 container NBT 结构
+ * （{@code [{item:{id,count,components},slot:N}]}）与 1.20.1 的 Items 结构不同，
+ * 手动转换容易出错；指纹只需在本版本内部一致即可。</p>
  */
 public final class ComponentNbtView {
 
@@ -66,7 +79,7 @@ public final class ComponentNbtView {
         if (customName != null) {
             NbtCompound display = result.contains("display", NbtElement.COMPOUND_TYPE)
                     ? result.getCompound("display") : new NbtCompound();
-            String nameJson = Text.Serialization.toJsonString(customName);
+            String nameJson = Text.Serialization.toJsonString(customName, DynamicRegistryManager.EMPTY);
             display.put("Name", NbtString.of(nameJson));
             result.put("display", display);
         }
@@ -104,7 +117,28 @@ public final class ComponentNbtView {
             }
         }
 
+        // 7. CONTAINER → __iaexp_container__（潜影盒内容物，1.21.1 原生 NbtList 格式）
+        //    1.21.1 把潜影盒内容物从 BlockEntityTag.Items NBT 迁移到独立 CONTAINER 组件，
+        //    必须单独收集，否则变体键丢失内容物信息，rebuildStack 后潜影盒变空盒。
+        collectContainer(stack, result);
+
         return result;
+    }
+
+    /**
+     * 用 {@link ContainerComponent#CODEC} 把 CONTAINER 组件序列化为 NbtList 存入指纹。
+     * 序列化失败（理论上不会）静默跳过，不影响其他组件收集。
+     */
+    private static void collectContainer(ItemStack stack, NbtCompound result) {
+        ContainerComponent container = stack.get(DataComponentTypes.CONTAINER);
+        if (container == null) return;
+        DataResult<NbtElement> dr = ContainerComponent.CODEC.encodeStart(NbtOps.INSTANCE, container);
+        Optional<NbtElement> opt = dr.result();
+        if (opt.isEmpty()) return;
+        NbtElement e = opt.get();
+        // 空内容物（NbtList 且 isEmpty）不收集，避免空潜影盒产生不必要的指纹
+        if (e instanceof NbtList list && list.isEmpty()) return;
+        result.put("__iaexp_container__", e);
     }
 
     /**
@@ -117,6 +151,7 @@ public final class ComponentNbtView {
      *   <li>{@code Damage} → {@code DAMAGE} 组件</li>
      *   <li>{@code RepairCost} → {@code REPAIR_COST} 组件</li>
      *   <li>{@code Potion} → {@code POTION_CONTENTS} 组件</li>
+     *   <li>{@code __iaexp_container__} → {@code CONTAINER} 组件（潜影盒内容物）</li>
      *   <li>其余 key → {@code CUSTOM_DATA} 组件（模组自定义数据）</li>
      * </ul></p>
      *
@@ -140,7 +175,7 @@ public final class ComponentNbtView {
                 case "display":
                     NbtCompound display = nbt.getCompound(key);
                     if (display.contains("Name", NbtElement.STRING_TYPE)) {
-                        Text name = Text.Serialization.fromJson(display.getString("Name"));
+                        Text name = Text.Serialization.fromJson(display.getString("Name"), DynamicRegistryManager.EMPTY);
                         if (name != null) {
                             stack.set(DataComponentTypes.CUSTOM_NAME, name);
                         }
@@ -157,9 +192,13 @@ public final class ComponentNbtView {
                     Potion potion = Registries.POTION.get(Identifier.tryParse(potionId));
                     if (potion != null) {
                         stack.set(DataComponentTypes.POTION_CONTENTS,
-                                new PotionContentsComponent(Optional.of(potion.getRegistryEntry()),
+                                new PotionContentsComponent(Optional.of(Registries.POTION.getEntry(potion)),
                                         Optional.empty(), java.util.Collections.emptyList()));
                     }
+                    break;
+                case "__iaexp_container__":
+                    // 潜影盒内容物：用 ContainerComponent.CODEC 反序列化回组件，写回 stack
+                    applyContainer(stack, nbt.get(key));
                     break;
                 default:
                     // 其余 key 视为模组自定义数据
@@ -174,6 +213,19 @@ public final class ComponentNbtView {
     }
 
     /**
+     * 用 {@link ContainerComponent#CODEC} 把指纹中的 container NbtList 反序列化为
+     * {@link ContainerComponent}，写回 stack 的 {@code CONTAINER} 组件。
+     * 解析失败静默跳过（理论上不会发生，因为 collect 用同一 codec 序列化）。
+     */
+    private static void applyContainer(ItemStack stack, NbtElement element) {
+        if (element == null) return;
+        DataResult<ContainerComponent> dr = ContainerComponent.CODEC.parse(NbtOps.INSTANCE, element);
+        Optional<ContainerComponent> opt = dr.result();
+        if (opt.isEmpty()) return;
+        stack.set(DataComponentTypes.CONTAINER, opt.get());
+    }
+
+    /**
      * 物品是否有任何影响身份的 data component（用于判断是否需要生成指纹）。
      */
     public static boolean hasEffectiveNbt(ItemStack stack) {
@@ -181,6 +233,7 @@ public final class ComponentNbtView {
                 || stack.contains(DataComponentTypes.CUSTOM_NAME)
                 || stack.contains(DataComponentTypes.BLOCK_ENTITY_DATA)
                 || stack.contains(DataComponentTypes.POTION_CONTENTS)
+                || stack.contains(DataComponentTypes.CONTAINER)
                 || (stack.get(DataComponentTypes.DAMAGE) != null && stack.get(DataComponentTypes.DAMAGE) > 0)
                 || (stack.get(DataComponentTypes.REPAIR_COST) != null && stack.get(DataComponentTypes.REPAIR_COST) > 0);
     }
@@ -193,5 +246,6 @@ public final class ComponentNbtView {
         stack.remove(DataComponentTypes.REPAIR_COST);
         stack.remove(DataComponentTypes.BLOCK_ENTITY_DATA);
         stack.remove(DataComponentTypes.POTION_CONTENTS);
+        stack.remove(DataComponentTypes.CONTAINER);
     }
 }

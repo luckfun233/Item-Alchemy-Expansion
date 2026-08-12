@@ -10,11 +10,13 @@ import itemalchemy.expansion.network.SetEmcNetwork;
 import itemalchemy.expansion.util.EmcQueryUtil;
 import net.minecraft.item.ItemStack;
 import net.minecraft.recipe.Ingredient;
-import net.minecraft.recipe.Recipe;
-import net.minecraft.recipe.RecipeManager;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.World;
 import net.pitan76.itemalchemy.EMCManager;
+import net.pitan76.mcpitanlib.midohra.recipe.Recipe;
+import net.pitan76.mcpitanlib.midohra.recipe.ServerRecipeManager;
+import net.pitan76.mcpitanlib.midohra.recipe.entry.RecipeEntry;
+import net.pitan76.mcpitanlib.midohra.world.ServerWorld;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -50,9 +52,9 @@ import java.util.Map;
  * <p>不硬编码配方类型，用通用反射遍历：
  * <ul>
  *   <li><b>输出</b>：优先反射调 {@code getOutput()}（无参，TACZ 用）；
- *       否则回退到 {@link Recipe#getOutput(net.minecraft.registry.DynamicRegistryManager)}。</li>
+ *       否则回退到 midohra {@link Recipe#getOutput(net.pitan76.mcpitanlib.midohra.world.World)}。</li>
  *   <li><b>输入</b>：优先反射调 {@code getInputs()}（无参，返回 List）；
- *       否则回退到 {@link Recipe#getIngredients()}。
+ *       否则回退到 midohra {@link Recipe#getInputs()}（内部转发原版 {@code getIngredients()}）。
  *       元素若是 {@link Ingredient} 直接用；若是含 {@code getIngredient()} 的包装类
  *       （如 TACZ {@code GunSmithTableIngredient}）解包并乘以 count。</li>
  *   <li><b>标签 Ingredient 取最便宜</b>：对多可替代输入（如 {@code #minecraft:planks}）
@@ -103,17 +105,17 @@ public final class RecipeAutoPricer {
     private static final Map<Class<?>, Method> INIT_CACHE = new HashMap<>();
 
     /** 强制轮用的空 deferred 列表（避免重复分配） */
-    private static final List<Recipe<?>> EMPTY_DEFERRED = Collections.emptyList();
+    private static final List<RecipeEntry> EMPTY_DEFERRED = Collections.emptyList();
 
     // ====== 分批扫描状态（仅在服务器主线程访问，无需同步；computing 用 volatile 供快速短路） ======
     private static volatile boolean computing = false;
     private static MinecraftServer currentServer;
     private static World currentWorld;
     /** 当前轮待处理配方（index 游标遍历，避免 List.remove 的 O(n)） */
-    private static List<Recipe<?>> queue;
+    private static List<RecipeEntry> queue;
     private static int queueIndex;
     /** 当前轮被延迟的配方（将作为下一轮的 queue） */
-    private static List<Recipe<?>> deferred;
+    private static List<RecipeEntry> deferred;
     /** 累加器：变体键 -> 候选 EMC（按 MIN 聚合）；同时供下一轮解析中间产物用 */
     private static Map<String, Long> preciseAcc;
     private static int iter;
@@ -183,18 +185,18 @@ public final class RecipeAutoPricer {
                 }
                 continue;
             }
-            Recipe<?> recipe = queue.get(queueIndex++);
+            RecipeEntry recipeEntry = queue.get(queueIndex++);
             long rStart = System.nanoTime();
             try {
-                processRecipe(recipe, currentWorld, preciseAcc, deferred, false);
+                processRecipe(recipeEntry, currentWorld, preciseAcc, deferred, false);
             } catch (Throwable t) {
                 // 单条配方异常隔离（JEI safeCallPlugin 风格：不让单条影响整体扫描）
                 ItemAlchemyExpansion.debug("[IAExp] recipe threw, skipped: id={}, {}",
-                        recipe.getId(), t.toString());
+                        recipeEntry.getId(), t.toString());
             }
             long rMs = (System.nanoTime() - rStart) / 1_000_000;
             if (rMs > SLOW_RECIPE_WARN_MS) {
-                ItemAlchemyExpansion.debug("[IAExp] slow recipe ({}ms): id={}", rMs, recipe.getId());
+                ItemAlchemyExpansion.debug("[IAExp] slow recipe ({}ms): id={}", rMs, recipeEntry.getId());
             }
             processed++;
             // 每处理若干条检查一次时间预算，超限即让出主线程
@@ -236,10 +238,11 @@ public final class RecipeAutoPricer {
             ItemAlchemyExpansion.LOGGER.warn("[IAExp] RecipeAutoPricer: overworld is null, abort");
             return;
         }
-        RecipeManager rm = world.getRecipeManager();
-        Collection<Recipe<?>> entries;
+        ServerWorld midohraWorld = ServerWorld.of((net.minecraft.server.world.ServerWorld) world);
+        ServerRecipeManager rm = ServerRecipeManager.of(midohraWorld);
+        Collection<RecipeEntry> entries;
         try {
-            entries = rm.values();
+            entries = rm.getRecipeEntries();
         } catch (Throwable t) {
             ItemAlchemyExpansion.LOGGER.error("[IAExp] RecipeAutoPricer: cannot list recipes: {}", t.toString());
             return;
@@ -279,9 +282,9 @@ public final class RecipeAutoPricer {
         boolean progress = newDeferred < roundStartQueueSize;
         if (iter >= MAX_ITER || !progress) {
             // 强制轮：剩余配方按"材料缺失按 0 计"算出
-            for (Recipe<?> recipe : deferred) {
+            for (RecipeEntry recipeEntry : deferred) {
                 try {
-                    processRecipe(recipe, currentWorld, preciseAcc, EMPTY_DEFERRED, true);
+                    processRecipe(recipeEntry, currentWorld, preciseAcc, EMPTY_DEFERRED, true);
                 } catch (Throwable ignore) {
                     // 强制轮单条异常跳过
                 }
@@ -358,20 +361,21 @@ public final class RecipeAutoPricer {
     // ============ 内部：处理单条配方 ============
 
     /**
-     * @param recipe    配方（1.20.1 yarn 中 Recipe 自带 id，无 RecipeEntry 包装）
+     * @param recipeEntry 配方条目（1.21.1 RecipeEntry）
      * @param world     世界
      * @param acc       累加器：变体键 -> 候选 EMC（按 MIN 聚合）；同时供多步链解析中间产物
      * @param deferred  延迟列表：材料未定价时加入此列表等待下轮
      * @param forceLast 强制轮：材料缺失按 0 计
      */
-    private static void processRecipe(Recipe<?> recipe, World world,
-            Map<String, Long> acc, List<Recipe<?>> deferred, boolean forceLast) {
-        if (recipe == null) return;
+    private static void processRecipe(RecipeEntry recipeEntry, World world,
+            Map<String, Long> acc, List<RecipeEntry> deferred, boolean forceLast) {
+        if (recipeEntry == null) return;
 
+        Recipe recipe = recipeEntry.getRecipe();
         ItemStack outStack = extractOutput(recipe, world);
         if (outStack == null || outStack.isEmpty()) {
             ItemAlchemyExpansion.debug("[IAExp] recipe skipped (output empty after init): id={}",
-                    recipe.getId());
+                    recipeEntry.getId());
             return;
         }
 
@@ -384,7 +388,7 @@ public final class RecipeAutoPricer {
             try {
                 if (EMCManager.defaultEMCMap.containsKey(itemId)) {
                     ItemAlchemyExpansion.debug("[IAExp] recipe skipped (upstream defined): id={}, itemId={}",
-                            recipe.getId(), itemId);
+                            recipeEntry.getId(), itemId);
                     return;
                 }
             } catch (Throwable ignore) {}
@@ -436,11 +440,11 @@ public final class RecipeAutoPricer {
 
         if (totalEmc <= 0) {
             ItemAlchemyExpansion.debug("[IAExp] recipe skipped (totalEmc=0): id={}, itemId={}",
-                    recipe.getId(), itemId);
+                    recipeEntry.getId(), itemId);
             return;
         }
         if (!allInputsKnown && !forceLast) {
-            deferred.add(recipe);
+            deferred.add(recipeEntry);
             return;
         }
 
@@ -449,7 +453,7 @@ public final class RecipeAutoPricer {
         acc.merge(vkStr, totalEmc, Math::min);
 
         ItemAlchemyExpansion.debug("[IAExp] RecipeAutoPricer: priced {} -> {} (recipe={})",
-                vkStr, totalEmc, recipe.getId());
+                vkStr, totalEmc, recipeEntry.getId());
     }
 
     /**
@@ -507,7 +511,7 @@ public final class RecipeAutoPricer {
      * 尝试反射调用 {@code recipe.init()}（若存在）后重新取输出。
      * init() 是幂等的（调用后 raw=null，重复调用安全）。</p>
      */
-    private static ItemStack extractOutput(Recipe<?> recipe, World world) {
+    private static ItemStack extractOutput(Recipe recipe, World world) {
         ItemStack result = tryGetOutput(recipe, world);
         if (result == null || result.isEmpty()) {
             // 尝试 init() 后重试（TACZ 延迟构建）
@@ -518,11 +522,12 @@ public final class RecipeAutoPricer {
     }
 
     /** 实际尝试获取输出（不含 init 重试逻辑） */
-    private static ItemStack tryGetOutput(Recipe<?> recipe, World world) {
-        Method m = findNoArgMethod(recipe.getClass(), "getOutput", GET_OUTPUT_CACHE);
+    private static ItemStack tryGetOutput(Recipe recipe, World world) {
+        net.minecraft.recipe.Recipe<?> rawRecipe = recipe.getRaw();
+        Method m = findNoArgMethod(rawRecipe.getClass(), "getOutput", GET_OUTPUT_CACHE);
         if (m != null) {
             try {
-                Object r = m.invoke(recipe);
+                Object r = m.invoke(rawRecipe);
                 if (r instanceof ItemStack) return (ItemStack) r;
                 // mcpitanlib ItemStack 包装类
                 if (r != null) {
@@ -534,9 +539,9 @@ public final class RecipeAutoPricer {
                 }
             } catch (Throwable ignore) {}
         }
-        // 回退：1.20.1 yarn 中 Recipe.getOutput(DynamicRegistryManager) 返回 ItemStack
+        // 回退：midohra Recipe.getOutput(World)（内部通过 craft 实现）
         try {
-            return recipe.getOutput(world.getRegistryManager());
+            return recipe.getOutput(net.pitan76.mcpitanlib.midohra.world.World.of(world)).toMinecraft();
         } catch (Throwable t) {
             return ItemStack.EMPTY;
         }
@@ -547,25 +552,25 @@ public final class RecipeAutoPricer {
      * 用于 TACZ GunSmithTableRecipe：result 在 init() 后才构建真实 ItemStack。
      * 幂等：init() 内部会把 raw 置 null，重复调用安全。
      */
-    private static void tryInitRecipe(Recipe<?> recipe) {
-        Method m = findNoArgMethod(recipe.getClass(), "init", INIT_CACHE);
+    private static void tryInitRecipe(Recipe recipe) {
+        Method m = findNoArgMethod(recipe.getRaw().getClass(), "init", INIT_CACHE);
         if (m != null) {
             try {
-                m.invoke(recipe);
+                m.invoke(recipe.getRaw());
             } catch (Throwable ignore) {}
         }
     }
 
     // ============ 反射：拿输入 ============
 
-    /** 优先反射调 getInputs()（TACZ 返回 List<GunSmithTableIngredient>）；失败回退到 getIngredients() */
-    private static List<InputEntry> extractInputs(Recipe<?> recipe) {
+    /** 优先反射调 getInputs()（TACZ 返回 List<GunSmithTableIngredient>）；失败回退到 midohra getInputs() */
+    private static List<InputEntry> extractInputs(Recipe recipe) {
         List<InputEntry> result = new ArrayList<>();
 
-        Method m = findNoArgMethod(recipe.getClass(), "getInputs", GET_INPUTS_CACHE);
+        Method m = findNoArgMethod(recipe.getRaw().getClass(), "getInputs", GET_INPUTS_CACHE);
         if (m != null) {
             try {
-                Object r = m.invoke(recipe);
+                Object r = m.invoke(recipe.getRaw());
                 if (r instanceof List) {
                     for (Object item : (List<?>) r) {
                         InputEntry ie = wrapInput(item);
@@ -576,9 +581,9 @@ public final class RecipeAutoPricer {
             } catch (Throwable ignore) {}
         }
 
-        // 回退：getIngredients()（原版默认实现）
+        // 回退：midohra Recipe.getInputs()（内部转发原版 getIngredients()）
         try {
-            for (Ingredient ing : recipe.getIngredients()) {
+            for (Ingredient ing : recipe.getInputs()) {
                 if (ing != null) result.add(new InputEntry(ing, 1));
             }
         } catch (Throwable ignore) {}

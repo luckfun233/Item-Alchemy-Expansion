@@ -4,14 +4,14 @@ import itemalchemy.expansion.ItemAlchemyExpansion;
 import itemalchemy.expansion.config.IAExpConfig;
 import itemalchemy.expansion.config.IAExpConfigHolder;
 import itemalchemy.expansion.recipe.RecipeAutoPricer;
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.pitan76.itemalchemy.EMCManager;
 import net.pitan76.itemalchemy.ItemAlchemy;
+import net.pitan76.mcpitanlib.api.network.PacketByteUtil;
+import net.pitan76.mcpitanlib.api.network.ServerNetworking;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -90,6 +90,20 @@ public final class SetEmcNetwork {
     public static final Identifier NEW_FEATURE_TOAST_ID =
             Identifier.of(ItemAlchemyExpansion.MOD_ID, "new_feature_toast");
 
+    /**
+     * C2S 包 id：{@code itemalchemy-expansion:query_precise_by_item}。
+     * <p>客户端设通用价前查询该 itemId 是否有 L1 精确覆盖（决定是否弹覆盖确认框）。</p>
+     */
+    public static final Identifier QUERY_PRECISE_BY_ITEM_ID =
+            Identifier.of(ItemAlchemyExpansion.MOD_ID, "query_precise_by_item");
+
+    /**
+     * S2C 包 id：{@code itemalchemy-expansion:precise_by_item_result}。
+     * <p>服务端回客户端：该 itemId 的 L1 精确变体列表（变体键 + 旧 EMC）。</p>
+     */
+    public static final Identifier PRECISE_BY_ITEM_RESULT_ID =
+            Identifier.of(ItemAlchemyExpansion.MOD_ID, "precise_by_item_result");
+
     /** scope 常量 */
     public static final int SCOPE_THIS_SAVE = 0;
     public static final int SCOPE_GLOBAL = 1;
@@ -99,23 +113,27 @@ public final class SetEmcNetwork {
     /** 服务端注册接收器。在 {@code onInitialize}（服务端）中调用。 */
     public static void registerServer() {
         // 「设置 EMC」C2S
-        ServerPlayNetworking.registerGlobalReceiver(SET_EMC_ID, (server, player, handler, buf, responseSender) -> {
+        ServerNetworking.registerReceiver(SET_EMC_ID, (server, player, buf) -> {
             final String itemId = buf.readString();
             final long emc = buf.readLong();
             final int scope = buf.readVarInt();
             final boolean precise = buf.readBoolean();
             final String variantKey = buf.readString();
+            // 通用模式需要清除的 L1 精确变体键列表（客户端覆盖确认框勾选）；空=不操作
+            final int clearCount = buf.readVarInt();
+            final List<String> preciseVkStrsToClear = new ArrayList<>(clearCount);
+            for (int i = 0; i < clearCount; i++) preciseVkStrsToClear.add(buf.readString());
 
-            server.execute(() -> applyOnServer(server, player, itemId, emc, scope, precise, variantKey));
+            server.execute(() -> applyOnServer(server, player, itemId, emc, scope, precise, variantKey, preciseVkStrsToClear));
         });
 
         // 「重新定价查询」C2S：扫描 PerSaveEmcStore 候选
-        ServerPlayNetworking.registerGlobalReceiver(REPRICE_CHECK_ID, (server, player, handler, buf, responseSender) -> {
+        ServerNetworking.registerReceiver(REPRICE_CHECK_ID, (server, player, buf) -> {
             server.execute(() -> handleRepriceCheck(server, player));
         });
 
         // 「重新定价逐个选择」C2S：玩家勾选「重算」的条目（通用层 itemId + 精确层变体键）
-        ServerPlayNetworking.registerGlobalReceiver(REPRICE_SELECTIVE_ID, (server, player, handler, buf, responseSender) -> {
+        ServerNetworking.registerReceiver(REPRICE_SELECTIVE_ID, (server, player, buf) -> {
             final int generalCount = buf.readVarInt();
             final List<String> generalIds = new ArrayList<>(generalCount);
             for (int i = 0; i < generalCount; i++) generalIds.add(buf.readString());
@@ -123,6 +141,12 @@ public final class SetEmcNetwork {
             final List<String> preciseVkStrs = new ArrayList<>(preciseCount);
             for (int i = 0; i < preciseCount; i++) preciseVkStrs.add(buf.readString());
             server.execute(() -> handleRepriceSelective(server, player, generalIds, preciseVkStrs));
+        });
+
+        // 「查询 itemId 的 L1 精确覆盖」C2S：客户端设通用价前查询是否有冲突
+        ServerNetworking.registerReceiver(QUERY_PRECISE_BY_ITEM_ID, (server, player, buf) -> {
+            final String itemId = buf.readString();
+            server.execute(() -> handleQueryPreciseByItem(server, player, itemId));
         });
     }
 
@@ -132,11 +156,15 @@ public final class SetEmcNetwork {
      * 服务端核心逻辑：根据定价精度分发到精确或通用存储，持久化 + 重同步 + 通知玩家。
      *
      * <p>注意：此方法在服务端主线程执行（通过 {@code server.execute}）。</p>
+     *
+     * @param preciseVkStrsToClear 通用模式下需要清除的 L1 精确变体键列表
+     *                             （玩家在覆盖确认框勾选；空列表=保留所有 L1）
      */
     static void applyOnServer(net.minecraft.server.MinecraftServer server,
                               ServerPlayerEntity player,
                               String itemId, long emc, int scope,
-                              boolean precise, String variantKey) {
+                              boolean precise, String variantKey,
+                              List<String> preciseVkStrsToClear) {
         if (itemId == null || itemId.isEmpty()) {
             sendFeedback(player, "itemalchemy-expansion.set_emc.fail.invalid_id");
             return;
@@ -163,12 +191,24 @@ public final class SetEmcNetwork {
                 ItemAlchemyExpansion.debug("[IAExp] precise emc set server-side: {} -> {} (scope={}, global={})",
                         vk, emc, scope, global);
             } else {
+                // 通用模式：用户明确选择「同 ID 同价」，写 L2 通用层
                 EMCManager.set(normalizedId, emc);
                 if (scope == SCOPE_THIS_SAVE) {
                     PerSaveEmcStore.set(server, normalizedId, emc);
                 } else {
                     GlobalEmcStore.set(normalizedId, emc);
                 }
+                // 清除该 itemId 的所有自动精确值（L3），否则查询时 L3 优先于 L2
+                // 会覆盖用户设置的通用值，表现为「设置不生效」
+                int removedAuto = AutoEmcStore.removePreciseByItemId(normalizedId);
+                // L3 有删除时写盘持久化（避免重启后缓存文件重新加载出 L3 值）
+                if (removedAuto > 0) {
+                    AutoEmcStore.writeCache(server);
+                }
+                // 清除手动精确覆盖（L1）：空列表=保留全部，非空=按玩家勾选删除
+                int removedManual = PreciseEmcStore.removeByVariantKeys(server, preciseVkStrsToClear);
+                ItemAlchemyExpansion.debug("[IAExp][SetEmc] general set cleared L3={} and L1={} variants for id='{}'",
+                        removedAuto, removedManual, normalizedId);
             }
 
             resyncAll(server);
@@ -209,9 +249,9 @@ public final class SetEmcNetwork {
 
     /** 把当前精确覆盖 map 同步给单个玩家（S2C）。玩家加入或他人修改时调用。 */
     public static void pushPreciseMapTo(ServerPlayerEntity player) {
-        PacketByteBuf buf = PacketByteBufs.create();
+        PacketByteBuf buf = PacketByteUtil.create();
         writeEmcMap(buf, PreciseEmcStore.snapshot());
-        ServerPlayNetworking.send(player, SYNC_PRECISE_EMC_ID, buf);
+        ServerNetworking.send(player, SYNC_PRECISE_EMC_ID, buf);
     }
 
     /**
@@ -221,10 +261,10 @@ public final class SetEmcNetwork {
      * 客户端收到后写入 {@link AutoEmcStore#applyFromSnapshot}。</p>
      */
     public static void pushAutoEmcMapTo(ServerPlayerEntity player) {
-        PacketByteBuf buf = PacketByteBufs.create();
+        PacketByteBuf buf = PacketByteUtil.create();
         writeEmcMap(buf, AutoEmcStore.snapshotPrecise());
         writeEmcMap(buf, AutoEmcStore.snapshotGeneral());
-        ServerPlayNetworking.send(player, SYNC_AUTO_EMC_ID, buf);
+        ServerNetworking.send(player, SYNC_AUTO_EMC_ID, buf);
     }
 
     /**
@@ -305,7 +345,7 @@ public final class SetEmcNetwork {
         }
 
         // 推 S2C：通用层 + 精确层候选（含旧 EMC 供 UI 展示「旧: X」）
-        PacketByteBuf buf = PacketByteBufs.create();
+        PacketByteBuf buf = PacketByteUtil.create();
         buf.writeVarInt(generalCandidates.size());
         for (Map.Entry<String, Long> e : generalCandidates) {
             buf.writeString(e.getKey());
@@ -316,9 +356,12 @@ public final class SetEmcNetwork {
             buf.writeString(e.getKey());
             buf.writeLong(e.getValue());
         }
-        ServerPlayNetworking.send(player, REPRICE_CANDIDATES_ID, buf);
+        ServerNetworking.send(player, REPRICE_CANDIDATES_ID, buf);
         ItemAlchemyExpansion.debug("[IAExp] reprice check: sent {} general + {} precise candidates to {}",
-                generalCandidates.size(), preciseCandidates.size(), player.getEntityName());
+                generalCandidates.size(), preciseCandidates.size(), player.getName().getString());
+        // 发送后即标记已弹并写盘：即使玩家 ESC 关闭对话框，下次进世界也不再弹
+        IAExpConfigHolder.get().autoPricingRepricePromptShown = true;
+        IAExpConfigHolder.save();
     }
 
     /**
@@ -360,6 +403,23 @@ public final class SetEmcNetwork {
                 removed, removedGeneral, removedPrecise);
     }
 
+    /**
+     * 服务端处理「查询 itemId 的 L1 精确覆盖」：返回该 ID 所有变体条目给客户端。
+     *
+     * <p>客户端设通用价前调用，收到非空结果则弹覆盖确认框。S2C 协议：
+     * {@code varint count + N×(string vkStr + long emc)}。</p>
+     */
+    static void handleQueryPreciseByItem(net.minecraft.server.MinecraftServer server,
+                                          ServerPlayerEntity player, String itemId) {
+        String normalizedId = normalizeItemId(itemId);
+        Map<String, Long> variants = PreciseEmcStore.getVariantsByItemId(normalizedId);
+        PacketByteBuf buf = PacketByteUtil.create();
+        writeEmcMap(buf, variants);
+        ServerNetworking.send(player, PRECISE_BY_ITEM_RESULT_ID, buf);
+        ItemAlchemyExpansion.debug("[IAExp] query precise by item: id='{}', returned {} variants to {}",
+                normalizedId, variants.size(), player.getName().getString());
+    }
+
     /** 判断 itemId 是否为重新定价候选：排除原版与上游已定义（不重置这些）。 */
     private static boolean isRepriceCandidate(String itemId) {
         if (itemId == null || itemId.startsWith("minecraft:")) return false;
@@ -382,9 +442,9 @@ public final class SetEmcNetwork {
      * 且 {@code featureNoticeShown=false} 时调用。客户端收到后弹 {@code NewFeatureToast}。</p>
      */
     public static void pushNewFeatureToast(ServerPlayerEntity player) {
-        PacketByteBuf buf = PacketByteBufs.create();
+        PacketByteBuf buf = PacketByteUtil.create();
         // 空包：仅作为触发信号
-        ServerPlayNetworking.send(player, NEW_FEATURE_TOAST_ID, buf);
+        ServerNetworking.send(player, NEW_FEATURE_TOAST_ID, buf);
     }
 
     static String normalizeItemId(String id) {

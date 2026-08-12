@@ -4,6 +4,7 @@ import itemalchemy.expansion.IAExpServices;
 import itemalchemy.expansion.client.util.GuiRenderUtil;
 import itemalchemy.expansion.nbt.ItemVariantKey;
 import itemalchemy.expansion.network.AutoEmcStore;
+import itemalchemy.expansion.network.PreciseEmcStore;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -13,7 +14,9 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 「重新定价」逐个选择对话框：玩家首次开启「配方自动定价」并存在手动定价时弹出一次。
@@ -57,7 +60,45 @@ public class RepriceConfirmScreen extends Screen {
 
     public RepriceConfirmScreen(List<RepriceEntry> entries) {
         super(Text.translatable("itemalchemy-expansion.reprice.title"));
-        this.entries = entries == null ? new ArrayList<>() : new ArrayList<>(entries);
+        this.entries = groupByItemId(entries);
+    }
+
+    /**
+     * 对精确层候选按 itemId 分组：同 ID 的多个变体合并为一行，显示一个代表并标注变体数量。
+     * 通用层候选（vkStr=null）每个 itemId 本身只有一条，保持不变。
+     *
+     * <p>合并后 {@link RepriceEntry#vkStr} 为代表的变体键，{@link RepriceEntry#variantCount}
+     * 为该 ID 下变体总数（>=1）。勾选时整组一起重算（{@link #onConfirm} 按 itemId 发送所有变体）。</p>
+     */
+    private static List<RepriceEntry> groupByItemId(List<RepriceEntry> raw) {
+        if (raw == null || raw.isEmpty()) return new ArrayList<>();
+        List<RepriceEntry> result = new ArrayList<>();
+        // 通用层直接保留，精确层按 itemId 分组
+        Map<String, List<RepriceEntry>> preciseGroups = new LinkedHashMap<>();
+        for (RepriceEntry e : raw) {
+            if (e.isPrecise()) {
+                preciseGroups.computeIfAbsent(e.itemId, k -> new ArrayList<>()).add(e);
+            } else {
+                result.add(e);
+            }
+        }
+        for (Map.Entry<String, List<RepriceEntry>> grp : preciseGroups.entrySet()) {
+            List<RepriceEntry> group = grp.getValue();
+            if (group.size() == 1) {
+                // 单个变体：直接加入，不标注数量
+                result.add(group.get(0));
+            } else {
+                // 多个变体：取第一个作为代表，记录变体数量
+                RepriceEntry representative = group.get(0);
+                representative.variantCount = group.size();
+                // 收集同组所有 vkStr 供整组重算
+                List<String> allVks = new ArrayList<>(group.size());
+                for (RepriceEntry e : group) allVks.add(e.vkStr);
+                representative.allVkStrs = allVks;
+                result.add(representative);
+            }
+        }
+        return result;
     }
 
     /**
@@ -77,6 +118,10 @@ public class RepriceConfirmScreen extends Screen {
         public final ItemStack stack;
         /** 玩家选择：true=重算，false=保留。默认勾选（重算） */
         public boolean recompute = true;
+        /** 该 itemId 下变体总数（精确层分组后 >1 表示合并显示，=1 表示单个变体） */
+        public int variantCount = 1;
+        /** 同组所有变体键（仅精确层分组后 >1 时非 null，用于整组重算） */
+        public List<String> allVkStrs = null;
 
         private RepriceEntry(String itemId, String vkStr, long oldEmc) {
             this.itemId = itemId;
@@ -167,14 +212,14 @@ public class RepriceConfirmScreen extends Screen {
 
     /** 滚轮滚动列表 */
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
         int listTop = panelY + LIST_TOP_OFFSET;
         int listBottom = panelY + panelH - LIST_BOTTOM_OFFSET;
         int listHeight = listBottom - listTop;
         int totalHeight = entries.size() * ROW_H;
         int maxScroll = Math.max(0, totalHeight - listHeight);
-        if (maxScroll <= 0) return super.mouseScrolled(mouseX, mouseY, amount);
-        scrollOffset -= (int) (amount * ROW_H);
+        if (maxScroll <= 0) return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+        scrollOffset -= (int) (verticalAmount * ROW_H);
         scrollOffset = Math.max(0, Math.min(scrollOffset, maxScroll));
         return true;
     }
@@ -203,8 +248,16 @@ public class RepriceConfirmScreen extends Screen {
         List<String> preciseVkStrs = new ArrayList<>();
         for (RepriceEntry e : entries) {
             if (!e.recompute) continue;
-            if (e.isPrecise()) preciseVkStrs.add(e.vkStr);
-            else generalIds.add(e.itemId);
+            if (e.isPrecise()) {
+                // 分组后的精确层条目：如果有 allVkStrs，整组一起发送；否则只发送代表
+                if (e.allVkStrs != null) {
+                    preciseVkStrs.addAll(e.allVkStrs);
+                } else {
+                    preciseVkStrs.add(e.vkStr);
+                }
+            } else {
+                generalIds.add(e.itemId);
+            }
         }
         SetEmcClientNetwork.sendRepriceSelective(generalIds, preciseVkStrs);
         this.close();
@@ -213,8 +266,14 @@ public class RepriceConfirmScreen extends Screen {
     // ============ 渲染 ============
 
     @Override
+    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
+        // 基类 1.21.1 版会 applyBlur 模糊全屏；背景由 render() 自行铺暗色
+    }
+
+    @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        renderBackground(context);
+        // 1.21.1 的 4 参 renderBackground 带 applyBlur 会产生模糊残影，直接铺暗色背景
+        context.fill(0, 0, this.width, this.height, 0xA0000000);
 
         int listTop = panelY + LIST_TOP_OFFSET;
         int listBottom = panelY + panelH - LIST_BOTTOM_OFFSET;
@@ -272,8 +331,16 @@ public class RepriceConfirmScreen extends Screen {
         context.drawText(this.textRenderer, name, listLeft + 42, textY, 0xFFFFFF, false);
         if (e.isPrecise()) {
             int nameW = this.textRenderer.getWidth(name);
+            int tagX = listLeft + 42 + nameW + 6;
             Text precise = Text.translatable("itemalchemy-expansion.reprice.layer_precise");
-            context.drawText(this.textRenderer, precise, listLeft + 42 + nameW + 6, textY, 0x55FFFF, false);
+            context.drawText(this.textRenderer, precise, tagX, textY, 0x55FFFF, false);
+            // 同 ID 多变体时标注数量
+            if (e.variantCount > 1) {
+                int preciseW = this.textRenderer.getWidth(precise);
+                Text count = Text.translatable("itemalchemy-expansion.reprice.variant_count",
+                        e.variantCount);
+                context.drawText(this.textRenderer, count, tagX + preciseW + 4, textY, 0xFFAA00, false);
+            }
         }
         drawEmc(context, e, listRight, textY);
     }
@@ -338,12 +405,42 @@ public class RepriceConfirmScreen extends Screen {
                     if (!stack.isEmpty()) return stack;
                 }
             }
+            // 通用层候选：从精确层镜像中找该 itemId 下的任意变体键，还原带 NBT 的图标
+            String sampleVk = findSampleVariantKey(itemId);
+            if (sampleVk != null) {
+                ItemVariantKey vk = ItemVariantKey.fromStorageString(sampleVk);
+                if (vk != null) {
+                    ItemStack stack = IAExpServices.rebuildStack(vk);
+                    if (!stack.isEmpty()) return stack;
+                }
+            }
+            // 回退：创建不带 NBT 的 ItemStack
             Identifier id = Identifier.tryParse(itemId);
             if (id != null && Registries.ITEM.containsId(id)) {
                 return new ItemStack(Registries.ITEM.get(id));
             }
         } catch (Throwable ignore) {}
         return ItemStack.EMPTY;
+    }
+
+    /**
+     * 从客户端同步的精确层镜像中查找该 itemId 下的任意变体键。
+     *
+     * <p>优先查 {@link PreciseEmcStore}（玩家手动精确），再查 {@link AutoEmcStore}（自动精确）。
+     * 都没有时返回 null（调用方回退到不带 NBT 的 ItemStack）。</p>
+     */
+    private static String findSampleVariantKey(String itemId) {
+        if (itemId == null || itemId.isEmpty()) return null;
+        String prefix = itemId + ItemVariantKey.SEPARATOR;
+        // 先查玩家手动精确层
+        for (String key : PreciseEmcStore.snapshot().keySet()) {
+            if (key.startsWith(prefix) || key.equals(itemId)) return key;
+        }
+        // 再查自动精确层
+        for (String key : AutoEmcStore.snapshotPrecise().keySet()) {
+            if (key.startsWith(prefix) || key.equals(itemId)) return key;
+        }
+        return null;
     }
 
     /** 从变体键存储串提取 itemId（兼容纯 ID 与 {@code itemId\u0001nbt} 格式） */
