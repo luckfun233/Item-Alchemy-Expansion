@@ -24,7 +24,7 @@ import java.lang.reflect.Method;
  *       拒绝放入并弹出 Toast 弹窗（客户端）/ 聊天消息（服务端后备）。</li>
  *   <li>其余情况（ALLOW 或无无 EMC 物品）：不干预，交给原 {@code canInsert}
  *       逻辑判断（{@code EMCManager.get(stack) != 0}，已被 {@link MixinEMCManager}
- *       改为 sumEmc，故空盒 sumEmc=0 仍会被原逻辑拒绝）。</li>
+ *       改为 sumEmc，空盒返回盒子本身 EMC，有内容物返回盒子+内容物之和）。</li>
  * </ol>
  *
  * <p><b>无 EMC 提示方式</b>：原版用 {@code player.sendMessage} 发聊天消息，在激烈的物品交互场景下容易被忽略。
@@ -67,7 +67,7 @@ public abstract class MixinRegisterSlot {
         }
 
         // 放行：不 cancel，让原 canInsert 用 EMCManager.get(stack)=sumEmc 判断
-        // 空潜影盒 sumEmc=0 会被原逻辑拒绝；有内容物 sumEmc>0 可放入
+        // 空盒返回盒子本身 EMC（有 EMC 即可放入）；有内容物返回盒子+内容物之和
     }
 
     private static void sendNoEmcRejectMessage(Player player, ItemStack noEmcItem) {

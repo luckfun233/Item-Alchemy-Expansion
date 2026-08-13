@@ -3,7 +3,7 @@
 	"id": "itemalchemy-expansion",
 	"version": "${version}",
 	"name": "Item Alchemy Expansion",
-	"description": "Item Alchemy 的附属模组：在炼金台中实现 NBT 物品区分（如 tacz 弹药）、药水 NBT 修复、潜影盒整体支持与可配置展示。An Item Alchemy addon: NBT-aware item distinction, potion NBT fix, shulker box support and configurable display in the Alchemy Table.",
+	"description": "Item Alchemy 的附属模组：在Item Alchemy 中实现 NBT 物品区分（如 tacz 弹药）、药水 NBT 修复、潜影盒整体支持与可配置展示。An Item Alchemy addon: NBT-aware item distinction, potion NBT fix, shulker box support and configurable display in the Alchemy Table.",
 	"authors": [
 		"luckyfun233"
 	],
