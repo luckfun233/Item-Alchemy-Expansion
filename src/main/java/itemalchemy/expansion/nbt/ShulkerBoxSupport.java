@@ -43,13 +43,13 @@ public final class ShulkerBoxSupport {
     }
 
     /**
-     * 计算装了物品的潜影盒的总 EMC = 内容物 EMC 之和 + 潜影盒本身的 EMC。
+     * 计算潜影盒的总 EMC = 盒子本身的 EMC + 内容物 EMC 之和。
      *
      * <p>定价规则：
      * <ul>
-     *   <li>空潜影盒（无内容物）：返回 0。空盒被注册槽原逻辑（{@code EMCManager.get(stack) != 0}）拒绝。</li>
-     *   <li>有内容物的潜影盒：返回 {@code 内容物 EMC 之和 + 盒子本身的 EMC}，
-     *       盒子本身的 EMC 按 id 查 {@link EMCManager#get(Item)}（同 id 同价，与上游口径一致）。</li>
+     *   <li>空潜影盒（无内容物）：返回盒子本身的 EMC（按 id 查 {@link EMCManager#get(Item)}）。
+     *       盒子本身有 EMC 即可被注册放入；盒子无 EMC 则返回 0，被原逻辑拒绝。</li>
+     *   <li>有内容物的潜影盒：返回 {@code 盒子本身的 EMC + 内容物 EMC 之和}。</li>
      * </ul>
      * </p>
      *
@@ -58,20 +58,15 @@ public final class ShulkerBoxSupport {
      */
     public static long sumEmc(ItemStack stack) {
         if (!isShulkerBox(stack)) return 0;
+        // 盒子本身的 EMC 始终计入（空盒也按自身价值计价）
+        long[] sumHolder = {EMCManager.get(stack.getItem())};
         Stream<ItemStack> contents = streamContents(stack);
-        if (contents == null) return 0;
-        long[] sumHolder = {0};
-        boolean[] hasContents = {false};
+        if (contents == null) return sumHolder[0];
         contents.forEach(contentStack -> {
             if (contentStack.isEmpty()) return;
-            hasContents[0] = true;
             long itemEmc = EMCManager.get(contentStack.getItem());
             sumHolder[0] += itemEmc * contentStack.getCount();
         });
-        // 有内容物时加上潜影盒本身的 EMC；空盒 hasContents=false 返回 0
-        if (hasContents[0]) {
-            sumHolder[0] += EMCManager.get(stack.getItem());
-        }
         return sumHolder[0];
     }
 
@@ -86,9 +81,9 @@ public final class ShulkerBoxSupport {
     public static ContentsAndEmc getContentsAndSumEmc(ItemStack stack) {
         ItemStack[] contents = new ItemStack[27];
         for (int i = 0; i < 27; i++) contents[i] = ItemStack.EMPTY;
-        long sum = 0;
-        boolean hasContents = false;
-        if (!isShulkerBox(stack)) return new ContentsAndEmc(contents, sum);
+        if (!isShulkerBox(stack)) return new ContentsAndEmc(contents, 0);
+        // 盒子本身的 EMC 始终计入
+        long sum = EMCManager.get(stack.getItem());
 
         DefaultedList<ItemStack> list = getContentsAsList(stack);
         if (list == null) return new ContentsAndEmc(contents, sum);
@@ -97,12 +92,8 @@ public final class ShulkerBoxSupport {
             ItemStack contentStack = list.get(i);
             if (contentStack.isEmpty()) continue;
             contents[i] = contentStack;
-            hasContents = true;
             long itemEmc = EMCManager.get(contentStack.getItem());
             sum += itemEmc * contentStack.getCount();
-        }
-        if (hasContents) {
-            sum += EMCManager.get(stack.getItem());
         }
         return new ContentsAndEmc(contents, sum);
     }

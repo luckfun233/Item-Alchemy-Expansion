@@ -22,7 +22,7 @@ import java.lang.reflect.Method;
  *   <li>{@link IAExpConfig.ShulkerBoxMode#DISABLE}：直接拒绝。</li>
  *   <li>{@link IAExpConfig.ShulkerNoEmcPolicy#REJECT} 且盒内有任何无 EMC 物品：拒绝并提示。</li>
  *   <li>其余情况：放行交给原 {@code canInsert} 判断（已被 {@link MixinEMCManager}
- *       改为 sumEmc，空盒返回 0 仍会被拒绝）。</li>
+ *       改为 sumEmc，空盒返回盒子本身 EMC，有内容物返回盒子+内容物之和）。</li>
  * </ol>
  *
  * <p>无 EMC 提示：客户端优先用 Toast 弹窗（反射调用，避免 main 源集依赖 client 类），
@@ -61,6 +61,7 @@ public abstract class MixinRegisterSlot {
             }
         }
         // 放行：由原 canInsert 用 EMCManager.get(stack)=sumEmc 判断
+        // 空盒返回盒子本身 EMC（有 EMC 即可放入）；有内容物返回盒子+内容物之和
     }
 
     private static void sendNoEmcRejectMessage(Player player, ItemStack noEmcItem) {
