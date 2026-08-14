@@ -39,6 +39,18 @@ public final class EmcCardClientNetwork {
         }
     }
 
+    /** 客户端发送配置请求（C2S） */
+    public static void sendConfig(byte action, long value) {
+        try {
+            PacketByteBuf buf = PacketByteBufs.create();
+            buf.writeByte(action);
+            buf.writeLong(value);
+            ClientPlayNetworking.send(EmcCardNetwork.CONFIG_ID, buf);
+        } catch (Throwable t) {
+            ItemAlchemyExpansion.LOGGER.warn("[IAExp] emc card: failed to send config: {}", t.toString());
+        }
+    }
+
     /** 注册 S2C 接收器：收到 OPEN_GUI 信号后打开 EMC 卡主菜单。 */
     public static void registerClientReceiver() {
         ClientPlayNetworking.registerGlobalReceiver(EmcCardNetwork.OPEN_GUI_ID,

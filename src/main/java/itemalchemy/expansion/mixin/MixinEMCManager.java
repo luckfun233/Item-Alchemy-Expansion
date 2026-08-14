@@ -56,11 +56,11 @@ public abstract class MixinEMCManager {
     private static void iaexp$getEmc(ItemStack stack, CallbackInfoReturnable<Long> cir) {
         if (stack == null || stack.isEmpty()) return;
 
-        // 0. EMC 卡特判：转换桌查价 = 卡本身 EMC（合成材料自动定价，按 ID）+ 卡内存储 EMC（按 NBT）
-        // 卡本身走 EMCManager.get(Item) 不带 NBT 的重载（不触发本 Mixin 递归），与上游通用 map 一致
+        // 0. EMC 卡特判：转换桌查价 = 卡本身 EMC + 卡内存储 EMC
+        // 卡本身走 EMCManager.get(Item)（不触发本 Mixin 递归），未定价时回退 DEFAULT_BASE_EMC
         if (stack.getItem() instanceof EmcCardItem) {
             long count = ItemStackUtil.getCount(stack);
-            long cardBaseEmc = EMCManager.get(stack.getItem());
+            long cardBaseEmc = EmcCardItem.getBaseEmc();
             long stored = EmcCardItem.getStoredEmc(stack);
             long total = (cardBaseEmc + stored) * count;
             ItemAlchemyExpansion.debug("[IAExp] emc card: base={}, stored={}, count={}, total={}",

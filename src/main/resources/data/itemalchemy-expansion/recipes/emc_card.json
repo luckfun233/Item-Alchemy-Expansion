@@ -1,7 +1,6 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    " G ",
     "GRG",
     "III"
   ],
@@ -17,7 +16,7 @@
     }
   },
   "result": {
-    "id": "itemalchemy-expansion:emc_card",
+    "item": "itemalchemy-expansion:emc_card",
     "count": 1
   }
 }

@@ -19,28 +19,29 @@ import net.minecraft.util.Formatting;
  */
 public class EmcCardDepositScreen extends Screen {
 
-    private static final int PANEL_WIDTH = 240;
-    private static final int PADDING = 12;
+    private static final int PANEL_WIDTH = 260;
+    private static final int PADDING = 14;
+    private static final int LINE_HEIGHT = 16;
 
     private TextFieldWidget amountField;
     private Text errorText;
 
     public EmcCardDepositScreen() {
-        super(Text.translatable("itemalchemy-expansion.emc_card.deposit.title"));
+        super(EmcCardMainScreen.getCardName());
     }
 
     @Override
     public boolean shouldPause() {
-        return true;
+        return false;
     }
 
     @Override
     protected void init() {
         errorText = null;
         int centerX = this.width / 2;
-        int fieldY = this.height / 2 - 4;
+        int fieldY = this.height / 2 + 2;
 
-        int fieldWidth = 160;
+        int fieldWidth = 180;
         amountField = new TextFieldWidget(this.textRenderer,
                 centerX - fieldWidth / 2, fieldY, fieldWidth, 16,
                 Text.translatable("itemalchemy-expansion.emc_card.amount_field"));
@@ -51,7 +52,7 @@ public class EmcCardDepositScreen extends Screen {
         this.setFocused(amountField);
 
         int btnY = fieldY + 28;
-        int btnWidth = 80;
+        int btnWidth = 84;
         int gap = 8;
         addDrawableChild(ButtonWidget.builder(
                 Text.translatable("itemalchemy-expansion.emc_card.confirm"),
@@ -99,7 +100,6 @@ public class EmcCardDepositScreen extends Screen {
             return;
         }
         EmcCardClientNetwork.sendDeposit(amount);
-        // 回主菜单：服务端同步后卡内 EMC 刷新
         MinecraftClient.getInstance().setScreen(new EmcCardMainScreen());
     }
 
@@ -109,32 +109,35 @@ public class EmcCardDepositScreen extends Screen {
 
         int centerX = this.width / 2;
         int panelLeft = centerX - PANEL_WIDTH / 2;
-        int panelTop = this.height / 2 - 80;
-        int panelHeight = 160;
+        int panelTop = this.height / 2 - 90;
+        int panelHeight = 180;
 
-        context.fill(panelLeft, panelTop, panelLeft + PANEL_WIDTH, panelTop + panelHeight, 0xC0101010);
-        GuiRenderUtil.drawBorder(context, panelLeft, panelTop, PANEL_WIDTH, panelHeight, 0xFF404040);
+        context.fill(panelLeft, panelTop, panelLeft + PANEL_WIDTH, panelTop + panelHeight, 0xE0101420);
+        GuiRenderUtil.drawBorder(context, panelLeft, panelTop, PANEL_WIDTH, panelHeight, 0xFF5060A0);
 
         context.drawCenteredTextWithShadow(this.textRenderer, this.title,
-                centerX, panelTop + PADDING, 0xFFFFFF);
+                centerX, panelTop + PADDING, 0xFFE0E0FF);
+        // 副标题：操作类型
+        context.drawCenteredTextWithShadow(this.textRenderer,
+                Text.translatable("itemalchemy-expansion.emc_card.deposit.title"),
+                centerX, panelTop + PADDING + 11, 0xFF8080A0);
+
+        int lineY = panelTop + PADDING + 23;
+        context.fill(panelLeft + PADDING, lineY, panelLeft + PANEL_WIDTH - PADDING, lineY + 1, 0xFF405080);
 
         long playerEmc = EmcCardMainScreen.getPlayerEmc();
         long cardEmc = getCardEmc();
 
-        Text playerLine = Text.translatable("itemalchemy-expansion.emc_card.player_emc",
-                Text.literal(EmcCardItem.formatNumber(playerEmc)).formatted(Formatting.YELLOW));
-        context.drawText(this.textRenderer, playerLine,
-                panelLeft + PADDING, panelTop + 34, 0xFFFFFF, false);
-
-        Text cardLine = Text.translatable("itemalchemy-expansion.emc_card.card_emc",
-                Text.literal(EmcCardItem.formatNumber(cardEmc)).formatted(Formatting.AQUA));
-        context.drawText(this.textRenderer, cardLine,
-                panelLeft + PADDING, panelTop + 48, 0xFFFFFF, false);
+        int dataY = lineY + 10;
+        drawDataRow(context, "itemalchemy-expansion.emc_card.player_emc",
+                EmcCardItem.formatNumber(playerEmc), panelLeft, dataY, 0xFFC0C0C0, 0xFFFFFF55);
+        drawDataRow(context, "itemalchemy-expansion.emc_card.card_emc",
+                EmcCardItem.formatNumber(cardEmc), panelLeft, dataY + LINE_HEIGHT, 0xFF40A0FF, 0xFF60C0FF);
 
         Text fieldLabel = Text.translatable("itemalchemy-expansion.emc_card.deposit.field_label")
                 .formatted(Formatting.GRAY);
         context.drawText(this.textRenderer, fieldLabel,
-                panelLeft + PADDING, amountField.getY() - 12, 0xC0C0C0, false);
+                panelLeft + PADDING, amountField.getY() - 12, 0xFFA0A0C0, false);
 
         if (errorText != null) {
             context.drawCenteredTextWithShadow(this.textRenderer, errorText,
@@ -142,6 +145,16 @@ public class EmcCardDepositScreen extends Screen {
         }
 
         super.render(context, mouseX, mouseY, delta);
+    }
+
+    private void drawDataRow(DrawContext context, String labelKey, String valueStr,
+                             int panelLeft, int y, int labelColor, int valueColor) {
+        Text label = Text.translatable(labelKey);
+        Text value = Text.literal(valueStr);
+        context.drawText(this.textRenderer, label,
+                panelLeft + PADDING, y, labelColor, false);
+        context.drawText(this.textRenderer, value,
+                panelLeft + PANEL_WIDTH - PADDING - textRenderer.getWidth(value), y, valueColor, false);
     }
 
     private long getCardEmc() {

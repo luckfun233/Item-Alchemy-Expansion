@@ -5,6 +5,7 @@ import net.minecraft.item.Item;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.util.Identifier;
+import net.pitan76.itemalchemy.item.ItemGroups;
 import net.pitan76.mcpitanlib.api.item.v2.CompatibleItemSettings;
 import net.pitan76.mcpitanlib.api.util.CompatIdentifier;
 import net.pitan76.mcpitanlib.api.util.CompatRarity;
@@ -29,7 +30,8 @@ public final class IAExpItems {
                 new EmcCardItem(CompatibleItemSettings.of(
                                 CompatIdentifier.of(ItemAlchemyExpansion.MOD_ID, "emc_card"))
                         .maxCount(1)
-                        .rarity(CompatRarity.UNCOMMON)));
+                        .rarity(CompatRarity.UNCOMMON)
+                        .addGroup(ItemGroups.ITEM_ALCHEMY)));
 
         ItemAlchemyExpansion.LOGGER.info("[IAExp] items registered: emc_card");
     }

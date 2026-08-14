@@ -6,6 +6,7 @@ import itemalchemy.expansion.item.IAExpItems;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.item.ItemStack;
+import net.minecraft.network.PacketByteBuf;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
@@ -14,18 +15,10 @@ import net.pitan76.itemalchemy.EMCManager;
 import net.pitan76.mcpitanlib.api.entity.Player;
 
 /**
- * EMC 卡网络包：C2S 充入/拿取 + S2C 打开 GUI。
+ * EMC 卡网络包：C2S 充入/拿取/配置 + S2C 打开 GUI。
  *
- * <p><b>协议</b>：
- * <ul>
- *   <li>{@link #OPEN_GUI_ID} S2C：空包，客户端收到后打开 {@code EmcCardMainScreen}</li>
- *   <li>{@link #DEPOSIT_ID} C2S：{@code long amount}，玩家请求充入 amount EMC 到手持卡</li>
- *   <li>{@link #WITHDRAW_ID} C2S：{@code long amount}，玩家请求从手持卡拿取 amount EMC</li>
- * </ul>
- *
- * <p><b>充入</b>：校验 玩家 Team EMC >= amount，扣减 Team EMC，增加卡内 stored_emc。
- * <b>拿取</b>：校验 卡内 stored_emc >= amount，扣减卡内，增加 Team EMC。
- * 操作后同步：{@link EMCManager#syncS2C} 刷 Team EMC；{@code sendContentUpdates} 刷手持物品 NBT。</p>
+ * <p>右键交互（打开 GUI、合并、快捷充能）由服务端 {@link EmcCardItem#onRightClick} 直接处理，
+ * GUI 内操作（充入、拿取、配置）通过 C2S 包处理。</p>
  */
 public final class EmcCardNetwork {
 
@@ -35,10 +28,17 @@ public final class EmcCardNetwork {
             new Identifier(ItemAlchemyExpansion.MOD_ID, "emc_card_deposit");
     public static final Identifier WITHDRAW_ID =
             new Identifier(ItemAlchemyExpansion.MOD_ID, "emc_card_withdraw");
+    public static final Identifier CONFIG_ID =
+            new Identifier(ItemAlchemyExpansion.MOD_ID, "emc_card_config");
+
+    /** 配置动作：切换快捷充能 */
+    public static final byte CFG_TOGGLE_QUICK = 0;
+    /** 配置动作：设置快捷充能金额 */
+    public static final byte CFG_SET_QUICK_AMOUNT = 1;
 
     private EmcCardNetwork() {}
 
-    /** 服务端注册 C2S 接收器。在 {@code onInitialize} 中调用。 */
+    /** 服务端注册 C2S 接收器 */
     public static void registerServer() {
         ServerPlayNetworking.registerGlobalReceiver(DEPOSIT_ID, (server, player, handler, buf, responseSender) -> {
             final long amount = buf.readLong();
@@ -48,9 +48,14 @@ public final class EmcCardNetwork {
             final long amount = buf.readLong();
             server.execute(() -> handleWithdraw(player, amount));
         });
+        ServerPlayNetworking.registerGlobalReceiver(CONFIG_ID, (server, player, handler, buf, responseSender) -> {
+            final byte action = buf.readByte();
+            final long value = buf.readLong();
+            server.execute(() -> handleConfig(player, action, value));
+        });
     }
 
-    /** 发 S2C 打开 GUI 信号给客户端。 */
+    /** 发 S2C 打开 GUI */
     public static void sendOpenGui(ServerPlayerEntity player) {
         try {
             ServerPlayNetworking.send(player, OPEN_GUI_ID, PacketByteBufs.create());
@@ -59,7 +64,8 @@ public final class EmcCardNetwork {
         }
     }
 
-    /** 充入：玩家 Team EMC -> 卡内。 */
+    // ==================== 充入 ====================
+
     private static void handleDeposit(ServerPlayerEntity player, long amount) {
         if (amount <= 0) return;
         Hand hand = findCardHand(player);
@@ -77,15 +83,15 @@ public final class EmcCardNetwork {
         }
         EMCManager.decrementEmc(mcpPlayer, amount);
         EmcCardItem.setStoredEmc(card, EmcCardItem.getStoredEmc(card) + amount);
+        EmcCardItem.addTransaction(card, EmcCardItem.TX_DEPOSIT, amount);
         syncHandStack(player);
         EMCManager.syncS2C(mcpPlayer);
         sendMsg(player, "itemalchemy-expansion.emc_card.deposit.success",
                 Text.literal(EmcCardItem.formatNumber(amount)));
-        ItemAlchemyExpansion.debug("[IAExp] emc card deposit: player={}, amount={}, teamEmc after={}",
-                player.getEntityName(), amount, teamEmc - amount);
     }
 
-    /** 拿取：卡内 -> 玩家 Team EMC。 */
+    // ==================== 拿取 ====================
+
     private static void handleWithdraw(ServerPlayerEntity player, long amount) {
         if (amount <= 0) return;
         Hand hand = findCardHand(player);
@@ -101,17 +107,93 @@ public final class EmcCardNetwork {
             return;
         }
         EmcCardItem.setStoredEmc(card, stored - amount);
+        EmcCardItem.addTransaction(card, EmcCardItem.TX_WITHDRAW, amount);
         Player mcpPlayer = new Player(player);
         EMCManager.incrementEmc(mcpPlayer, amount);
         syncHandStack(player);
         EMCManager.syncS2C(mcpPlayer);
         sendMsg(player, "itemalchemy-expansion.emc_card.withdraw.success",
                 Text.literal(EmcCardItem.formatNumber(amount)));
-        ItemAlchemyExpansion.debug("[IAExp] emc card withdraw: player={}, amount={}, stored after={}",
-                player.getEntityName(), amount, stored - amount);
     }
 
-    /** 查找玩家主/副手是否持有 EMC 卡，优先主手。 */
+    // ==================== 快捷充能（服务端直接调用） ====================
+
+    public static void handleQuickCharge(ServerPlayerEntity player) {
+        Hand hand = findCardHand(player);
+        if (hand == null) {
+            sendMsg(player, "itemalchemy-expansion.emc_card.no_card");
+            return;
+        }
+        ItemStack card = player.getStackInHand(hand);
+        long amount = EmcCardItem.getQuickChargeAmount(card);
+        Player mcpPlayer = new Player(player);
+        long teamEmc = EMCManager.getEmcFromPlayer(mcpPlayer);
+        long actualAmount = Math.min(amount, teamEmc);
+        if (actualAmount <= 0) {
+            sendMsg(player, "itemalchemy-expansion.emc_card.quickcharge.fail.empty");
+            return;
+        }
+        EMCManager.decrementEmc(mcpPlayer, actualAmount);
+        EmcCardItem.setStoredEmc(card, EmcCardItem.getStoredEmc(card) + actualAmount);
+        EmcCardItem.addTransaction(card, EmcCardItem.TX_DEPOSIT, actualAmount);
+        syncHandStack(player);
+        EMCManager.syncS2C(mcpPlayer);
+        sendMsg(player, "itemalchemy-expansion.emc_card.quickcharge.success",
+                Text.literal(EmcCardItem.formatNumber(actualAmount)));
+    }
+
+    // ==================== 多卡合并（服务端直接调用） ====================
+
+    public static void handleMerge(ServerPlayerEntity player) {
+        ItemStack mainHand = player.getMainHandStack();
+        ItemStack offHand = player.getOffHandStack();
+        if (mainHand.isEmpty() || !(mainHand.getItem() instanceof EmcCardItem) ||
+            offHand.isEmpty() || !(offHand.getItem() instanceof EmcCardItem)) {
+            sendMsg(player, "itemalchemy-expansion.emc_card.merge.fail.need_two");
+            return;
+        }
+        // 合并：副手卡的 base_emc + stored_emc 全部转入主手卡存储
+        long offBase = EmcCardItem.getBaseEmc();
+        long offStored = EmcCardItem.getStoredEmc(offHand);
+        long transfer = offBase + offStored;
+        EmcCardItem.setStoredEmc(mainHand, EmcCardItem.getStoredEmc(mainHand) + transfer);
+        EmcCardItem.addTransaction(mainHand, EmcCardItem.TX_DEPOSIT, transfer);
+        player.setStackInHand(Hand.OFF_HAND, ItemStack.EMPTY);
+        syncHandStack(player);
+        sendMsg(player, "itemalchemy-expansion.emc_card.merge.success",
+                Text.literal(EmcCardItem.formatNumber(transfer)));
+    }
+
+    // ==================== 配置（C2S） ====================
+
+    private static void handleConfig(ServerPlayerEntity player, byte action, long value) {
+        Hand hand = findCardHand(player);
+        if (hand == null) {
+            sendMsg(player, "itemalchemy-expansion.emc_card.no_card");
+            return;
+        }
+        ItemStack card = player.getStackInHand(hand);
+        switch (action) {
+            case CFG_TOGGLE_QUICK:
+                boolean newState = !EmcCardItem.isQuickChargeEnabled(card);
+                EmcCardItem.setQuickChargeEnabled(card, newState);
+                syncHandStack(player);
+                sendMsg(player, newState
+                        ? "itemalchemy-expansion.emc_card.config.quick.enabled"
+                        : "itemalchemy-expansion.emc_card.config.quick.disabled");
+                break;
+            case CFG_SET_QUICK_AMOUNT:
+                if (value <= 0) return;
+                EmcCardItem.setQuickChargeAmount(card, value);
+                syncHandStack(player);
+                sendMsg(player, "itemalchemy-expansion.emc_card.config.quick.amount",
+                        Text.literal(EmcCardItem.formatNumber(value)));
+                break;
+        }
+    }
+
+    // ==================== 工具方法 ====================
+
     private static Hand findCardHand(ServerPlayerEntity player) {
         ItemStack mainHand = player.getMainHandStack();
         if (!mainHand.isEmpty() && mainHand.getItem() == IAExpItems.EMC_CARD) {
@@ -124,15 +206,12 @@ public final class EmcCardNetwork {
         return null;
     }
 
-    /** 同步手持物品 NBT 变化到客户端（卡内 EMC 更新）。 */
     private static void syncHandStack(ServerPlayerEntity player) {
         player.getInventory().markDirty();
-        // playerScreenHandler 持有玩家整个物品栏，sendContentUpdates 比较 NBT 变化发送更新包
         player.playerScreenHandler.sendContentUpdates();
     }
 
     private static void sendMsg(ServerPlayerEntity player, String key, Text... args) {
-        // actionbar（true）避免刷聊天框
         player.sendMessage(Text.translatable(key, (Object[]) args), true);
     }
 }
