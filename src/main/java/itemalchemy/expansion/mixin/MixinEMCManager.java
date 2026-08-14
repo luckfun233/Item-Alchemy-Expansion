@@ -4,6 +4,7 @@ import itemalchemy.expansion.IAExpServices;
 import itemalchemy.expansion.ItemAlchemyExpansion;
 import itemalchemy.expansion.config.IAExpConfig;
 import itemalchemy.expansion.config.IAExpConfigHolder;
+import itemalchemy.expansion.item.EmcCardItem;
 import itemalchemy.expansion.nbt.ItemVariantKey;
 import itemalchemy.expansion.nbt.ShulkerBoxSupport;
 import itemalchemy.expansion.network.AutoEmcStore;
@@ -54,6 +55,19 @@ public abstract class MixinEMCManager {
     @Inject(method = "get(Lnet/minecraft/item/ItemStack;)J", at = @At("HEAD"), cancellable = true)
     private static void iaexp$getEmc(ItemStack stack, CallbackInfoReturnable<Long> cir) {
         if (stack == null || stack.isEmpty()) return;
+
+        // 0. EMC 卡特判：转换桌查价 = 卡本身 EMC（合成材料自动定价，按 ID）+ 卡内存储 EMC（按 NBT）
+        // 卡本身走 EMCManager.get(Item) 不带 NBT 的重载（不触发本 Mixin 递归），与上游通用 map 一致
+        if (stack.getItem() instanceof EmcCardItem) {
+            long count = ItemStackUtil.getCount(stack);
+            long cardBaseEmc = EMCManager.get(stack.getItem());
+            long stored = EmcCardItem.getStoredEmc(stack);
+            long total = (cardBaseEmc + stored) * count;
+            ItemAlchemyExpansion.debug("[IAExp] emc card: base={}, stored={}, count={}, total={}",
+                    cardBaseEmc, stored, count, total);
+            cir.setReturnValue(total);
+            return;
+        }
 
         // 1. 潜影盒：sumEmc（永远最高优先级，不依赖配置）
         if (ShulkerBoxSupport.isShulkerBox(stack)) {

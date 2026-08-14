@@ -1,5 +1,6 @@
 package itemalchemy.expansion;
 
+import itemalchemy.expansion.client.EmcCardClientNetwork;
 import itemalchemy.expansion.client.SetEmcClientNetwork;
 import itemalchemy.expansion.client.SetEmcKeybind;
 import net.fabricmc.api.ClientModInitializer;
@@ -32,6 +33,13 @@ public class ItemAlchemyExpansionClient implements ClientModInitializer {
 			ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to register precise emc S2C receiver: {}", t.toString());
 		}
 
-		ItemAlchemyExpansion.LOGGER.info("[IAExp] client initialized: set-emc keybind registered, shulker preview via mixin, precise emc S2C receiver registered.");
+		// EMC 卡 S2C 接收器：右键卡时服务端发信号让客户端打开 GUI
+		try {
+			EmcCardClientNetwork.registerClientReceiver();
+		} catch (Throwable t) {
+			ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to register emc card S2C receiver: {}", t.toString());
+		}
+
+		ItemAlchemyExpansion.LOGGER.info("[IAExp] client initialized: set-emc keybind registered, shulker preview via mixin, precise emc S2C receiver registered, emc card S2C receiver registered.");
 	}
 }

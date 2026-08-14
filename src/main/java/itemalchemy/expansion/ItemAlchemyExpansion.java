@@ -3,7 +3,9 @@ package itemalchemy.expansion;
 import itemalchemy.expansion.command.IAExpCommand;
 import itemalchemy.expansion.config.IAExpConfig;
 import itemalchemy.expansion.config.IAExpConfigHolder;
+import itemalchemy.expansion.item.IAExpItems;
 import itemalchemy.expansion.network.AutoEmcStore;
+import itemalchemy.expansion.network.EmcCardNetwork;
 import itemalchemy.expansion.network.FilterModeNetwork;
 import itemalchemy.expansion.network.PerSaveEmcStore;
 import itemalchemy.expansion.network.PreciseEmcStore;
@@ -27,7 +29,10 @@ public class ItemAlchemyExpansion implements ModInitializer {
 	public void onInitialize() {
 		IAExpServices.init();
 
+		IAExpItems.init();
+
 		SetEmcNetwork.registerServer();
+		EmcCardNetwork.registerServer();
 		FilterModeNetwork.registerServer();
 		CommandRegistry.register(MOD_ID, new IAExpCommand());
 
