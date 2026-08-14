@@ -1,0 +1,137 @@
+{
+  "itemalchemy-expansion.config.title": "Item Alchemy Expansion Config",
+  "itemalchemy-expansion.config.category.general": "General",
+  "itemalchemy-expansion.config.category.shulker_box": "Shulker Box",
+  "itemalchemy-expansion.config.category.advanced": "Advanced",
+  "itemalchemy-expansion.config.category.experimental": "Experimental",
+
+  "itemalchemy-expansion.config.experimental.note": "These features are still in testing and may affect EMC calculation.",
+
+  "itemalchemy-expansion.config.displayMode": "Display Mode",
+  "itemalchemy-expansion.config.displayMode.tooltip": "How items appear in extract slots.\nIcon only / Name only / Icon + Name (default).",
+  "itemalchemy-expansion.config.displayMode.option.icon_only": "Icon only",
+  "itemalchemy-expansion.config.displayMode.option.name_only": "Name only",
+  "itemalchemy-expansion.config.displayMode.option.icon_and_name": "Icon + Name",
+
+  "itemalchemy-expansion.config.searchByTranslatedName": "Search by Translated Name",
+  "itemalchemy-expansion.config.searchByTranslatedName.tooltip": "Search by both item ID and translated name.",
+
+  "itemalchemy-expansion.config.renderNameUnderSlot": "Render Name Under Slot",
+  "itemalchemy-expansion.config.renderNameUnderSlot.tooltip": "When Display Mode is Icon + Name, show item name under each extract slot.",
+
+  "itemalchemy-expansion.config.shulkerBoxMode": "Shulker Box Mode",
+  "itemalchemy-expansion.config.shulkerBoxMode.tooltip": "Enable: shulker boxes can be placed (contents count as EMC).\nDisable: shulker boxes cannot be placed.",
+  "itemalchemy-expansion.config.shulkerBoxMode.option.allow": "Enable",
+  "itemalchemy-expansion.config.shulkerBoxMode.option.disable": "Disable",
+
+  "itemalchemy-expansion.config.shulkerNoEmcPolicy": "No-EMC Item Policy (Shulker Box)",
+  "itemalchemy-expansion.config.shulkerNoEmcPolicy.tooltip": "How to handle shulker boxes with no-EMC items inside.\nReject: block placing.\nAllow as zero: treat as 0 EMC, allow placing.",
+  "itemalchemy-expansion.config.shulkerNoEmcPolicy.option.reject": "Reject",
+  "itemalchemy-expansion.config.shulkerNoEmcPolicy.option.allow_as_zero": "Allow as zero",
+
+  "itemalchemy-expansion.config.builtInShulkerPreview": "Built-in Shulker Box Preview",
+  "itemalchemy-expansion.config.builtInShulkerPreview.tooltip": "Use built-in Shift-hover preview when ShulkerBoxTooltip is not installed.",
+
+  "itemalchemy-expansion.config.debugLogging": "Debug Logging",
+  "itemalchemy-expansion.config.debugLogging.tooltip": "Output detailed debug logs (variant keys, extract slots, registration). Enable for troubleshooting.",
+
+  "itemalchemy-expansion.config.fullIgnoreDamageAndRepairCost": "Ignore Damage & RepairCost",
+  "itemalchemy-expansion.config.fullIgnoreDamageAndRepairCost.tooltip": "Ignore Damage and RepairCost so tools with different durability don't create many variants.",
+
+  "itemalchemy-expansion.config.ignoreNbtKeys": "Ignored NBT Keys",
+  "itemalchemy-expansion.config.ignoreNbtKeys.tooltip": "NBT keys always excluded from fingerprints to avoid mismatch from runtime state changes. One per line.",
+
+  "itemalchemy-expansion.shulker_box.no_emc_item": "Cannot place: %s has no EMC value. Set 'No-EMC Item Policy' to 'Allow as zero' to ignore.",
+  "itemalchemy-expansion.shulker_box.preview_title": "%s (EMC: %s)",
+  "itemalchemy-expansion.shulker_box.toast.title": "Cannot place shulker box",
+  "itemalchemy-expansion.shulker_box.toast.desc": "%s has no EMC value",
+
+  "itemalchemy-expansion.keybind.category": "Item Alchemy Expansion",
+  "itemalchemy-expansion.keybind.set_emc": "Set Held Item EMC",
+
+  "itemalchemy-expansion.set_emc.title": "Set Item EMC Value",
+  "itemalchemy-expansion.set_emc.emc_field": "EMC Value",
+  "itemalchemy-expansion.set_emc.current_emc": "Current EMC: %s",
+  "itemalchemy-expansion.set_emc.new_emc_label": "New EMC Value",
+  "itemalchemy-expansion.set_emc.variant_label": "Variant: %s",
+  "itemalchemy-expansion.set_emc.scope_label": "Scope",
+  "itemalchemy-expansion.set_emc.scope.this_save": "This Save Only",
+  "itemalchemy-expansion.set_emc.scope.global": "All Saves (Global)",
+  "itemalchemy-expansion.set_emc.scope.this_save.hint": "Only affects the current save",
+  "itemalchemy-expansion.set_emc.scope.global.hint": "Writes to global config, affects all saves",
+  "itemalchemy-expansion.set_emc.precision_label": "Pricing Precision",
+  "itemalchemy-expansion.set_emc.precision.precise": "Precise (by variant)",
+  "itemalchemy-expansion.set_emc.precision.general": "General (by ID)",
+  "itemalchemy-expansion.set_emc.precision.precise.hint": "Store by variant; same ID with different NBT gets separate prices",
+  "itemalchemy-expansion.set_emc.precision.general.hint": "Store by ID; all same-ID items share one price",
+  "itemalchemy-expansion.set_emc.confirm": "Confirm",
+  "itemalchemy-expansion.set_emc.cancel": "Cancel",
+  "itemalchemy-expansion.set_emc.fail.empty": "Please enter an EMC value",
+  "itemalchemy-expansion.set_emc.fail.parse": "Cannot parse as a number",
+  "itemalchemy-expansion.set_emc.fail.negative": "EMC value cannot be negative",
+
+  "itemalchemy-expansion.set_emc.success": "Set %s EMC to %s (%s)",
+  "itemalchemy-expansion.set_emc.fail.invalid_id": "Invalid item ID",
+  "itemalchemy-expansion.set_emc.fail.invalid_scope": "Invalid scope",
+  "itemalchemy-expansion.set_emc.fail.exception": "Error while setting EMC, check logs",
+  "itemalchemy-expansion.set_emc.fail.shulker_with_contents": "Shulker boxes with contents cannot be manually priced; their EMC is auto-summed from contents",
+  "itemalchemy-expansion.overwrite_precise.title": "Precise Prices Found",
+  "itemalchemy-expansion.overwrite_precise.subtitle": "Item %s  General price: %s",
+  "itemalchemy-expansion.overwrite_precise.desc": "Checked = overwrite (remove precise price, unify with general); unchecked = keep precise price",
+  "itemalchemy-expansion.overwrite_precise.overwrite_all": "Overwrite All",
+  "itemalchemy-expansion.overwrite_precise.keep_all": "Keep All",
+  "itemalchemy-expansion.overwrite_precise.confirm": "Confirm",
+  "itemalchemy-expansion.overwrite_precise.new_general": "→ general: %s",
+  "itemalchemy-expansion.overwrite_precise.empty": "No precise price overrides",
+  "itemalchemy-expansion.overwrite_precise.hint": "Click row to toggle; scroll to list",
+
+  "itemalchemy-expansion.config.searchShulkerContents": "Search Shulker Box Contents",
+  "itemalchemy-expansion.config.searchShulkerContents.tooltip": "Also search inside shulker boxes. Matching boxes appear after direct items.",
+  "itemalchemy-expansion.config.shulkerMatchRedFrame": "Shift Preview Match Red Frame",
+  "itemalchemy-expansion.config.shulkerMatchRedFrame.tooltip": "Draw red frame around matching content slots during Shift preview.",
+
+  "itemalchemy-expansion.filter_button.tooltip": "Filter mode: click to cycle\nAll: direct items + shulker boxes\nItems: direct items only\nBox: shulker boxes only",
+  "itemalchemy-expansion.filter_button.all": "All",
+  "itemalchemy-expansion.filter_button.direct": "Items",
+  "itemalchemy-expansion.filter_button.shulker": "Box",
+
+  "itemalchemy-expansion.search.match_list_title": "Matches:",
+  "itemalchemy-expansion.search.match_list_more": "%s more...",
+
+  "itemalchemy-expansion.config.autoPricingFromRecipes": "Recipe Auto-Pricing",
+  "itemalchemy-expansion.config.autoPricingFromRecipes.tooltip": "Scan all recipes (including mod custom types) and auto-price undefined items by material EMC sum.\nManual EMC is not affected. On first enable, prompt whether to re-price already-set items.",
+
+  "itemalchemy-expansion.config.autoPricingStrategy": "Multi-Recipe Strategy",
+  "itemalchemy-expansion.config.autoPricingStrategy.tooltip": "How to pick a price when multiple recipes produce the same item.\nMin: cheapest recipe (recommended)\nOther options are not yet implemented.",
+  "itemalchemy-expansion.config.autoPricingStrategy.option.min": "Min (recommended)",
+  "itemalchemy-expansion.config.autoPricingStrategy.option.max": "Max",
+  "itemalchemy-expansion.config.autoPricingStrategy.option.avg": "Average",
+  "itemalchemy-expansion.config.autoPricingStrategy.option.first": "First",
+
+  "itemalchemy-expansion.config.autoPricingRespectUpstream": "Don't Override Upstream Values",
+  "itemalchemy-expansion.config.autoPricingRespectUpstream.tooltip": "Keep vanilla/upstream default EMC, don't override with auto-pricing. Recommended.",
+
+  "itemalchemy-expansion.config.autoPricingBatchSize": "Recipes Per Tick",
+  "itemalchemy-expansion.config.autoPricingBatchSize.tooltip": "Max recipes processed per server tick during auto-pricing scan. Time-sliced to avoid lag.\nLarger: faster first scan; smaller: smoother TPS.",
+
+  "itemalchemy-expansion.config.autoPricingTickBudgetMs": "Tick Time Budget (ms)",
+  "itemalchemy-expansion.config.autoPricingTickBudgetMs.tooltip": "Per-tick time budget for auto-pricing scan. Yields main thread when exceeded. Default 8ms balances scan speed and TPS.",
+
+  "itemalchemy-expansion.new_feature_toast.title": "Item Alchemy Expansion New Features",
+  "itemalchemy-expansion.new_feature_toast.desc1": "Added 'Recipe Auto-Pricing' feature.",
+  "itemalchemy-expansion.new_feature_toast.desc2": "Enable in Mod Menu -> Item Alchemy Expansion -> Experimental.",
+
+  "itemalchemy-expansion.reprice.title": "Re-price Already-Set Items?",
+  "itemalchemy-expansion.reprice.selective_desc": "Checked = re-price automatically; unchecked = keep manual value",
+  "itemalchemy-expansion.reprice.recompute_all": "Recompute All",
+  "itemalchemy-expansion.reprice.keep_all": "Keep All",
+  "itemalchemy-expansion.reprice.confirm_selection": "Confirm",
+  "itemalchemy-expansion.reprice.old_emc": "Old: %s",
+  "itemalchemy-expansion.reprice.new_emc": "New: %s",
+  "itemalchemy-expansion.reprice.layer_precise": "(precise)",
+  "itemalchemy-expansion.reprice.variant_count": "%s variants",
+  "itemalchemy-expansion.reprice.empty": "No items need re-pricing",
+  "itemalchemy-expansion.reprice.hint2": "Run /itemalchemy-expansion reprice later to trigger again.",
+  "itemalchemy-expansion.reprice.feedback.done": "[IAExp] Re-priced %s items and recomputed auto-pricing.",
+  "itemalchemy-expansion.reprice.feedback.kept": "[IAExp] Kept manual settings; auto-pricing will only handle undefined items."
+}
