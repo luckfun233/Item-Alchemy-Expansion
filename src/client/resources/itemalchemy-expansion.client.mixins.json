@@ -1,0 +1,13 @@
+{
+	"required": true,
+	"package": "itemalchemy.expansion.mixin.client",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"MixinSimpleInventoryScreen",
+		"MixinAlchemyTableScreen",
+		"MixinItemAlchemyClient"
+	],
+	"injectors": {
+		"defaultRequire": 0
+	}
+}

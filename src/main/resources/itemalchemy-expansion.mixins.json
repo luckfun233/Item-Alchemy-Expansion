@@ -1,0 +1,21 @@
+{
+	"required": true,
+	"package": "itemalchemy.expansion.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"MixinRegisterInventory",
+		"MixinRegisterSlot",
+		"MixinExtractInventory",
+		"MixinExtractSlot",
+		"MixinRemoveSlot",
+		"MixinAlchemyTableScreenHandler",
+		"MixinEMCManager",
+		"MixinPlayerRegisteredItemUtil"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

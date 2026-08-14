@@ -1,0 +1,91 @@
+package itemalchemy.expansion;
+
+import itemalchemy.expansion.config.IAExpConfigHolder;
+import itemalchemy.expansion.nbt.ComponentNbtView;
+import itemalchemy.expansion.nbt.ItemVariantKey;
+import itemalchemy.expansion.nbt.NbtFingerprinter;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.registry.Registries;
+import net.minecraft.util.Identifier;
+
+/**
+ * 全局服务单例：提供配置、NBT 指纹器，以及 ItemStack ↔ 变体键互转。
+ *
+ * <p>Mixin 代码通过本类访问配置与重建逻辑，避免在各 Mixin 里重复构造 fingerprinter。</p>
+ *
+ * <p>1.21.1 适配：用 {@link ComponentNbtView} 作为 NBT 与 Data Components 之间的桥接层，
+ * 不再直接调用 {@code stack.getNbt()/setNbt()}（1.21.1 已移除）。</p>
+ */
+public final class IAExpServices {
+
+    private IAExpServices() {}
+
+    private static NbtFingerprinter fingerprinter;
+
+    /** 在 mod 初始化时调用一次 */
+    public static void init() {
+        IAExpConfigHolder.load();
+        fingerprinter = new NbtFingerprinter(IAExpConfigHolder.get());
+        ItemAlchemyExpansion.debug("[IAExp] services initialized (display={}, debug={})",
+                IAExpConfigHolder.get().displayMode,
+                IAExpConfigHolder.get().debugLogging);
+    }
+
+    /** 重新读取配置后调用（reload） */
+    public static void refresh() {
+        IAExpConfigHolder.reload();
+        fingerprinter = new NbtFingerprinter(IAExpConfigHolder.get());
+    }
+
+    public static NbtFingerprinter fingerprinter() {
+        if (fingerprinter == null) {
+            // 防御性初始化（理论上 onInitialize 已调用）
+            init();
+        }
+        return fingerprinter;
+    }
+
+    /** 从 ItemStack 生成变体键 */
+    public static ItemVariantKey variantKeyOf(ItemStack stack) {
+        ItemVariantKey vk = ItemVariantKey.fromStack(stack, fingerprinter());
+        if (ItemAlchemyExpansion.debugEnabled()) {
+            NbtCompound nbt = ComponentNbtView.collectEffectiveNbt(stack);
+            ItemAlchemyExpansion.debug("[IAExp] variantKeyOf: item={}, hasNbt={}, nbt={}, variant={}",
+                    stack.getItem(), ComponentNbtView.hasEffectiveNbt(stack), nbt,
+                    vk.toStorageString());
+        }
+        return vk;
+    }
+
+    /**
+     * 从变体键重建带 NBT 的 ItemStack（count=1）。解析失败（id 不存在或 SNBT 非法）返回空堆。
+     *
+     * <p>1.21.1 适配：用 {@link ComponentNbtView#applyEffectiveNbt} 把指纹 NbtCompound
+     * 分发到对应的 data component，而非 {@code stack.setNbt()}。</p>
+     */
+    public static ItemStack rebuildStack(ItemVariantKey key) {
+        Identifier id = Identifier.tryParse(key.itemId);
+        if (id == null || !Registries.ITEM.containsId(id)) {
+            ItemAlchemyExpansion.LOGGER.warn("[IAExp] rebuildStack: item id not found: {}", key.itemId);
+            return ItemStack.EMPTY;
+        }
+        Item item = Registries.ITEM.get(id);
+        ItemStack stack = new ItemStack(item, 1);
+        if (key.nbtFingerprint != null && !key.nbtFingerprint.isEmpty()) {
+            NbtCompound nbt = NbtFingerprinter.parseFingerprint(key.nbtFingerprint);
+            if (nbt != null) {
+                ComponentNbtView.applyEffectiveNbt(stack, nbt);
+            } else {
+                ItemAlchemyExpansion.LOGGER.warn("[IAExp] rebuildStack: failed to parse fingerprint: {}", key.nbtFingerprint);
+            }
+        }
+        if (ItemAlchemyExpansion.debugEnabled()) {
+            NbtCompound nbt = ComponentNbtView.collectEffectiveNbt(stack);
+            ItemAlchemyExpansion.debug("[IAExp] rebuildStack: key={} -> item={}, hasNbt={}, nbt={}",
+                    key.toStorageString(), stack.getItem(), ComponentNbtView.hasEffectiveNbt(stack), nbt);
+        }
+        return stack;
+    }
+}
