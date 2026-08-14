@@ -142,28 +142,6 @@ public final class EmcCardNetwork {
                 Text.literal(EmcCardItem.formatNumber(actualAmount)));
     }
 
-    // ==================== 多卡合并（服务端直接调用） ====================
-
-    public static void handleMerge(ServerPlayerEntity player) {
-        ItemStack mainHand = player.getMainHandStack();
-        ItemStack offHand = player.getOffHandStack();
-        if (mainHand.isEmpty() || !(mainHand.getItem() instanceof EmcCardItem) ||
-            offHand.isEmpty() || !(offHand.getItem() instanceof EmcCardItem)) {
-            sendMsg(player, "itemalchemy-expansion.emc_card.merge.fail.need_two");
-            return;
-        }
-        // 合并：副手卡的 base_emc + stored_emc 全部转入主手卡存储
-        long offBase = EmcCardItem.getBaseEmc();
-        long offStored = EmcCardItem.getStoredEmc(offHand);
-        long transfer = offBase + offStored;
-        EmcCardItem.setStoredEmc(mainHand, EmcCardItem.getStoredEmc(mainHand) + transfer);
-        EmcCardItem.addTransaction(mainHand, EmcCardItem.TX_DEPOSIT, transfer);
-        player.setStackInHand(Hand.OFF_HAND, ItemStack.EMPTY);
-        syncHandStack(player);
-        sendMsg(player, "itemalchemy-expansion.emc_card.merge.success",
-                Text.literal(EmcCardItem.formatNumber(transfer)));
-    }
-
     // ==================== 配置（C2S） ====================
 
     private static void handleConfig(ServerPlayerEntity player, byte action, long value) {

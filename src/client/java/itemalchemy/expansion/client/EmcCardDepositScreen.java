@@ -141,7 +141,7 @@ public class EmcCardDepositScreen extends Screen {
 
         if (errorText != null) {
             context.drawCenteredTextWithShadow(this.textRenderer, errorText,
-                    centerX, amountField.getY() + 52, 0xFF5555);
+                    centerX, amountField.getY() + 64, 0xFFFF5555);
         }
 
         super.render(context, mouseX, mouseY, delta);

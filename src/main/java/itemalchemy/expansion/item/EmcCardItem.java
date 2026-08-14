@@ -16,8 +16,8 @@ import net.pitan76.mcpitanlib.api.util.TextUtil;
 /**
  * EMC 卡：可存储 EMC 的便携物品，NBT 记录存储值。
  *
- * <p>右键打开 GUI 进行充入/拿取。
- * Shift+右键：副手持卡时合并，否则快捷充能（若已启用）。
+ * <p>右键打开 GUI 进行充入/拿取；Shift+右键快速充能（若已启用）。
+ * 多卡合并在铁砧进行（两卡分别放入左右槽，结果槽为合并后的卡）。
  * EMC 存于物品 NBT 的 {@link #STORED_EMC_KEY}，卡随物走——
  * 任何人持有卡即可操作其内 EMC，赠予/交易/丢弃即转移。</p>
  *
@@ -141,6 +141,20 @@ public class EmcCardItem extends CompatItem {
         return nbt.getList(TRANSACTIONS_KEY, NbtList.COMPOUND_TYPE);
     }
 
+    // ==================== 铁砧合并 ====================
+
+    /**
+     * 合并两张卡：{@code target} 保留（身份/NBT 不变），{@code source} 的 base_emc + stored_emc
+     * 全部转入 {@code target} 的 stored_emc。返回 {@code target} 的副本，不改动入参。
+     */
+    public static ItemStack mergeCards(ItemStack target, ItemStack source) {
+        long transfer = getBaseEmc() + getStoredEmc(source);
+        ItemStack result = target.copy();
+        setStoredEmc(result, getStoredEmc(result) + transfer);
+        addTransaction(result, TX_DEPOSIT, transfer);
+        return result;
+    }
+
     // ==================== 右键交互 ====================
 
     @Override
@@ -149,13 +163,7 @@ public class EmcCardItem extends CompatItem {
 
         if (e.user == null) return e.consume();
         if (e.user.isSneaking()) {
-            // Shift+右键：副手有卡 → 合并
-            ItemStack offHand = e.user.getOffHandStack();
-            if (!offHand.isEmpty() && offHand.getItem() instanceof EmcCardItem) {
-                e.user.getServerPlayer().ifPresent(EmcCardNetwork::handleMerge);
-                return e.consume();
-            }
-            // 快捷充能（已启用时）
+            // Shift+右键：快捷充能（已启用时）；多卡合并在铁砧进行
             ItemStack mainHand = e.user.getMainHandStack();
             if (EmcCardItem.isQuickChargeEnabled(mainHand)) {
                 e.user.getServerPlayer().ifPresent(EmcCardNetwork::handleQuickCharge);

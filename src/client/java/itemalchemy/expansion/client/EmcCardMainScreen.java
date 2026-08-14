@@ -49,7 +49,7 @@ public class EmcCardMainScreen extends Screen {
     protected void init() {
         int centerX = this.width / 2;
         int panelTop = this.height / 2 - 100;
-        int btnY = panelTop + 100;
+        int btnY = panelTop + 118;
 
         int btnWidth = 96;
         int gap = 8;
@@ -101,28 +101,25 @@ public class EmcCardMainScreen extends Screen {
         int lineY = panelTop + PADDING + 12;
         context.fill(panelLeft + PADDING, lineY, panelLeft + PANEL_WIDTH - PADDING, lineY + 1, 0xFF405080);
 
-        long baseEmc = EmcCardItem.getBaseEmc();
         long cardEmc = getCardEmc();
         long playerEmc = getPlayerEmc();
-        long total = baseEmc + cardEmc;
 
-        int dataY = lineY + 10;
+        int dataY = lineY + 12;
 
-        // 数据行：标签左对齐，数值右对齐
-        drawDataRow(context, "itemalchemy-expansion.emc_card.base_emc",
-                EmcCardItem.formatNumber(baseEmc), panelLeft, dataY, 0xFFC0A040, 0xFFE0B050);
+        // 数据行：标签左对齐，数值右对齐（卡片本身价值不在此展示）
         drawDataRow(context, "itemalchemy-expansion.emc_card.card_emc",
-                EmcCardItem.formatNumber(cardEmc), panelLeft, dataY + LINE_HEIGHT, 0xFF40A0FF, 0xFF60C0FF);
-        drawDataRow(context, "itemalchemy-expansion.emc_card.total_emc",
-                EmcCardItem.formatNumber(total), panelLeft, dataY + LINE_HEIGHT * 2, 0xFF40E060, 0xFF60FF80);
+                EmcCardItem.formatNumber(cardEmc), panelLeft, dataY, 0xFF40A0FF, 0xFF60C0FF);
+        drawDataRow(context, "itemalchemy-expansion.emc_card.player_emc",
+                EmcCardItem.formatNumber(playerEmc), panelLeft, dataY + LINE_HEIGHT + 8, 0xFFC0C0C0, 0xFFFFFF55);
 
         // 分隔线
-        int divY = dataY + LINE_HEIGHT * 3 + 4;
+        int divY = dataY + LINE_HEIGHT * 2 + 16;
         context.fill(panelLeft + PADDING, divY, panelLeft + PANEL_WIDTH - PADDING, divY + 1, 0xFF405080);
 
-        // 玩家 EMC
-        drawDataRow(context, "itemalchemy-expansion.emc_card.player_emc",
-                EmcCardItem.formatNumber(playerEmc), panelLeft, divY + 6, 0xFFC0C0C0, 0xFFFFFF55);
+        // 合并提示（灰色小字）
+        context.drawCenteredTextWithShadow(this.textRenderer,
+                Text.translatable("itemalchemy-expansion.emc_card.merge_hint"),
+                centerX, divY + 8, 0xFF8080A0);
 
         super.render(context, mouseX, mouseY, delta);
     }

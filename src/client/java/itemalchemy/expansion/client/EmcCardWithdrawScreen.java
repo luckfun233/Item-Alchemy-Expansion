@@ -154,7 +154,7 @@ public class EmcCardWithdrawScreen extends Screen {
 
         if (errorText != null) {
             context.drawCenteredTextWithShadow(this.textRenderer, errorText,
-                    centerX, amountField.getY() + 52, 0xFF5555);
+                    centerX, amountField.getY() + 82, 0xFFFF5555);
         }
 
         super.render(context, mouseX, mouseY, delta);
