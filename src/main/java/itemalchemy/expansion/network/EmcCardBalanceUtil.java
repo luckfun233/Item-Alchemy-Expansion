@@ -20,6 +20,7 @@ public final class EmcCardBalanceUtil {
     /** 读取卡有效余额：绑卡读玩家 EMC，关联卡读共享账户，普通卡读卡 NBT。 */
     public static long getBalance(MinecraftServer server, ItemStack card) {
         if (card == null || card.isEmpty()) return 0L;
+        normalizeCard(card);
         String bind = EmcCardItem.getBindUuid(card);
         if (bind != null) {
             return PlayerEmcUtil.getEmc(server, parseUuid(bind));
@@ -31,13 +32,18 @@ public final class EmcCardBalanceUtil {
         return EmcCardItem.getStoredEmc(card);
     }
 
-    /** 往卡加 EMC（amount &gt; 0）。绑卡加给绑定玩家，关联卡加共享账户，普通卡写卡 NBT。 */
-    public static void add(MinecraftServer server, ItemStack card, long amount) {
-        if (card == null || card.isEmpty() || amount <= 0) return;
+    /**
+     * 往卡加 EMC（amount &gt; 0）。绑卡加给绑定玩家，关联卡加共享账户，普通卡写卡 NBT。
+     *
+     * @return 是否真正入账（绑卡目标玩家无队伍等情况下返回 false，
+     *         调用方据此决定是否消耗来源物品，避免「物品被吞、余额未入账」）。
+     */
+    public static boolean add(MinecraftServer server, ItemStack card, long amount) {
+        if (card == null || card.isEmpty() || amount <= 0) return false;
+        normalizeCard(card);
         String bind = EmcCardItem.getBindUuid(card);
         if (bind != null) {
-            PlayerEmcUtil.add(server, parseUuid(bind), amount);
-            return;
+            return PlayerEmcUtil.add(server, parseUuid(bind), amount);
         }
         String group = EmcCardItem.getLinkGroup(card);
         if (group != null) {
@@ -45,6 +51,7 @@ public final class EmcCardBalanceUtil {
         } else {
             EmcCardItem.setStoredEmc(card, EmcCardItem.getStoredEmc(card) + amount);
         }
+        return true;
     }
 
     /**
@@ -52,6 +59,7 @@ public final class EmcCardBalanceUtil {
      */
     public static boolean subtract(MinecraftServer server, ItemStack card, long amount) {
         if (card == null || card.isEmpty() || amount <= 0) return false;
+        normalizeCard(card);
         String bind = EmcCardItem.getBindUuid(card);
         if (bind != null) {
             return subtractBound(server, card, amount);
@@ -88,6 +96,18 @@ public final class EmcCardBalanceUtil {
             return UUID.fromString(s);
         } catch (Throwable t) {
             return null;
+        }
+    }
+
+    /**
+     * 孤儿关联组清理：解除关联时若同组另一张卡不在制卡台内，其 NBT 仍带着已删除的
+     * link_group（读到 0）。此处惰性清理——发现账户不存在时移除失效标记，
+     * 之后该卡按普通卡（卡 NBT 余额）处理。
+     */
+    private static void normalizeCard(ItemStack card) {
+        String group = EmcCardItem.getLinkGroup(card);
+        if (group != null && !CardAccountStore.has(group)) {
+            EmcCardItem.setLinkGroup(card, null);
         }
     }
 }

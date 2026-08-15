@@ -182,6 +182,7 @@
   "itemalchemy-expansion.emc_card.withdraw.half": "拿一半",
   "itemalchemy-expansion.emc_card.withdraw.success": "已从卡拿取 %s EMC",
   "itemalchemy-expansion.emc_card.withdraw.fail.insufficient": "卡内不足，仅有 %s",
+  "itemalchemy-expansion.emc_card.withdraw.fail.limited": "取款被绑卡限额拒绝",
   "itemalchemy-expansion.emc_card.no_card": "未找到 EMC 卡",
   "itemalchemy-expansion.emc_card.fail.empty": "请输入数量",
   "itemalchemy-expansion.emc_card.fail.parse": "数字格式错误",
@@ -224,6 +225,7 @@
   "itemalchemy-expansion.card_forge.bind.limits_display": "单次限额 %s · 总额保留 %s",
   "itemalchemy-expansion.card_forge.bind.need_name": "请输入要绑定的玩家名",
   "itemalchemy-expansion.card_forge.bind.not_found": "找不到玩家：%s",
+  "itemalchemy-expansion.card_forge.bind.no_team": "%s 还没有转换桌数据，无法绑定",
   "itemalchemy-expansion.card_forge.bind.not_bound": "请先绑定玩家",
   "itemalchemy-expansion.card_forge.bind.success": "已绑定到 %s（默认私有）",
   "itemalchemy-expansion.card_forge.bind.unbound": "已解除绑定并清理限额",
@@ -236,6 +238,8 @@
   "itemalchemy-expansion.emc_emitter.loading": "正在加载你的转换桌列表...",
   "itemalchemy-expansion.emc_emitter.empty": "你的转换桌里还没有物品",
   "itemalchemy-expansion.emc_emitter.clear": "清除选择",
+  "itemalchemy-expansion.emc_emitter.search": "搜索物品...",
+  "itemalchemy-expansion.emc_emitter.no_match": "没有匹配的物品",
   "itemalchemy-expansion.automation.disabled": "自动装置已被关闭（配置 automationEnabled=false）",
   "itemalchemy-expansion.close": "关闭"
 }

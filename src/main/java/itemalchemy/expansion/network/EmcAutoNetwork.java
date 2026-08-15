@@ -2,6 +2,7 @@ package itemalchemy.expansion.network;
 
 import itemalchemy.expansion.ItemAlchemyExpansion;
 import itemalchemy.expansion.block.EmcEmitterBlockEntity;
+import itemalchemy.expansion.config.IAExpConfigHolder;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.PacketByteBuf;
@@ -66,6 +67,8 @@ public final class EmcAutoNetwork {
     }
 
     private static void handleListRequest(ServerPlayerEntity player, long pos) {
+        // 自动装置总开关关闭时拒绝（与方块右键/tick 闸门一致，防伪造包绕过）
+        if (!IAExpConfigHolder.get().automationEnabled) return;
         EmcEmitterBlockEntity tile = findTile(player, pos);
         if (tile == null) return;
 
@@ -78,10 +81,12 @@ public final class EmcAutoNetwork {
 
         long balance = EmcCardBalanceUtil.getBalance(player.getServer(), tile.getStack(EmcEmitterBlockEntity.CARD_SLOT));
         String selected = tile.getSelectedVariant() == null ? "" : tile.getSelectedVariant();
+        String facing = tile.getFacing().getName();
 
         PacketByteBuf buf = PacketByteBufs.create();
         buf.writeString(selected);
         buf.writeLong(balance);
+        buf.writeString(facing);
         buf.writeInt(ids.size());
         for (String s : ids) {
             buf.writeString(s);
@@ -90,6 +95,8 @@ public final class EmcAutoNetwork {
     }
 
     private static void handleSet(ServerPlayerEntity player, long pos, String variant) {
+        // 自动装置总开关关闭时拒绝（与方块右键/tick 闸门一致，防伪造包绕过）
+        if (!IAExpConfigHolder.get().automationEnabled) return;
         EmcEmitterBlockEntity tile = findTile(player, pos);
         if (tile == null) return;
 
@@ -121,6 +128,10 @@ public final class EmcAutoNetwork {
     private static EmcEmitterBlockEntity findTile(ServerPlayerEntity player, long pos) {
         try {
             BlockPos bp = BlockPos.fromLong(pos);
+            // 距离校验：仅允许操作 8 格内的输出器（与 canPlayerUse 一致，防伪造坐标刷物品）
+            if (player.squaredDistanceTo(bp.getX() + 0.5, bp.getY() + 0.5, bp.getZ() + 0.5) > 64.0) {
+                return null;
+            }
             if (player.getServerWorld().getBlockEntity(bp) instanceof EmcEmitterBlockEntity tile) {
                 return tile;
             }

@@ -41,7 +41,7 @@ public class EmcConverterScreenHandler extends net.pitan76.mcpitanlib.api.gui.Si
         // 卡槽 + 4 输入槽
         addSlot(new CardSlot(forgeInv, EmcConverterBlockEntity.CARD_SLOT, CARD_SLOT_X, CARD_SLOT_Y));
         for (int i = 0; i < EmcConverterBlockEntity.INPUT_COUNT; i++) {
-            addSlot(new Slot(forgeInv, EmcConverterBlockEntity.INPUT_START + i, INPUT_X[i], INPUT_Y));
+            addSlot(new InputSlot(forgeInv, EmcConverterBlockEntity.INPUT_START + i, INPUT_X[i], INPUT_Y));
         }
 
         addPlayerMainInventorySlots(e.getPlayerInventory(), 8, 84);
@@ -69,16 +69,15 @@ public class EmcConverterScreenHandler extends net.pitan76.mcpitanlib.api.gui.Si
                 return ItemStackUtil.empty();
             }
         } else {
-            // 背包 -> 方块槽（卡只能进卡槽，其余进输入槽）
-            ItemStack target = stackInSlot.copy();
-            target.setCount(1);
-            boolean isCard = target.getItem() == IAExpItems.EMC_CARD;
-            int from = tileSlotCount;
-            int to = tileSlotCount + 36;
-            if (isCard) {
+            // 背包 -> 方块槽（卡只能进卡槽，其余整组进输入槽）
+            if (stackInSlot.getItem() == IAExpItems.EMC_CARD) {
+                // 卡 maxCount=1：插入副本后必须递减原堆栈，否则刷卡
+                ItemStack target = stackInSlot.copy();
+                target.setCount(1);
                 if (!this.callInsertItem(target, 0, 1, false)) return ItemStackUtil.empty();
+                stackInSlot.decrement(1);
             } else {
-                if (!this.callInsertItem(target, 1, tileSlotCount, false)) return ItemStackUtil.empty();
+                if (!this.callInsertItem(stackInSlot, 1, tileSlotCount, false)) return ItemStackUtil.empty();
             }
         }
 
@@ -103,6 +102,18 @@ public class EmcConverterScreenHandler extends net.pitan76.mcpitanlib.api.gui.Si
         @Override
         public boolean canInsert(ItemStack stack) {
             return stack.getItem() == IAExpItems.EMC_CARD;
+        }
+    }
+
+    /** 输入槽：拒绝 EMC 卡（卡会被当作物品转换消耗） */
+    public static class InputSlot extends Slot {
+        public InputSlot(Inventory inventory, int index, int x, int y) {
+            super(inventory, index, x, y);
+        }
+
+        @Override
+        public boolean canInsert(ItemStack stack) {
+            return stack.getItem() != IAExpItems.EMC_CARD;
         }
     }
 }

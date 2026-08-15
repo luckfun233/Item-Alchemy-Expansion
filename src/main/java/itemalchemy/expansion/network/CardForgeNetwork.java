@@ -148,6 +148,11 @@ public final class CardForgeNetwork {
             msg(player, "card_forge.link.same");
             return;
         }
+        // 两张卡都必须允许当前玩家修改（私有卡仅主人），防止他人私卡混入共享账户
+        if (!canModify(a, player) || !canModify(b, player)) {
+            msg(player, "card_forge.denied");
+            return;
+        }
         // 已关联的卡重新关联：需先解散（避免账户混乱），此处提示
         if (EmcCardItem.getLinkGroup(a) != null || EmcCardItem.getLinkGroup(b) != null) {
             msg(player, "card_forge.link.already_linked");
@@ -211,6 +216,11 @@ public final class CardForgeNetwork {
             msg(player, "card_forge.merge.same");
             return;
         }
+        // 两张卡都必须允许当前玩家修改（私有卡仅主人），防止吞并他人私卡余额
+        if (!canModify(target, player) || !canModify(source, player)) {
+            msg(player, "card_forge.denied");
+            return;
+        }
         // 关联卡合并语义复杂，暂仅支持普通卡合并
         if (EmcCardItem.getLinkGroup(target) != null || EmcCardItem.getLinkGroup(source) != null) {
             msg(player, "card_forge.merge.linked_unsupported");
@@ -264,7 +274,11 @@ public final class CardForgeNetwork {
         // 卡内原余额转入绑定玩家 EMC，避免绑定后"消失"
         long stored = EmcCardItem.getStoredEmc(card);
         if (stored > 0) {
-            PlayerEmcUtil.add(player.getServer(), java.util.UUID.fromString(uuid), stored);
+            // 入账失败（目标玩家无队伍数据）时拒绝绑定，否则卡内余额会被凭空清零
+            if (!PlayerEmcUtil.add(player.getServer(), java.util.UUID.fromString(uuid), stored)) {
+                msg(player, "card_forge.bind.no_team", Text.literal(profile.get().getName()));
+                return;
+            }
             EmcCardItem.setStoredEmc(card, 0);
         }
         EmcCardItem.setBindUuid(card, uuid);

@@ -8,10 +8,12 @@ import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.inventory.Inventory;
+import net.minecraft.inventory.SidedInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
 import net.minecraft.world.World;
 import net.pitan76.itemalchemy.EMCManager;
 import net.pitan76.mcpitanlib.api.event.block.TileCreateEvent;
@@ -33,12 +35,15 @@ import org.jetbrains.annotations.Nullable;
  * 全部按 EMC 转为卡内余额并清空。自动装置总开关关闭时 tick 直接返回。</p>
  */
 public class EmcConverterBlockEntity extends CompatBlockEntity
-        implements Inventory, SimpleScreenHandlerFactory, ExtendBlockEntityTicker<EmcConverterBlockEntity> {
+        implements Inventory, SidedInventory, SimpleScreenHandlerFactory, ExtendBlockEntityTicker<EmcConverterBlockEntity> {
 
     public static final int SLOT_COUNT = 5;
     public static final int CARD_SLOT = 0;
     public static final int INPUT_START = 1;
     public static final int INPUT_COUNT = 4;
+
+    /** 漏斗等自动化可访问的槽位（仅输入槽；卡槽由 GUI 手工管理，防误抽走） */
+    private static final int[] AUTOMATION_SLOTS = {INPUT_START, INPUT_START + 1, INPUT_START + 2, INPUT_START + 3};
 
     private final ItemStack[] slots = new ItemStack[SLOT_COUNT];
 
@@ -79,9 +84,12 @@ public class EmcConverterBlockEntity extends CompatBlockEntity
             ItemStack input = slots[i];
             if (input.isEmpty()) continue;
             long emc = EMCManager.get(input);
+            // 溢出保护：单件价 × 堆叠数超出 long 上限时放弃转换
+            if (emc <= 0 || input.getCount() > Long.MAX_VALUE / Math.max(1, emc)) continue;
             long total = emc * input.getCount();
             if (total <= 0) continue;
-            EmcCardBalanceUtil.add(getServerWorld().getServer(), card, total);
+            // 入账失败（如绑卡目标玩家无队伍）时保留物品，避免「物品被吞、余额未入账」
+            if (!EmcCardBalanceUtil.add(getServerWorld().getServer(), card, total)) continue;
             slots[i] = ItemStack.EMPTY;
             any = true;
         }
@@ -143,6 +151,33 @@ public class EmcConverterBlockEntity extends CompatBlockEntity
         if (world == null) return false;
         BlockPos pos = getPos();
         return player.squaredDistanceTo(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) <= 64.0;
+    }
+
+    // ==================== 漏斗 / 自动化访问控制 ====================
+
+    /** 卡槽仅接受 EMC 卡；输入槽拒绝 EMC 卡（卡会被当作物品转换消耗） */
+    @Override
+    public boolean isValid(int slot, ItemStack stack) {
+        if (slot == CARD_SLOT) {
+            return stack.getItem() instanceof EmcCardItem;
+        }
+        return !(stack.getItem() instanceof EmcCardItem);
+    }
+
+    @Override
+    public int[] getAvailableSlots(Direction side) {
+        return AUTOMATION_SLOTS;
+    }
+
+    @Override
+    public boolean canInsert(int slot, ItemStack stack, @Nullable Direction dir) {
+        return isValid(slot, stack);
+    }
+
+    /** 输入槽可被抽出（无 EMC 的残留物可通过下方漏斗排走）；卡槽不可被自动化抽走 */
+    @Override
+    public boolean canExtract(int slot, ItemStack stack, Direction dir) {
+        return slot != CARD_SLOT;
     }
 
     @Override

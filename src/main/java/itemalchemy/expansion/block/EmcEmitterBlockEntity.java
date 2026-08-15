@@ -10,6 +10,7 @@ import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.inventory.Inventory;
+import net.minecraft.inventory.SidedInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.math.BlockPos;
@@ -31,10 +32,13 @@ import org.jetbrains.annotations.Nullable;
  * <p>所选物品存于方块 NBT（共享），他人打开可见同一设置。自动装置总开关关闭时 tick 直接返回。</p>
  */
 public class EmcEmitterBlockEntity extends CompatBlockEntity
-        implements Inventory, ExtendBlockEntityTicker<EmcEmitterBlockEntity> {
+        implements Inventory, SidedInventory, ExtendBlockEntityTicker<EmcEmitterBlockEntity> {
 
     public static final int SLOT_COUNT = 1;
     public static final int CARD_SLOT = 0;
+
+    /** 漏斗等自动化可访问的槽位（仅卡槽） */
+    private static final int[] AUTOMATION_SLOTS = {CARD_SLOT};
 
     /** NBT 键：所选物品变体键存储串 */
     public static final String SELECTED_KEY = "selected_variant";
@@ -113,14 +117,25 @@ public class EmcEmitterBlockEntity extends CompatBlockEntity
         BlockPos pos = getPos();
         Direction dir = facing;
 
-        double ox = dir.getOffsetX();
-        double oz = dir.getOffsetZ();
-        double x = pos.getX() + 0.5 + ox * 0.7;
-        double y = pos.getY() + 0.5 + (dir.getOffsetY() > 0 ? 0.7 : 0);
-        double z = pos.getZ() + 0.5 + oz * 0.7;
+        // 生成位置：沿朝向偏移到方块面外（竖直朝向用较小偏移，避免嵌入相邻方块）
+        double hOff = dir.getAxis().isHorizontal() ? 0.7 : 0.4;
+        double x = pos.getX() + 0.5 + dir.getOffsetX() * hOff;
+        double y = pos.getY() + 0.5 + dir.getOffsetY() * hOff;
+        double z = pos.getZ() + 0.5 + dir.getOffsetZ() * hOff;
+
+        // 速度参考投掷器：沿朝向 0.2~0.3，附加随机散布；非朝下时附带 0.2 上抛
+        double speed = 0.2 + world.getRandom().nextDouble() * 0.1;
+        double vx = dir.getOffsetX() * speed;
+        double vy = dir.getOffsetY() * speed + (dir.getOffsetY() < 0 ? 0.0 : 0.2);
+        double vz = dir.getOffsetZ() * speed;
+        if (dir.getAxis().isHorizontal()) {
+            double j = (world.getRandom().nextDouble() - world.getRandom().nextDouble()) * 0.1;
+            vx += dir.getOffsetZ() * j;
+            vz += dir.getOffsetX() * j;
+        }
 
         ItemEntity entity = new ItemEntity(world, x, y, z, out);
-        entity.setVelocity(ox * 0.1, 0.1, oz * 0.1);
+        entity.setVelocity(vx, vy, vz);
         world.spawnEntity(entity);
         markDirty();
     }
@@ -176,6 +191,30 @@ public class EmcEmitterBlockEntity extends CompatBlockEntity
         if (world == null) return false;
         BlockPos pos = getPos();
         return player.squaredDistanceTo(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) <= 64.0;
+    }
+
+    // ==================== 漏斗 / 自动化访问控制 ====================
+
+    /** 卡槽仅接受 EMC 卡 */
+    @Override
+    public boolean isValid(int slot, ItemStack stack) {
+        return stack.getItem() instanceof EmcCardItem;
+    }
+
+    @Override
+    public int[] getAvailableSlots(Direction side) {
+        return AUTOMATION_SLOTS;
+    }
+
+    @Override
+    public boolean canInsert(int slot, ItemStack stack, @Nullable Direction dir) {
+        return isValid(slot, stack);
+    }
+
+    /** 卡由漏斗放入后保留在内部（破坏方块时随容器掉落），不允自动化抽出 */
+    @Override
+    public boolean canExtract(int slot, ItemStack stack, Direction dir) {
+        return false;
     }
 
     @Override
