@@ -28,17 +28,23 @@ public final class PlayerEmcUtil {
         }
     }
 
-    /** 给玩家 team EMC 加值（amount &gt; 0） */
-    public static void add(MinecraftServer server, UUID uuid, long amount) {
-        if (server == null || uuid == null || amount <= 0) return;
+    /**
+     * 给玩家 team EMC 加值（amount &gt; 0）。
+     *
+     * @return 是否真正入账。玩家无队伍（如从未进过服的绑定目标）时返回 false，
+     *         调用方据此决定是否消耗来源物品/EMC，避免「物品被吞、余额未入账」。
+     */
+    public static boolean add(MinecraftServer server, UUID uuid, long amount) {
+        if (server == null || uuid == null || amount <= 0) return false;
         try {
             ServerState state = ServerState.of(server);
-            state.getTeamByPlayer(uuid).ifPresent(t -> {
-                t.storedEMC += amount;
-                state.callMarkDirty();
-            });
+            Optional<TeamState> team = state.getTeamByPlayer(uuid);
+            if (!team.isPresent()) return false;
+            team.get().storedEMC += amount;
+            state.callMarkDirty();
+            return true;
         } catch (Throwable t) {
-            // ignore
+            return false;
         }
     }
 

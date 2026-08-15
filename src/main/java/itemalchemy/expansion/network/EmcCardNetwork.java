@@ -134,7 +134,11 @@ public final class EmcCardNetwork {
                     Text.literal(EmcCardItem.formatNumber(stored)));
             return;
         }
-        subtractFromCard(player, card, amount);
+        // 绑卡限额可能在余额校验之后拒绝扣减；失败时不得发放 EMC（防绕过限额刷 EMC）
+        if (!subtractFromCard(player, card, amount)) {
+            sendMsg(player, "itemalchemy-expansion.emc_card.withdraw.fail.limited");
+            return;
+        }
         EmcCardItem.addTransaction(card, EmcCardItem.TX_WITHDRAW, amount);
         Player mcpPlayer = new Player(player);
         EMCManager.incrementEmc(mcpPlayer, amount);
@@ -215,10 +219,12 @@ public final class EmcCardNetwork {
 
     /**
      * 从卡减 EMC（含绑卡限额校验）：统一走 {@link EmcCardBalanceUtil}。
-     * 调用方需先校验余额充足。
+     *
+     * @return 是否真正扣减成功。绑卡的单笔/总限额可能在余额校验之后拒绝扣减，
+     *         调用方<b>必须</b>检查返回值，失败时不得发放 EMC，否则可绕过限额凭空刷 EMC。
      */
-    private static void subtractFromCard(ServerPlayerEntity player, ItemStack card, long amount) {
-        EmcCardBalanceUtil.subtract(player.getServer(), card, amount);
+    private static boolean subtractFromCard(ServerPlayerEntity player, ItemStack card, long amount) {
+        return EmcCardBalanceUtil.subtract(player.getServer(), card, amount);
     }
 
     private static Hand findCardHand(ServerPlayerEntity player) {

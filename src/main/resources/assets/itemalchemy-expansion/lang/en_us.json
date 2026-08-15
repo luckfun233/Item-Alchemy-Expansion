@@ -182,6 +182,7 @@
   "itemalchemy-expansion.emc_card.withdraw.half": "Half",
   "itemalchemy-expansion.emc_card.withdraw.success": "Withdrew %s EMC from card",
   "itemalchemy-expansion.emc_card.withdraw.fail.insufficient": "Card has insufficient EMC, only %s",
+  "itemalchemy-expansion.emc_card.withdraw.fail.limited": "Withdrawal rejected by bound-card limit",
   "itemalchemy-expansion.emc_card.no_card": "No EMC Card found",
   "itemalchemy-expansion.emc_card.fail.empty": "Please enter an amount",
   "itemalchemy-expansion.emc_card.fail.parse": "Invalid number format",
@@ -224,6 +225,7 @@
   "itemalchemy-expansion.card_forge.bind.limits_display": "Single %s · Floor %s",
   "itemalchemy-expansion.card_forge.bind.need_name": "Enter a player name to bind",
   "itemalchemy-expansion.card_forge.bind.not_found": "Player not found: %s",
+  "itemalchemy-expansion.card_forge.bind.no_team": "%s has no transmutation data yet; cannot bind",
   "itemalchemy-expansion.card_forge.bind.not_bound": "Bind a player first",
   "itemalchemy-expansion.card_forge.bind.success": "Bound to %s (private by default)",
   "itemalchemy-expansion.card_forge.bind.unbound": "Unbound and limits cleared",
@@ -236,6 +238,8 @@
   "itemalchemy-expansion.emc_emitter.loading": "Loading your transmutation list...",
   "itemalchemy-expansion.emc_emitter.empty": "Your transmutation list is empty",
   "itemalchemy-expansion.emc_emitter.clear": "Clear Selection",
+  "itemalchemy-expansion.emc_emitter.search": "Search items...",
+  "itemalchemy-expansion.emc_emitter.no_match": "No matching items",
   "itemalchemy-expansion.automation.disabled": "Automation disabled (automationEnabled=false)",
   "itemalchemy-expansion.close": "Close"
 }

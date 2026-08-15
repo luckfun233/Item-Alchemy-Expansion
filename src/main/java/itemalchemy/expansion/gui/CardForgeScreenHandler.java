@@ -65,12 +65,16 @@ public class CardForgeScreenHandler extends net.pitan76.mcpitanlib.api.gui.Simpl
                 return ItemStackUtil.empty();
             }
         } else {
-            // 背包 -> 卡槽（仅 EMC 卡）
-            ItemStack target = stackInSlot.copy();
-            target.setCount(1);
-            if (target.getItem() == IAExpItems.EMC_CARD && !this.callInsertItem(target, 0, 2, false)) {
+            // 背包 -> 卡槽（仅 EMC 卡；卡 maxCount=1，插入副本后必须递减原堆栈，否则刷卡）
+            if (stackInSlot.getItem() != IAExpItems.EMC_CARD) {
                 return ItemStackUtil.empty();
             }
+            ItemStack target = stackInSlot.copy();
+            target.setCount(1);
+            if (!this.callInsertItem(target, 0, 2, false)) {
+                return ItemStackUtil.empty();
+            }
+            stackInSlot.decrement(1);
         }
 
         if (stackInSlot.isEmpty()) {

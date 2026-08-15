@@ -37,6 +37,15 @@ public final class CardAccountStore {
     /** 运行时共享账户 map：link_group UUID -> 共享 EMC */
     private static final Map<String, Long> accounts = new LinkedHashMap<>();
 
+    /** 脏标记：有变更待写盘 */
+    private static boolean dirty = false;
+
+    /** 上次刷盘时的服务器 tick，用于限制写盘频率 */
+    private static long lastFlushTick = Long.MIN_VALUE;
+
+    /** 刷盘间隔（tick）：20 tick/秒 → 最坏每 5 秒一次磁盘写 */
+    private static final long FLUSH_INTERVAL_TICKS = 100L;
+
     private CardAccountStore() {}
 
     /** 返回共享账户存档文件路径 */
@@ -95,6 +104,8 @@ public final class CardAccountStore {
     /** 服务端启动时加载存档 */
     public static void load(MinecraftServer server) {
         accounts.clear();
+        dirty = false;
+        lastFlushTick = Long.MIN_VALUE;
         Path file = getFile(server);
         if (!Files.exists(file)) {
             ItemAlchemyExpansion.debug("[IAExp] card accounts: none (file not found)");
@@ -110,9 +121,14 @@ public final class CardAccountStore {
         }
     }
 
-    /** 服务端停止时写盘 */
+    /**
+     * 写盘（无条件执行）。
+     *
+     * <p><b>必须</b>在账户为空时也写文件：若最后一个关联组被解散后跳过写盘，
+     * 旧文件会在重启后被重新加载，已解散的组携带旧余额「复活」，造成 EMC 复制。</p>
+     */
     public static void save(MinecraftServer server) {
-        if (accounts.isEmpty()) return;
+        dirty = false;
         Path file = getFile(server);
         try {
             Files.createDirectories(file.getParent());
@@ -123,8 +139,16 @@ public final class CardAccountStore {
         }
     }
 
-    private static void markDirty(MinecraftServer server) {
-        // 即时写盘，避免崩溃丢失；数据量小（关联组数量级），开销可忽略
+    /** 每 tick 由 END_SERVER_TICK 调用：脏数据按间隔刷盘，避免红石自动化下每 tick 磁盘 I/O */
+    public static void onServerTick(MinecraftServer server) {
+        if (!dirty) return;
+        long now = server.getTicks();
+        if (lastFlushTick != Long.MIN_VALUE && now - lastFlushTick < FLUSH_INTERVAL_TICKS) return;
+        lastFlushTick = now;
         save(server);
+    }
+
+    private static void markDirty(MinecraftServer server) {
+        dirty = true;
     }
 }
