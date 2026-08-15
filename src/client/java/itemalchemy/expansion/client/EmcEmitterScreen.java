@@ -27,7 +27,7 @@ public class EmcEmitterScreen extends Screen {
 
     private static final int PANEL_W = 260;
     private static final int PANEL_H = 240;
-    private static final int LIST_TOP_OFF = 84;
+    private static final int LIST_TOP_OFF = 96;
     private static final int LIST_BOT_OFF = 24;
     private static final int ROW_H = 20;
 
@@ -38,6 +38,7 @@ public class EmcEmitterScreen extends Screen {
     private final List<Integer> filtered = new ArrayList<>();
     private String selected = "";
     private long balance = 0;
+    private String facing = "";
     private boolean loaded = false;
     private int scroll = 0;
     private TextFieldWidget searchField;
@@ -64,7 +65,7 @@ public class EmcEmitterScreen extends Screen {
 
         // 搜索框（模糊过滤转换桌列表：名称 / id / 变体键）
         String oldText = searchField == null ? "" : searchField.getText();
-        searchField = new TextFieldWidget(this.textRenderer, panelLeft + 14, panelTop + 66,
+        searchField = new TextFieldWidget(this.textRenderer, panelLeft + 14, panelTop + 78,
                 PANEL_W - 28, 14, Text.translatable("itemalchemy-expansion.emc_emitter.search"));
         searchField.setMaxLength(64);
         searchField.setText(oldText);
@@ -115,13 +116,14 @@ public class EmcEmitterScreen extends Screen {
     }
 
     /** 服务端下发列表后调用 */
-    public void onListReceived(List<String> newKeys, List<ItemStack> newStacks, String newSelected, long newBalance) {
+    public void onListReceived(List<String> newKeys, List<ItemStack> newStacks, String newSelected, long newBalance, String newFacing) {
         this.keys.clear();
         this.keys.addAll(newKeys);
         this.stacks.clear();
         this.stacks.addAll(newStacks);
         this.selected = (newSelected == null || newSelected.isEmpty()) ? "" : newSelected;
         this.balance = newBalance;
+        this.facing = newFacing == null ? "" : newFacing;
         this.loaded = true;
         applyFilter();
     }
@@ -189,25 +191,34 @@ public class EmcEmitterScreen extends Screen {
         context.drawCenteredTextWithShadow(this.textRenderer, this.title, centerX, panelTop + 10, 0xFF404040);
         context.fill(panelLeft + 14, panelTop + 24, panelLeft + PANEL_W - 14, panelTop + 25, 0xFF555555);
 
-        // 卡余额
+        // 卡余额 + 输出方向（同一行左右分布）
         context.drawText(this.textRenderer,
                 Text.translatable("itemalchemy-expansion.emc_emitter.balance", Text.literal(EmcCardItem.formatNumber(balance))),
-                panelLeft + 14, panelTop + 34, 0xFF707070, false);
+                panelLeft + 14, panelTop + 34, 0xFF5A5A5A, false);
+        if (!facing.isEmpty()) {
+            Text facingText = Text.translatable("itemalchemy-expansion.emc_emitter.facing",
+                    Text.translatable("itemalchemy-expansion.direction." + facing));
+            context.drawText(this.textRenderer, facingText,
+                    panelLeft + PANEL_W - 14 - this.textRenderer.getWidth(facingText), panelTop + 34, 0xFF5A5A5A, false);
+        }
+        context.drawText(this.textRenderer,
+                Text.translatable("itemalchemy-expansion.emc_emitter.hint"),
+                panelLeft + 14, panelTop + 46, 0xFF6E6E6E, false);
 
         // 当前选择
         ItemStack sel = selectedStack();
         if (sel.isEmpty()) {
             context.drawText(this.textRenderer,
                     Text.translatable("itemalchemy-expansion.emc_emitter.none"),
-                    panelLeft + 14, panelTop + 46, 0xFF888888, false);
+                    panelLeft + 14, panelTop + 60, 0xFF888888, false);
         } else {
-            context.drawItem(sel, panelLeft + 14, panelTop + 44);
+            context.drawItem(sel, panelLeft + 14, panelTop + 58);
             long cost = emcOf(sel);
             Text name = sel.getName();
             Text row = cost > 0
                     ? Text.literal(name.getString() + "  (" + EmcCardItem.formatNumber(cost) + " EMC)")
                     : name;
-            context.drawText(this.textRenderer, row, panelLeft + 34, panelTop + 48, 0xFF404040, false);
+            context.drawText(this.textRenderer, row, panelLeft + 34, panelTop + 62, 0xFF404040, false);
         }
 
         // 列表区

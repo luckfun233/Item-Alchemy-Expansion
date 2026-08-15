@@ -2,6 +2,7 @@ package itemalchemy.expansion;
 
 import itemalchemy.expansion.client.EmcAutoClientNetwork;
 import itemalchemy.expansion.client.EmcCardClientNetwork;
+import itemalchemy.expansion.client.CardForgeClientNetwork;
 import itemalchemy.expansion.client.SetEmcClientNetwork;
 import itemalchemy.expansion.client.SetEmcKeybind;
 import itemalchemy.expansion.client.CardForgeScreen;
@@ -45,6 +46,13 @@ public class ItemAlchemyExpansionClient implements ClientModInitializer {
 			EmcCardClientNetwork.registerClientReceiver();
 		} catch (Throwable t) {
 			ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to register emc card S2C receiver: {}", t.toString());
+		}
+
+		// 制卡台 S2C 接收器：绑定页在线玩家列表下发
+		try {
+			CardForgeClientNetwork.registerClientReceiver();
+		} catch (Throwable t) {
+			ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to register card forge S2C receiver: {}", t.toString());
 		}
 
 		// 制卡台 Screen 注册

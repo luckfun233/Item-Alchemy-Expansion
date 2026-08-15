@@ -1,7 +1,7 @@
 package itemalchemy.expansion.gui;
 
 import itemalchemy.expansion.block.EmcConverterBlockEntity;
-import itemalchemy.expansion.item.IAExpItems;
+import itemalchemy.expansion.item.EmcCardItem;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.slot.Slot;
@@ -18,9 +18,9 @@ import net.pitan76.mcpitanlib.api.util.SlotUtil;
 public class EmcConverterScreenHandler extends net.pitan76.mcpitanlib.api.gui.SimpleScreenHandler {
 
     public static final int CARD_SLOT_X = 80;
-    public static final int CARD_SLOT_Y = 40;
+    public static final int CARD_SLOT_Y = 53;
     public static final int INPUT_Y = 17;
-    public static final int[] INPUT_X = {62, 80, 98, 116};
+    public static final int[] INPUT_X = {52, 70, 88, 106};
 
     public final EmcConverterBlockEntity tile;
 
@@ -44,8 +44,8 @@ public class EmcConverterScreenHandler extends net.pitan76.mcpitanlib.api.gui.Si
             addSlot(new InputSlot(forgeInv, EmcConverterBlockEntity.INPUT_START + i, INPUT_X[i], INPUT_Y));
         }
 
-        addPlayerMainInventorySlots(e.getPlayerInventory(), 8, 84);
-        addPlayerHotbarSlots(e.getPlayerInventory(), 8, 142);
+        addPlayerMainInventorySlots(e.getPlayerInventory(), 8, 96);
+        addPlayerHotbarSlots(e.getPlayerInventory(), 8, 154);
     }
 
     @Override
@@ -70,7 +70,7 @@ public class EmcConverterScreenHandler extends net.pitan76.mcpitanlib.api.gui.Si
             }
         } else {
             // 背包 -> 方块槽（卡只能进卡槽，其余整组进输入槽）
-            if (stackInSlot.getItem() == IAExpItems.EMC_CARD) {
+            if (stackInSlot.getItem() instanceof EmcCardItem) {
                 // 卡 maxCount=1：插入副本后必须递减原堆栈，否则刷卡
                 ItemStack target = stackInSlot.copy();
                 target.setCount(1);
@@ -93,7 +93,7 @@ public class EmcConverterScreenHandler extends net.pitan76.mcpitanlib.api.gui.Si
         return itemStack;
     }
 
-    /** 卡槽：仅允许放入 EMC 卡 */
+    /** 卡槽：仅允许放入 EMC 卡（instanceof 判定，与 BlockEntity/网络层一致） */
     public static class CardSlot extends Slot {
         public CardSlot(Inventory inventory, int index, int x, int y) {
             super(inventory, index, x, y);
@@ -101,7 +101,7 @@ public class EmcConverterScreenHandler extends net.pitan76.mcpitanlib.api.gui.Si
 
         @Override
         public boolean canInsert(ItemStack stack) {
-            return stack.getItem() == IAExpItems.EMC_CARD;
+            return stack.getItem() instanceof EmcCardItem;
         }
     }
 
@@ -113,7 +113,7 @@ public class EmcConverterScreenHandler extends net.pitan76.mcpitanlib.api.gui.Si
 
         @Override
         public boolean canInsert(ItemStack stack) {
-            return stack.getItem() != IAExpItems.EMC_CARD;
+            return !(stack.getItem() instanceof EmcCardItem);
         }
     }
 }

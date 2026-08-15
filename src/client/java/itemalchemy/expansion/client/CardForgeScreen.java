@@ -154,9 +154,12 @@ public class CardForgeScreen extends SimpleInventoryScreen<CardForgeScreenHandle
     private void switchTab(int tab) {
         currentTab = tab;
         applyTab();
-        // 切到绑定页时刷新在线玩家列表（下拉数据源）
+        // 切到绑定页时刷新在线玩家列表（下拉数据源）并聚焦输入框
         if (tab == TAB_BIND) {
             CardForgeClientNetwork.sendRequestPlayers();
+            if (!isCardBound()) {
+                nameField.setFocused(true);
+            }
         }
     }
 
@@ -225,8 +228,7 @@ public class CardForgeScreen extends SimpleInventoryScreen<CardForgeScreenHandle
 
     @Override
     public void drawBackgroundOverride(DrawBackgroundArgs args) {
-        super.drawBackgroundOverride(args);
-
+        // 纯代码绘制，不调 super（背景贴图缺失时避免 GL 报错）
         DrawContext ctx = args.drawObjectDM.getContext();
         int x = this.x;
         int y = this.y;
@@ -235,7 +237,7 @@ public class CardForgeScreen extends SimpleInventoryScreen<CardForgeScreenHandle
         ctx.fill(x, y, x + BG_W, y + BG_H, PANEL);
         drawBorder(ctx, x, y, BG_W, BG_H, PANEL_LINE);
         // 顶部标题栏高光条
-        ctx.fillGradient(x, y + 1, x + BG_W, y + 13, 0xFFD8D8D8, 0xFFC6C6C6);
+        ctx.fillGradient(x + 1, y + 1, x + BG_W - 1, y + 12, 0xFFD2D2D2, PANEL);
 
         // 标题
         ctx.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, y - 8, TEXT_MAIN);
@@ -254,6 +256,10 @@ public class CardForgeScreen extends SimpleInventoryScreen<CardForgeScreenHandle
                 if (hasCard()) {
                     ctx.drawCenteredTextWithShadow(this.textRenderer,
                             Text.translatable("itemalchemy-expansion.card_forge.hint.attr"),
+                            this.width / 2, y + 112, TEXT_DIM);
+                } else {
+                    ctx.drawCenteredTextWithShadow(this.textRenderer,
+                            Text.translatable("itemalchemy-expansion.card_forge.no_card"),
                             this.width / 2, y + 112, TEXT_DIM);
                 }
             }
@@ -338,10 +344,11 @@ public class CardForgeScreen extends SimpleInventoryScreen<CardForgeScreenHandle
         drawPlayerDropdown(ctx, args.getMouseX(), args.getMouseY());
     }
 
-    /** 下拉是否展开 */
+    /** 下拉是否展开（聚焦或已有输入时显示，避免玩家不知道要先点输入框） */
     private boolean dropdownOpen() {
         return currentTab == TAB_BIND && !isCardBound()
-                && nameField.isVisible() && nameField.isFocused()
+                && nameField.isVisible()
+                && (nameField.isFocused() || !nameField.getText().trim().isEmpty())
                 && !playerCandidates().isEmpty();
     }
 

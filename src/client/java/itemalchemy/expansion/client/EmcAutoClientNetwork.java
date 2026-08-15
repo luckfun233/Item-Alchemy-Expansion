@@ -79,6 +79,8 @@ public final class EmcAutoClientNetwork {
                 (client, handler, buf, responseSender) -> {
                     final String selected = buf.readString();
                     final long balance = buf.readLong();
+                    // 与服务端 handleListRequest 写入顺序严格一致（含 facing），漏读会导致后续字节全部错位
+                    final String facing = buf.readString();
                     final int n = buf.readInt();
                     final List<String> keys = new ArrayList<>(n);
                     final List<ItemStack> stacks = new ArrayList<>(n);
@@ -94,7 +96,7 @@ public final class EmcAutoClientNetwork {
                     }
                     client.execute(() -> {
                         if (activeScreen != null) {
-                            activeScreen.onListReceived(keys, stacks, selected, balance);
+                            activeScreen.onListReceived(keys, stacks, selected, balance, facing);
                         }
                     });
                 });

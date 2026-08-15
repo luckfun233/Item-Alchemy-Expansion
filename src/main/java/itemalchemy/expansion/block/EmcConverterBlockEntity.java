@@ -75,25 +75,22 @@ public class EmcConverterBlockEntity extends CompatBlockEntity
         convert();
     }
 
-    /** 把输入槽内所有物品按 EMC 转入卡内余额并清空输入槽 */
+    /** 每 tick 仅转换一件物品（按槽位顺序），转入卡内余额；无 EMC 或入账失败则跳过该槽 */
     private void convert() {
         ItemStack card = slots[CARD_SLOT];
         if (card.isEmpty() || !(card.getItem() instanceof EmcCardItem)) return;
-        boolean any = false;
         for (int i = INPUT_START; i < SLOT_COUNT; i++) {
             ItemStack input = slots[i];
             if (input.isEmpty()) continue;
             long emc = EMCManager.get(input);
-            // 溢出保护：单件价 × 堆叠数超出 long 上限时放弃转换
-            if (emc <= 0 || input.getCount() > Long.MAX_VALUE / Math.max(1, emc)) continue;
-            long total = emc * input.getCount();
-            if (total <= 0) continue;
+            if (emc <= 0) continue;
             // 入账失败（如绑卡目标玩家无队伍）时保留物品，避免「物品被吞、余额未入账」
-            if (!EmcCardBalanceUtil.add(getServerWorld().getServer(), card, total)) continue;
-            slots[i] = ItemStack.EMPTY;
-            any = true;
+            if (!EmcCardBalanceUtil.add(getServerWorld().getServer(), card, emc)) continue;
+            input.decrement(1);
+            if (input.isEmpty()) slots[i] = ItemStack.EMPTY;
+            markDirty();
+            return;
         }
-        if (any) markDirty();
     }
 
     // ==================== Inventory ====================
