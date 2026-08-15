@@ -135,13 +135,9 @@ public class EmcCardMainScreen extends Screen {
                 panelLeft + PANEL_WIDTH - PADDING - textRenderer.getWidth(value), y, valueColor, false);
     }
 
-    /** 当前主手卡内 EMC（实时读取，反映服务端同步后的变化）。 */
+    /** 当前主手卡内 EMC（优先用服务端同步余额，反映关联账户值）。 */
     private long getCardEmc() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc == null || mc.player == null) return 0;
-        ItemStack mainHand = mc.player.getMainHandStack();
-        if (mainHand.isEmpty() || !(mainHand.getItem() instanceof EmcCardItem)) return 0;
-        return EmcCardItem.getStoredEmc(mainHand);
+        return EmcCardClientNetwork.getCardBalance();
     }
 
     /** 当前玩家 Team EMC（从上游客户端缓存的 team NBT 读取）。 */

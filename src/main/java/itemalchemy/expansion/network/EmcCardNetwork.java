@@ -30,6 +30,8 @@ public final class EmcCardNetwork {
             new Identifier(ItemAlchemyExpansion.MOD_ID, "emc_card_withdraw");
     public static final Identifier CONFIG_ID =
             new Identifier(ItemAlchemyExpansion.MOD_ID, "emc_card_config");
+    public static final Identifier BALANCE_ID =
+            new Identifier(ItemAlchemyExpansion.MOD_ID, "emc_card_balance");
 
     /** 配置动作：切换快捷充能 */
     public static final byte CFG_TOGGLE_QUICK = 0;
@@ -55,12 +57,29 @@ public final class EmcCardNetwork {
         });
     }
 
-    /** 发 S2C 打开 GUI */
+    /** 发 S2C 打开 GUI（携带当前卡有效余额，供客户端显示） */
     public static void sendOpenGui(ServerPlayerEntity player) {
         try {
-            ServerPlayNetworking.send(player, OPEN_GUI_ID, PacketByteBufs.create());
+            Hand hand = findCardHand(player);
+            long balance = hand == null ? 0L : EmcCardBalanceUtil.getBalance(player.getServer(), player.getStackInHand(hand));
+            PacketByteBuf buf = PacketByteBufs.create();
+            buf.writeLong(balance);
+            ServerPlayNetworking.send(player, OPEN_GUI_ID, buf);
         } catch (Throwable t) {
             ItemAlchemyExpansion.LOGGER.warn("[IAExp] emc card: failed to send open gui: {}", t.toString());
+        }
+    }
+
+    /** 发 S2C 更新卡余额（充入/拿取/快捷后调用，刷新客户端显示，不开新 GUI） */
+    public static void sendBalance(ServerPlayerEntity player) {
+        try {
+            Hand hand = findCardHand(player);
+            long balance = hand == null ? 0L : EmcCardBalanceUtil.getBalance(player.getServer(), player.getStackInHand(hand));
+            PacketByteBuf buf = PacketByteBufs.create();
+            buf.writeLong(balance);
+            ServerPlayNetworking.send(player, BALANCE_ID, buf);
+        } catch (Throwable t) {
+            ItemAlchemyExpansion.LOGGER.warn("[IAExp] emc card: failed to send balance: {}", t.toString());
         }
     }
 
@@ -74,6 +93,10 @@ public final class EmcCardNetwork {
             return;
         }
         ItemStack card = player.getStackInHand(hand);
+        if (!EmcCardItem.canUse(card, player)) {
+            sendMsg(player, "itemalchemy-expansion.emc_card.private.denied");
+            return;
+        }
         Player mcpPlayer = new Player(player);
         long teamEmc = EMCManager.getEmcFromPlayer(mcpPlayer);
         if (teamEmc < amount) {
@@ -82,10 +105,11 @@ public final class EmcCardNetwork {
             return;
         }
         EMCManager.decrementEmc(mcpPlayer, amount);
-        EmcCardItem.setStoredEmc(card, EmcCardItem.getStoredEmc(card) + amount);
+        addToCard(player, card, amount);
         EmcCardItem.addTransaction(card, EmcCardItem.TX_DEPOSIT, amount);
         syncHandStack(player);
         EMCManager.syncS2C(mcpPlayer);
+        sendBalance(player);
         sendMsg(player, "itemalchemy-expansion.emc_card.deposit.success",
                 Text.literal(EmcCardItem.formatNumber(amount)));
     }
@@ -100,18 +124,23 @@ public final class EmcCardNetwork {
             return;
         }
         ItemStack card = player.getStackInHand(hand);
-        long stored = EmcCardItem.getStoredEmc(card);
+        if (!EmcCardItem.canUse(card, player)) {
+            sendMsg(player, "itemalchemy-expansion.emc_card.private.denied");
+            return;
+        }
+        long stored = EmcCardBalanceUtil.getBalance(player.getServer(), card);
         if (stored < amount) {
             sendMsg(player, "itemalchemy-expansion.emc_card.withdraw.fail.insufficient",
                     Text.literal(EmcCardItem.formatNumber(stored)));
             return;
         }
-        EmcCardItem.setStoredEmc(card, stored - amount);
+        subtractFromCard(player, card, amount);
         EmcCardItem.addTransaction(card, EmcCardItem.TX_WITHDRAW, amount);
         Player mcpPlayer = new Player(player);
         EMCManager.incrementEmc(mcpPlayer, amount);
         syncHandStack(player);
         EMCManager.syncS2C(mcpPlayer);
+        sendBalance(player);
         sendMsg(player, "itemalchemy-expansion.emc_card.withdraw.success",
                 Text.literal(EmcCardItem.formatNumber(amount)));
     }
@@ -125,6 +154,10 @@ public final class EmcCardNetwork {
             return;
         }
         ItemStack card = player.getStackInHand(hand);
+        if (!EmcCardItem.canUse(card, player)) {
+            sendMsg(player, "itemalchemy-expansion.emc_card.private.denied");
+            return;
+        }
         long amount = EmcCardItem.getQuickChargeAmount(card);
         Player mcpPlayer = new Player(player);
         long teamEmc = EMCManager.getEmcFromPlayer(mcpPlayer);
@@ -134,10 +167,11 @@ public final class EmcCardNetwork {
             return;
         }
         EMCManager.decrementEmc(mcpPlayer, actualAmount);
-        EmcCardItem.setStoredEmc(card, EmcCardItem.getStoredEmc(card) + actualAmount);
+        addToCard(player, card, actualAmount);
         EmcCardItem.addTransaction(card, EmcCardItem.TX_DEPOSIT, actualAmount);
         syncHandStack(player);
         EMCManager.syncS2C(mcpPlayer);
+        sendBalance(player);
         sendMsg(player, "itemalchemy-expansion.emc_card.quickcharge.success",
                 Text.literal(EmcCardItem.formatNumber(actualAmount)));
     }
@@ -171,6 +205,21 @@ public final class EmcCardNetwork {
     }
 
     // ==================== 工具方法 ====================
+
+    /**
+     * 往卡加 EMC：绑卡/关联卡/普通卡统一走 {@link EmcCardBalanceUtil}。
+     */
+    private static void addToCard(ServerPlayerEntity player, ItemStack card, long amount) {
+        EmcCardBalanceUtil.add(player.getServer(), card, amount);
+    }
+
+    /**
+     * 从卡减 EMC（含绑卡限额校验）：统一走 {@link EmcCardBalanceUtil}。
+     * 调用方需先校验余额充足。
+     */
+    private static void subtractFromCard(ServerPlayerEntity player, ItemStack card, long amount) {
+        EmcCardBalanceUtil.subtract(player.getServer(), card, amount);
+    }
 
     private static Hand findCardHand(ServerPlayerEntity player) {
         ItemStack mainHand = player.getMainHandStack();

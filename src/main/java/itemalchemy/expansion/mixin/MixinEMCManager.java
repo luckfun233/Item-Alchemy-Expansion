@@ -61,7 +61,7 @@ public abstract class MixinEMCManager {
         if (stack.getItem() instanceof EmcCardItem) {
             long count = ItemStackUtil.getCount(stack);
             long cardBaseEmc = EmcCardItem.getBaseEmc();
-            long stored = EmcCardItem.getStoredEmc(stack);
+            long stored = EmcCardItem.getBalance(stack);
             long total = (cardBaseEmc + stored) * count;
             ItemAlchemyExpansion.debug("[IAExp] emc card: base={}, stored={}, count={}, total={}",
                     cardBaseEmc, stored, count, total);

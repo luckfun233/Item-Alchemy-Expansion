@@ -152,6 +152,15 @@ public final class IAExpConfigHolder {
             needsSave = true;
         }
 
+        // configVersion < 11: 新增「自动装置」总开关。Gson Unsafe 会把 boolean 零初始化为 false，
+        // 需显式补回默认 true
+        if (loaded.configVersion < 11) {
+            ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 11 (add automation master switch)", loaded.configVersion);
+            loaded.automationEnabled = true;
+            loaded.configVersion = 11;
+            needsSave = true;
+        }
+
         return loaded;
     }
 

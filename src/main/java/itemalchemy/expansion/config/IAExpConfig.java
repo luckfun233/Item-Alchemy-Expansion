@@ -40,8 +40,8 @@ public class IAExpConfig {
         @SerializedName("first") FIRST
     }
 
-    /** 配置版本号，用于旧配置自动升级。缺省（旧配置）视为 0，当前为 10。 */
-    public int configVersion = 10;
+    /** 配置版本号，用于旧配置自动升级。缺省（旧配置）视为 0，当前为 11。 */
+    public int configVersion = 11;
 
     /** 转换桌展示方式，默认 图标+名称 */
     public DisplayMode displayMode = DisplayMode.ICON_AND_NAME;
@@ -145,11 +145,19 @@ public class IAExpConfig {
      */
     public boolean autoPricingRepricePromptShown = false;
 
-    /**
-     * 新功能提醒是否已显示（默认 false）。
+    /** 新功能提醒是否已显示（默认 false）。
      * 检测到 configVersion 从旧版升级时进世界弹一次 toast，弹过置 true 写盘。
      */
     public boolean featureNoticeShown = false;
+
+    // ===== 自动装置（EMC 转能器 / EMC 输出器）=====
+
+    /**
+     * 自动装置总开关（默认 true）。
+     * 关闭后：无法合成两个自动装置；即使服务器中已放置也不能运行（会有提示），
+     * 且方块 tick 提前返回，几乎零性能占用。
+     */
+    public boolean automationEnabled = true;
 
     /** 返回一份副本（不修改本对象） */
     public IAExpConfig copy() {
@@ -173,6 +181,7 @@ public class IAExpConfig {
         c.autoPricingTickBudgetMs = autoPricingTickBudgetMs;
         c.autoPricingRepricePromptShown = autoPricingRepricePromptShown;
         c.featureNoticeShown = featureNoticeShown;
+        c.automationEnabled = automationEnabled;
         return c;
     }
 }

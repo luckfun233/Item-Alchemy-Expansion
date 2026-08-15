@@ -1,8 +1,15 @@
 package itemalchemy.expansion;
 
+import itemalchemy.expansion.client.EmcAutoClientNetwork;
 import itemalchemy.expansion.client.EmcCardClientNetwork;
 import itemalchemy.expansion.client.SetEmcClientNetwork;
 import itemalchemy.expansion.client.SetEmcKeybind;
+import itemalchemy.expansion.client.CardForgeScreen;
+import itemalchemy.expansion.client.EmcConverterScreen;
+import itemalchemy.expansion.gui.CardForgeScreenHandlers;
+import itemalchemy.expansion.gui.CardForgeScreenHandler;
+import itemalchemy.expansion.gui.EmcConverterScreenHandlers;
+import itemalchemy.expansion.gui.EmcConverterScreenHandler;
 import net.fabricmc.api.ClientModInitializer;
 
 /**
@@ -40,6 +47,29 @@ public class ItemAlchemyExpansionClient implements ClientModInitializer {
 			ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to register emc card S2C receiver: {}", t.toString());
 		}
 
-		ItemAlchemyExpansion.LOGGER.info("[IAExp] client initialized: set-emc keybind registered, shulker preview via mixin, precise emc S2C receiver registered, emc card S2C receiver registered.");
+		// 制卡台 Screen 注册
+		try {
+			net.minecraft.client.gui.screen.ingame.HandledScreens.register(
+					CardForgeScreenHandlers.TYPE, CardForgeScreen::new);
+		} catch (Throwable t) {
+			ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to register card forge screen: {}", t.toString());
+		}
+
+		// EMC 转能器 Screen 注册
+		try {
+			net.minecraft.client.gui.screen.ingame.HandledScreens.register(
+					EmcConverterScreenHandlers.TYPE, EmcConverterScreen::new);
+		} catch (Throwable t) {
+			ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to register emc converter screen: {}", t.toString());
+		}
+
+		// 自动装置 S2C 接收器（输出器打开/列表/所选）
+		try {
+			EmcAutoClientNetwork.registerClientReceiver();
+		} catch (Throwable t) {
+			ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to register emc auto S2C receiver: {}", t.toString());
+		}
+
+		ItemAlchemyExpansion.LOGGER.info("[IAExp] client initialized: set-emc keybind registered, shulker preview via mixin, precise emc S2C receiver registered, emc card S2C receiver registered, emc automation receivers registered.");
 	}
 }

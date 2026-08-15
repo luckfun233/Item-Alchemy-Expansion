@@ -1,0 +1,209 @@
+package itemalchemy.expansion.block;
+
+import itemalchemy.expansion.IAExpServices;
+import itemalchemy.expansion.config.IAExpConfigHolder;
+import itemalchemy.expansion.item.EmcCardItem;
+import itemalchemy.expansion.nbt.ItemVariantKey;
+import itemalchemy.expansion.network.EmcCardBalanceUtil;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.entity.BlockEntityType;
+import net.minecraft.entity.ItemEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.inventory.Inventory;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.world.World;
+import net.pitan76.itemalchemy.EMCManager;
+import net.pitan76.mcpitanlib.api.event.block.TileCreateEvent;
+import net.pitan76.mcpitanlib.api.event.nbt.ReadNbtArgs;
+import net.pitan76.mcpitanlib.api.event.nbt.WriteNbtArgs;
+import net.pitan76.mcpitanlib.api.event.tile.TileTickEvent;
+import net.pitan76.mcpitanlib.api.tile.CompatBlockEntity;
+import net.pitan76.mcpitanlib.api.tile.ExtendBlockEntityTicker;
+import org.jetbrains.annotations.Nullable;
+
+/**
+ * EMC 输出器：卡槽内放 EMC 卡（由漏斗放入），GUI 中从打开者转换桌列表选择要喷出的物品。
+ * 有红石信号时，从卡内扣除所选物品的 EMC 并按朝向喷出该物品（保留 NBT）。
+ *
+ * <p>所选物品存于方块 NBT（共享），他人打开可见同一设置。自动装置总开关关闭时 tick 直接返回。</p>
+ */
+public class EmcEmitterBlockEntity extends CompatBlockEntity
+        implements Inventory, ExtendBlockEntityTicker<EmcEmitterBlockEntity> {
+
+    public static final int SLOT_COUNT = 1;
+    public static final int CARD_SLOT = 0;
+
+    /** NBT 键：所选物品变体键存储串 */
+    public static final String SELECTED_KEY = "selected_variant";
+
+    /** NBT 键：喷出朝向 */
+    public static final String FACING_KEY = "facing";
+
+    private final ItemStack[] slots = new ItemStack[SLOT_COUNT];
+    private String selectedVariant = null;
+    private Direction facing = Direction.UP;
+
+    public EmcEmitterBlockEntity(BlockEntityType<?> type, TileCreateEvent event) {
+        super(type, event);
+        slots[0] = ItemStack.EMPTY;
+    }
+
+    public EmcEmitterBlockEntity(BlockPos pos, BlockState state) {
+        super(EmcAutoBlocks.EMITTER_TILE, pos, state);
+        slots[0] = ItemStack.EMPTY;
+    }
+
+    // ==================== 所选物品 ====================
+
+    /** 返回当前所选物品的变体键存储串，未选返回 null */
+    @Nullable
+    public String getSelectedVariant() {
+        return selectedVariant;
+    }
+
+    /** 设置所选物品变体键（null 表示清除） */
+    public void setSelectedVariant(@Nullable String variant) {
+        this.selectedVariant = (variant == null || variant.isEmpty()) ? null : variant;
+        markDirty();
+    }
+
+    /** 返回喷出朝向（默认朝上） */
+    public Direction getFacing() {
+        return facing;
+    }
+
+    /** 设置喷出朝向 */
+    public void setFacing(Direction dir) {
+        this.facing = (dir == null) ? Direction.UP : dir;
+        markDirty();
+    }
+
+    // ==================== tick ====================
+
+    @Override
+    public void tick(TileTickEvent<EmcEmitterBlockEntity> event) {
+        if (event.isClient()) return;
+        if (!IAExpConfigHolder.get().automationEnabled) return;
+        if (!hasServerWorld()) return;
+        World world = event.getWorld();
+        if (world == null || !world.isReceivingRedstonePower(getPos())) return;
+        eject();
+    }
+
+    /** 扣除 EMC 并按朝向喷出所选物品 */
+    private void eject() {
+        ItemStack card = slots[CARD_SLOT];
+        if (card.isEmpty() || !(card.getItem() instanceof EmcCardItem)) return;
+        if (selectedVariant == null) return;
+
+        ItemVariantKey vk = ItemVariantKey.fromStorageString(selectedVariant);
+        if (vk == null) return;
+        ItemStack out = IAExpServices.rebuildStack(vk);
+        if (out.isEmpty()) return;
+
+        long cost = EMCManager.get(out);
+        if (cost <= 0) return;
+        if (!EmcCardBalanceUtil.subtract(getServerWorld().getServer(), card, cost)) return;
+
+        World world = getWorld();
+        if (world == null) return;
+        BlockPos pos = getPos();
+        Direction dir = facing;
+
+        double ox = dir.getOffsetX();
+        double oz = dir.getOffsetZ();
+        double x = pos.getX() + 0.5 + ox * 0.7;
+        double y = pos.getY() + 0.5 + (dir.getOffsetY() > 0 ? 0.7 : 0);
+        double z = pos.getZ() + 0.5 + oz * 0.7;
+
+        ItemEntity entity = new ItemEntity(world, x, y, z, out);
+        entity.setVelocity(ox * 0.1, 0.1, oz * 0.1);
+        world.spawnEntity(entity);
+        markDirty();
+    }
+
+    // ==================== Inventory ====================
+
+    @Override
+    public int size() {
+        return SLOT_COUNT;
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return slots[0].isEmpty();
+    }
+
+    @Override
+    public ItemStack getStack(int slot) {
+        return slot == 0 ? slots[0] : ItemStack.EMPTY;
+    }
+
+    @Override
+    public ItemStack removeStack(int slot, int amount) {
+        if (slot != 0) return ItemStack.EMPTY;
+        ItemStack cur = slots[0];
+        if (cur.isEmpty()) return ItemStack.EMPTY;
+        ItemStack result = cur.split(amount);
+        markDirty();
+        return result;
+    }
+
+    @Override
+    public ItemStack removeStack(int slot) {
+        if (slot != 0) return ItemStack.EMPTY;
+        ItemStack cur = slots[0];
+        slots[0] = ItemStack.EMPTY;
+        markDirty();
+        return cur;
+    }
+
+    @Override
+    public void setStack(int slot, ItemStack stack) {
+        if (slot != 0) return;
+        slots[0] = stack;
+        if (!stack.isEmpty() && stack.getCount() > getMaxCountPerStack()) {
+            stack.setCount(getMaxCountPerStack());
+        }
+        markDirty();
+    }
+
+    @Override
+    public boolean canPlayerUse(PlayerEntity player) {
+        if (world == null) return false;
+        BlockPos pos = getPos();
+        return player.squaredDistanceTo(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) <= 64.0;
+    }
+
+    @Override
+    public void clear() {
+        slots[0] = ItemStack.EMPTY;
+        markDirty();
+    }
+
+    // ==================== NBT ====================
+
+    @Override
+    public void writeNbt(WriteNbtArgs args) {
+        NbtCompound nbt = args.getNbt();
+        nbt.put("slot_0", slots[0].writeNbt(new NbtCompound()));
+        if (selectedVariant != null) {
+            nbt.putString(SELECTED_KEY, selectedVariant);
+        }
+        nbt.putString(FACING_KEY, facing.getName());
+    }
+
+    @Override
+    public void readNbt(ReadNbtArgs args) {
+        NbtCompound nbt = args.getNbt();
+        slots[0] = ItemStack.fromNbt(nbt.getCompound("slot_0"));
+        selectedVariant = nbt.contains(SELECTED_KEY) ? nbt.getString(SELECTED_KEY) : null;
+        if (nbt.contains(FACING_KEY)) {
+            Direction d = Direction.byName(nbt.getString(FACING_KEY));
+            facing = (d == null) ? Direction.UP : d;
+        }
+    }
+}

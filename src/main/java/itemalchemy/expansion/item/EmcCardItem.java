@@ -1,5 +1,6 @@
 package itemalchemy.expansion.item;
 
+import itemalchemy.expansion.network.CardAccountStore;
 import itemalchemy.expansion.network.EmcCardNetwork;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
@@ -50,6 +51,28 @@ public class EmcCardItem extends CompatItem {
     /** 交易类型：拿取 */
     public static final byte TX_WITHDRAW = 1;
 
+    /** NBT 键：卡可见性（String："public"/"private"，默认 public） */
+    public static final String VISIBILITY_KEY = "visibility";
+    /** 可见性值：公有 */
+    public static final String VISIBILITY_PUBLIC = "public";
+    /** 可见性值：私有 */
+    public static final String VISIBILITY_PRIVATE = "private";
+
+    /** NBT 键：私有卡绑定的玩家 UUID（String，仅私有卡有） */
+    public static final String OWNER_UUID_KEY = "owner_uuid";
+
+    /** NBT 键：关联组 UUID（String，仅关联卡有）。同一组共享服务端账户余额 */
+    public static final String LINK_GROUP_KEY = "link_group";
+
+    /** NBT 键：绑定的玩家 UUID（String，仅绑卡有）。卡余额/收支同步该玩家 EMC */
+    public static final String BIND_UUID_KEY = "bind_uuid";
+
+    /** NBT 键：单次支出限额（long，0 表示不限） */
+    public static final String BIND_SINGLE_LIMIT_KEY = "bind_single_limit";
+
+    /** NBT 键：总额度限制（long，玩家 EMC 需保持的最小值，0 表示关闭） */
+    public static final String BIND_TOTAL_LIMIT_KEY = "bind_total_limit";
+
     /** 合成材料 EMC 总和的硬编码 fallback（金×2 + 红石 + 铁×3） */
     private static final long FALLBACK_MATERIAL_EMC = 2048L * 2 + 64 + 256L * 3; // = 4928
 
@@ -72,6 +95,165 @@ public class EmcCardItem extends CompatItem {
     public static void setStoredEmc(ItemStack stack, long emc) {
         if (stack == null || stack.isEmpty()) return;
         stack.getOrCreateNbt().putLong(STORED_EMC_KEY, Math.max(0L, emc));
+    }
+
+    /**
+     * 返回卡的「有效余额」：绑卡返回绑定玩家 EMC（需服务端，此处返回 0），
+     * 关联卡返回共享账户余额（服务端存储），普通卡返回卡 NBT 存储值。
+     *
+     * <p>注：本方法无服务端上下文，绑卡余额无法在无服务端处读取，返回 0。
+     * 服务端读写请用 {@link itemalchemy.expansion.network.EmcCardBalanceUtil}。</p>
+     */
+    public static long getBalance(ItemStack stack) {
+        if (isBound(stack)) return 0L;
+        String group = getLinkGroup(stack);
+        if (group != null) {
+            return CardAccountStore.get(group);
+        }
+        return getStoredEmc(stack);
+    }
+
+    // ==================== 卡属性（可见性 / 归属 / 关联） ====================
+
+    /** 是否私有卡（仅主人可充入/拿取） */
+    public static boolean isPrivate(ItemStack stack) {
+        return VISIBILITY_PRIVATE.equals(getVisibility(stack));
+    }
+
+    /** 是否公有卡（人人可用，默认） */
+    public static boolean isPublic(ItemStack stack) {
+        return !isPrivate(stack);
+    }
+
+    /** 返回可见性值（默认 public） */
+    public static String getVisibility(ItemStack stack) {
+        NbtCompound nbt = stack == null ? null : stack.getNbt();
+        if (nbt != null && nbt.contains(VISIBILITY_KEY)) {
+            return nbt.getString(VISIBILITY_KEY);
+        }
+        return VISIBILITY_PUBLIC;
+    }
+
+    /** 设置可见性；非 public 一律视为 private */
+    public static void setVisibility(ItemStack stack, boolean privateCard) {
+        if (stack == null || stack.isEmpty()) return;
+        stack.getOrCreateNbt().putString(VISIBILITY_KEY,
+                privateCard ? VISIBILITY_PRIVATE : VISIBILITY_PUBLIC);
+    }
+
+    /** 返回私有卡绑定的玩家 UUID（String），未私有时返回 null */
+    public static String getOwnerUuid(ItemStack stack) {
+        NbtCompound nbt = stack == null ? null : stack.getNbt();
+        if (nbt != null && nbt.contains(OWNER_UUID_KEY)) {
+            String s = nbt.getString(OWNER_UUID_KEY);
+            return s.isEmpty() ? null : s;
+        }
+        return null;
+    }
+
+    /** 绑定/清空私有卡主人 */
+    public static void setOwnerUuid(ItemStack stack, String ownerUuid) {
+        if (stack == null || stack.isEmpty()) return;
+        if (ownerUuid == null || ownerUuid.isEmpty()) {
+            stack.getOrCreateNbt().remove(OWNER_UUID_KEY);
+        } else {
+            stack.getOrCreateNbt().putString(OWNER_UUID_KEY, ownerUuid);
+        }
+    }
+
+    /** 返回卡的关联组 UUID（String），未关联返回 null */
+    public static String getLinkGroup(ItemStack stack) {
+        NbtCompound nbt = stack == null ? null : stack.getNbt();
+        if (nbt != null && nbt.contains(LINK_GROUP_KEY)) {
+            String s = nbt.getString(LINK_GROUP_KEY);
+            return s.isEmpty() ? null : s;
+        }
+        return null;
+    }
+
+    /** 设置/清除关联组 UUID */
+    public static void setLinkGroup(ItemStack stack, String groupId) {
+        if (stack == null || stack.isEmpty()) return;
+        if (groupId == null || groupId.isEmpty()) {
+            stack.getOrCreateNbt().remove(LINK_GROUP_KEY);
+        } else {
+            stack.getOrCreateNbt().putString(LINK_GROUP_KEY, groupId);
+        }
+    }
+
+    /** 某玩家是否可使用该卡（公有卡人人可用；私有卡仅主人可用） */
+    public static boolean canUse(ItemStack stack, net.minecraft.server.network.ServerPlayerEntity player) {
+        if (isPublic(stack)) return true;
+        String owner = getOwnerUuid(stack);
+        if (owner == null) return true; // 私有但无主人（异常态）放行，避免卡死
+        return owner.equalsIgnoreCase(player.getUuidAsString());
+    }
+
+    // ==================== 绑定（同步指定玩家 EMC） ====================
+
+    /** 是否已绑定玩家 */
+    public static boolean isBound(ItemStack stack) {
+        return getBindUuid(stack) != null;
+    }
+
+    /** 返回绑定的玩家 UUID（String），未绑定返回 null */
+    public static String getBindUuid(ItemStack stack) {
+        NbtCompound nbt = stack == null ? null : stack.getNbt();
+        if (nbt != null && nbt.contains(BIND_UUID_KEY)) {
+            String s = nbt.getString(BIND_UUID_KEY);
+            return s.isEmpty() ? null : s;
+        }
+        return null;
+    }
+
+    /** 设置/清除绑定玩家 UUID */
+    public static void setBindUuid(ItemStack stack, String uuid) {
+        if (stack == null || stack.isEmpty()) return;
+        if (uuid == null || uuid.isEmpty()) {
+            stack.getOrCreateNbt().remove(BIND_UUID_KEY);
+        } else {
+            stack.getOrCreateNbt().putString(BIND_UUID_KEY, uuid);
+        }
+    }
+
+    /** 单次支出限额（0 表示不限） */
+    public static long getBindSingleLimit(ItemStack stack) {
+        NbtCompound nbt = stack == null ? null : stack.getNbt();
+        if (nbt != null && nbt.contains(BIND_SINGLE_LIMIT_KEY)) {
+            long v = nbt.getLong(BIND_SINGLE_LIMIT_KEY);
+            return v > 0 ? v : 0L;
+        }
+        return 0L;
+    }
+
+    /** 设置单次支出限额（<=0 表示不限） */
+    public static void setBindSingleLimit(ItemStack stack, long limit) {
+        if (stack == null || stack.isEmpty()) return;
+        if (limit <= 0) {
+            stack.getOrCreateNbt().remove(BIND_SINGLE_LIMIT_KEY);
+        } else {
+            stack.getOrCreateNbt().putLong(BIND_SINGLE_LIMIT_KEY, limit);
+        }
+    }
+
+    /** 总额度限制（玩家 EMC 需保持的最小值；0 表示关闭） */
+    public static long getBindTotalLimit(ItemStack stack) {
+        NbtCompound nbt = stack == null ? null : stack.getNbt();
+        if (nbt != null && nbt.contains(BIND_TOTAL_LIMIT_KEY)) {
+            long v = nbt.getLong(BIND_TOTAL_LIMIT_KEY);
+            return v > 0 ? v : 0L;
+        }
+        return 0L;
+    }
+
+    /** 设置总额度限制（<=0 表示关闭） */
+    public static void setBindTotalLimit(ItemStack stack, long limit) {
+        if (stack == null || stack.isEmpty()) return;
+        if (limit <= 0) {
+            stack.getOrCreateNbt().remove(BIND_TOTAL_LIMIT_KEY);
+        } else {
+            stack.getOrCreateNbt().putLong(BIND_TOTAL_LIMIT_KEY, limit);
+        }
     }
 
     // ==================== 卡本身基础 EMC ====================
@@ -179,13 +361,23 @@ public class EmcCardItem extends CompatItem {
     @Override
     public void appendTooltip(ItemAppendTooltipEvent e) {
         long base = getBaseEmc();
-        long stored = getStoredEmc(e.getStack());
+        long stored = getBalance(e.getStack());
         e.addTooltip(TextUtil.translatable("itemalchemy-expansion.emc_card.tooltip.base",
                 TextUtil.literal(formatNumber(base))));
-        e.addTooltip(TextUtil.translatable("itemalchemy-expansion.emc_card.tooltip.stored",
-                TextUtil.literal(formatNumber(stored))));
-        e.addTooltip(TextUtil.translatable("itemalchemy-expansion.emc_card.tooltip.total",
-                TextUtil.literal(formatNumber(base + stored))));
+        if (isBound(e.getStack())) {
+            e.addTooltip(TextUtil.translatable("itemalchemy-expansion.emc_card.tooltip.bound"));
+        } else {
+            e.addTooltip(TextUtil.translatable("itemalchemy-expansion.emc_card.tooltip.stored",
+                    TextUtil.literal(formatNumber(stored))));
+            e.addTooltip(TextUtil.translatable("itemalchemy-expansion.emc_card.tooltip.total",
+                    TextUtil.literal(formatNumber(base + stored))));
+        }
+        if (isPrivate(e.getStack())) {
+            e.addTooltip(TextUtil.translatable("itemalchemy-expansion.emc_card.tooltip.private"));
+        }
+        if (getLinkGroup(e.getStack()) != null) {
+            e.addTooltip(TextUtil.translatable("itemalchemy-expansion.emc_card.tooltip.linked"));
+        }
         if (isQuickChargeEnabled(e.getStack())) {
             e.addTooltip(TextUtil.translatable("itemalchemy-expansion.emc_card.tooltip.quickcharge",
                     TextUtil.literal(formatNumber(getQuickChargeAmount(e.getStack())))));

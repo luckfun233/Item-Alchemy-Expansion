@@ -8,7 +8,6 @@
 		"MixinExtractInventory",
 		"MixinExtractSlot",
 		"MixinRemoveSlot",
-		"MixinAnvilScreenHandler",
 		"MixinAlchemyTableScreenHandler",
 		"MixinEMCManager",
 		"MixinPlayerRegisteredItemUtil"

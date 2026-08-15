@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "itemalchemy-expansion:block/emc_emitter"
+    }
+  }
+}

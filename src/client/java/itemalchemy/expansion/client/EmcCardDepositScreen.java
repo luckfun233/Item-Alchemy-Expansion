@@ -158,10 +158,6 @@ public class EmcCardDepositScreen extends Screen {
     }
 
     private long getCardEmc() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc == null || mc.player == null) return 0;
-        ItemStack mainHand = mc.player.getMainHandStack();
-        if (mainHand.isEmpty() || !(mainHand.getItem() instanceof EmcCardItem)) return 0;
-        return EmcCardItem.getStoredEmc(mainHand);
+        return EmcCardClientNetwork.getCardBalance();
     }
 }

@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "itemalchemy-expansion:block/emc_converter_side",
+    "down": "itemalchemy-expansion:block/emc_converter_bottom",
+    "up": "itemalchemy-expansion:block/emc_converter_top",
+    "north": "itemalchemy-expansion:block/emc_converter_side",
+    "south": "itemalchemy-expansion:block/emc_converter_side",
+    "east": "itemalchemy-expansion:block/emc_converter_side",
+    "west": "itemalchemy-expansion:block/emc_converter_side"
+  }
+}

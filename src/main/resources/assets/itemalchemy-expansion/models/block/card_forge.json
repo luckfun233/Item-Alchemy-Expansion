@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "itemalchemy-expansion:block/card_forge_side",
+    "down": "itemalchemy-expansion:block/card_forge_bottom",
+    "up": "itemalchemy-expansion:block/card_forge_top",
+    "north": "itemalchemy-expansion:block/card_forge_side",
+    "south": "itemalchemy-expansion:block/card_forge_side",
+    "east": "itemalchemy-expansion:block/card_forge_side",
+    "west": "itemalchemy-expansion:block/card_forge_side"
+  }
+}
