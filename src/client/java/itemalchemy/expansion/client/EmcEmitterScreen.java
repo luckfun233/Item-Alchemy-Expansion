@@ -167,6 +167,24 @@ public class EmcEmitterScreen extends SimpleInventoryScreen<EmcEmitterScreenHand
         this.selected = (newSelected == null || newSelected.isEmpty()) ? "" : newSelected;
     }
 
+    /** 服务端心跳下发的实时卡余额（自动化扣减/他人操作后保持显示一致） */
+    public void onBalanceReceived(long newBalance) {
+        this.balance = newBalance;
+    }
+
+    /** 余额心跳：约每秒请求一次，避免自动化扣减后余额显示陈旧 */
+    private long lastBalanceReqTime = 0;
+
+    private void tickBalance() {
+        var world = MinecraftClient.getInstance().world;
+        if (world == null) return;
+        long t = world.getTime();
+        if (t - lastBalanceReqTime >= 20) {
+            lastBalanceReqTime = t;
+            EmcAutoClientNetwork.sendBalanceRequest();
+        }
+    }
+
     /** 卡槽内容变化（放入/取出 EMC 卡）时重新请求，刷新余额显示。
      *  仅比较物品身份（空/非空、物品种类），避免普通卡 NBT 每次扣减触发整列表重发。 */
     private void refreshOnCardChange() {
@@ -264,6 +282,8 @@ public class EmcEmitterScreen extends SimpleInventoryScreen<EmcEmitterScreenHand
 
         // 卡槽内容变化时刷新余额（真实容器槽由原版同步，这里仅在变化时请求一次）
         refreshOnCardChange();
+        // 余额心跳：自动化扣减/他人操作后保持显示与服务端一致
+        tickBalance();
 
         // 卡余额（卡槽右侧）+ 输出方向（左列底部）。绑卡显示「已绑定 <名> · 余额」。
         ItemStack card = this.handler.getSlot(EmcEmitterBlockEntity.CARD_SLOT).getStack();

@@ -78,10 +78,15 @@ public class EmcConverterBlock extends CompatBlock implements ExtendBlockEntityP
     public @Nullable BlockState getPlacementState(PlacementStateArgs args) {
         BlockState state = super.getPlacementState(args);
         if (state == null) return null;
-        // 面向玩家视线方向（发射器式，含上下），供模型正面朝向
-        net.pitan76.mcpitanlib.midohra.util.math.Direction[] dirs = args.getPlacementDirections();
-        net.pitan76.mcpitanlib.midohra.util.math.Direction facing =
-                (dirs.length > 0) ? dirs[0] : net.pitan76.mcpitanlib.midohra.util.math.Direction.NORTH;
+        // 参考投掷器：正面朝向放置者视线方向（含俯仰），水平方向翻转 180°（正面面朝放置者）
+        net.pitan76.mcpitanlib.midohra.util.math.Direction facing;
+        try {
+            net.pitan76.mcpitanlib.midohra.util.math.Direction look =
+                    net.pitan76.mcpitanlib.midohra.util.math.Direction.of(args.getCtx().getPlayerLookDirection());
+            facing = look.isHorizontal() ? look.getOpposite() : look;
+        } catch (Throwable t) {
+            facing = net.pitan76.mcpitanlib.midohra.util.math.Direction.NORTH;
+        }
         return state.with(FACING, facing);
     }
 

@@ -115,12 +115,12 @@ public class EmcCardMainScreen extends Screen {
 
         if (bound) {
             String bindName = resolveBindName(mainHand);
-            drawDataRow(context, "itemalchemy-expansion.emc_card.bind.label",
-                    bindName, panelLeft, dataY, 0xFF40FF80, 0xFFE0FFC0);
+            // 已绑定：<名>。%s 在翻译键内，须传参渲染，否则会显示字面 %s
+            Text bindLabel = Text.translatable("itemalchemy-expansion.emc_card.bind.label", bindName);
+            context.drawText(this.textRenderer, bindLabel, panelLeft + PADDING, dataY, 0xFF40FF80, false);
+            // 绑定余额：同步绑定玩家的队 EMC（服务端下发的权威值）
             drawDataRow(context, "itemalchemy-expansion.emc_card.bind_emc",
                     EmcCardItem.formatNumber(cardEmc), panelLeft, dataY + LINE_HEIGHT + 8, 0xFF40A0FF, 0xFF60C0FF);
-            drawDataRow(context, "itemalchemy-expansion.emc_card.player_emc",
-                    EmcCardItem.formatNumber(playerEmc), panelLeft, dataY + (LINE_HEIGHT + 8) * 2, 0xFFC0C0C0, 0xFFFFFF55);
         } else {
             // 数据行：标签左对齐，数值右对齐（卡片本身价值不在此展示）
             drawDataRow(context, "itemalchemy-expansion.emc_card.card_emc",

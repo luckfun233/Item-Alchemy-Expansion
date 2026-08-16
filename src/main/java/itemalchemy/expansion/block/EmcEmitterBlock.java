@@ -58,10 +58,15 @@ public class EmcEmitterBlock extends CompatBlock implements ExtendBlockEntityPro
     public void onPlaced(BlockPlacedEvent event) {
         if (event.isClient()) return;
         if (event.getBlockEntity() instanceof EmcEmitterBlockEntity tile) {
-            // 面向玩家视线方向（发射器式，含上下），喷出方向与正面一致
+            // 直接取已放置状态的 FACING，保证喷口与模型正面一致
+            // （getPlacementDirections 在潜行等场景与视线方向可能不一致，勿各自取方向源）
             Direction dir = Direction.NORTH;
-            if (event.getPlacer() != null) {
-                dir = Direction.getEntityFacingOrder(event.getPlacer())[0];
+            try {
+                if (event.getState() != null) {
+                    Direction d = event.getState().get(FACING.getProperty());
+                    if (d != null) dir = d;
+                }
+            } catch (Throwable ignored) {
             }
             tile.setFacing(dir);
         }
@@ -94,10 +99,15 @@ public class EmcEmitterBlock extends CompatBlock implements ExtendBlockEntityPro
     public @Nullable BlockState getPlacementState(PlacementStateArgs args) {
         BlockState state = super.getPlacementState(args);
         if (state == null) return null;
-        // 面向玩家视线方向（发射器式，含上下），供模型正面朝向
-        net.pitan76.mcpitanlib.midohra.util.math.Direction[] dirs = args.getPlacementDirections();
-        net.pitan76.mcpitanlib.midohra.util.math.Direction facing =
-                (dirs.length > 0) ? dirs[0] : net.pitan76.mcpitanlib.midohra.util.math.Direction.NORTH;
+        // 参考投掷器：正面朝向放置者视线方向（含俯仰），水平方向翻转 180°（喷口面朝放置者）
+        net.pitan76.mcpitanlib.midohra.util.math.Direction facing;
+        try {
+            net.pitan76.mcpitanlib.midohra.util.math.Direction look =
+                    net.pitan76.mcpitanlib.midohra.util.math.Direction.of(args.getCtx().getPlayerLookDirection());
+            facing = look.isHorizontal() ? look.getOpposite() : look;
+        } catch (Throwable t) {
+            facing = net.pitan76.mcpitanlib.midohra.util.math.Direction.NORTH;
+        }
         return state.with(FACING, facing);
     }
 

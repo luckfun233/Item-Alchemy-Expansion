@@ -178,6 +178,14 @@ public final class IAExpConfigHolder {
             needsSave = true;
         }
 
+        // configVersion < 14: 默认工作模式改为脉冲（用户需求）
+        if (loaded.configVersion < 14) {
+            ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 14 (default mode -> pulse)", loaded.configVersion);
+            loaded.automationMode = IAExpConfig.AutomationMode.PULSE;
+            loaded.configVersion = 14;
+            needsSave = true;
+        }
+
         return loaded;
     }
 

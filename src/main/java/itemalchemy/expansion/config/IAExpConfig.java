@@ -46,8 +46,8 @@ public class IAExpConfig {
         @SerializedName("first") FIRST
     }
 
-    /** 配置版本号，用于旧配置自动升级。缺省（旧配置）视为 0，当前为 13。 */
-    public int configVersion = 13;
+    /** 配置版本号，用于旧配置自动升级。缺省（旧配置）视为 0，当前为 14。 */
+    public int configVersion = 14;
 
     /** 转换桌展示方式，默认 图标+名称 */
     public DisplayMode displayMode = DisplayMode.ICON_AND_NAME;
@@ -177,7 +177,7 @@ public class IAExpConfig {
      * 持续（CONTINUOUS）：有红石信号期间按 {@link #automationIntervalTicks} 间隔持续工作；
      * 脉冲（PULSE）：每次红石信号上升沿触发一件（类似投掷器，需高频信号，不持续运行）。
      */
-    public AutomationMode automationMode = AutomationMode.CONTINUOUS;
+    public AutomationMode automationMode = AutomationMode.PULSE;
 
     /** 返回一份副本（不修改本对象） */
     public IAExpConfig copy() {

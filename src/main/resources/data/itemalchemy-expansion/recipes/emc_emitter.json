@@ -1,22 +1,22 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    "IRI",
-    "DOD",
+    " P ",
+    "WDW",
     "III"
   ],
   "key": {
     "I": {
       "item": "minecraft:iron_ingot"
     },
-    "R": {
-      "item": "minecraft:redstone"
+    "W": {
+      "item": "minecraft:oak_planks"
     },
     "D": {
-      "item": "minecraft:diamond"
-    },
-    "O": {
       "item": "minecraft:dropper"
+    },
+    "P": {
+      "item": "itemalchemy:philosopher_stone"
     }
   },
   "result": {

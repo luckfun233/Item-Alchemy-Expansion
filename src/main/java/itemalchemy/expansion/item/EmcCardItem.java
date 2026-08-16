@@ -384,12 +384,15 @@ public class EmcCardItem extends CompatItem {
     @Override
     public void appendTooltip(ItemAppendTooltipEvent e) {
         long base = getBaseEmc();
-        long stored = getBalance(e.getStack());
         e.addTooltip(TextUtil.translatable("itemalchemy-expansion.emc_card.tooltip.base",
                 TextUtil.literal(formatNumber(base))));
         if (isBound(e.getStack())) {
             e.addTooltip(TextUtil.translatable("itemalchemy-expansion.emc_card.tooltip.bound"));
+        } else if (getLinkGroup(e.getStack()) != null) {
+            // 关联卡余额在服务端共享账户，客户端无从读取，不显示数字避免误导为 0
+            e.addTooltip(TextUtil.translatable("itemalchemy-expansion.emc_card.tooltip.stored_shared"));
         } else {
+            long stored = getStoredEmc(e.getStack());
             e.addTooltip(TextUtil.translatable("itemalchemy-expansion.emc_card.tooltip.stored",
                     TextUtil.literal(formatNumber(stored))));
             e.addTooltip(TextUtil.translatable("itemalchemy-expansion.emc_card.tooltip.total",

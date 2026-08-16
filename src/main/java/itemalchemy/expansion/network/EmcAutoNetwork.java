@@ -1,8 +1,10 @@
 package itemalchemy.expansion.network;
 
 import itemalchemy.expansion.ItemAlchemyExpansion;
+import itemalchemy.expansion.block.EmcConverterBlockEntity;
 import itemalchemy.expansion.block.EmcEmitterBlockEntity;
 import itemalchemy.expansion.config.IAExpConfigHolder;
+import itemalchemy.expansion.gui.EmcConverterScreenHandler;
 import itemalchemy.expansion.gui.EmcEmitterScreenHandler;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -41,6 +43,12 @@ public final class EmcAutoNetwork {
     /** C2S：配置保存后通知服务端同步自动装置合成配方（开关变更即时生效） */
     public static final Identifier CFG_SYNC_ID =
             new Identifier(ItemAlchemyExpansion.MOD_ID, "emc_auto_cfg_sync");
+    /** C2S：请求卡余额（轻量，GUI 心跳刷新用，避免整列表重发） */
+    public static final Identifier BALANCE_REQ_ID =
+            new Identifier(ItemAlchemyExpansion.MOD_ID, "emc_auto_balance_req");
+    /** S2C：下发当前卡余额 */
+    public static final Identifier BALANCE_S2C_ID =
+            new Identifier(ItemAlchemyExpansion.MOD_ID, "emc_auto_balance_s2c");
 
     private EmcAutoNetwork() {}
 
@@ -63,6 +71,31 @@ public final class EmcAutoNetwork {
                 }
             });
         });
+        ServerPlayNetworking.registerGlobalReceiver(BALANCE_REQ_ID, (server, player, handler, buf, responseSender) -> {
+            server.execute(() -> handleBalanceRequest(player));
+        });
+    }
+
+    /** 按当前打开的转能器/输出器菜单定位 tile，下发卡实时余额（GUI 心跳刷新用） */
+    private static void handleBalanceRequest(ServerPlayerEntity player) {
+        if (!IAExpConfigHolder.get().automationEnabled) return;
+        if (player.currentScreenHandler instanceof EmcEmitterScreenHandler sh) {
+            sendBalance(player, EmcCardBalanceUtil.getBalance(
+                    player.getServer(), sh.tile.getStack(EmcEmitterBlockEntity.CARD_SLOT)));
+        } else if (player.currentScreenHandler instanceof EmcConverterScreenHandler ch) {
+            sendBalance(player, EmcCardBalanceUtil.getBalance(
+                    player.getServer(), ch.tile.getStack(EmcConverterBlockEntity.CARD_SLOT)));
+        }
+    }
+
+    private static void sendBalance(ServerPlayerEntity player, long balance) {
+        try {
+            PacketByteBuf buf = PacketByteBufs.create();
+            buf.writeLong(balance);
+            ServerPlayNetworking.send(player, BALANCE_S2C_ID, buf);
+        } catch (Throwable t) {
+            ItemAlchemyExpansion.LOGGER.warn("[IAExp] emc auto: failed to send balance: {}", t.toString());
+        }
     }
 
     /** 通过当前打开的容器菜单定位输出器方块（菜单 canUse 已校验距离） */
@@ -120,7 +153,15 @@ public final class EmcAutoNetwork {
         }
 
         tile.setSelectedVariant(variant);
-        sendSelected(player, tile.getSelectedVariant() == null ? "" : tile.getSelectedVariant());
+        String sel = tile.getSelectedVariant() == null ? "" : tile.getSelectedVariant();
+        // 共享所选物品：广播给所有正打开同一输出器的玩家，避免不同玩家看到不同选择
+        for (ServerPlayerEntity p : player.getServer().getPlayerManager().getPlayerList()) {
+            if (p == player) continue;
+            if (p.currentScreenHandler instanceof EmcEmitterScreenHandler sh && sh.tile == tile) {
+                sendSelected(p, sel);
+            }
+        }
+        sendSelected(player, sel);
     }
 
     private static void sendSelected(ServerPlayerEntity player, String selected) {

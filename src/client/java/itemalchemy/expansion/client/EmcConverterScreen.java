@@ -3,6 +3,7 @@ package itemalchemy.expansion.client;
 import itemalchemy.expansion.ItemAlchemyExpansion;
 import itemalchemy.expansion.gui.EmcConverterScreenHandler;
 import itemalchemy.expansion.item.EmcCardItem;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.ItemStack;
@@ -12,6 +13,7 @@ import net.minecraft.util.Identifier;
 import net.pitan76.mcpitanlib.api.client.gui.screen.SimpleInventoryScreen;
 import net.pitan76.mcpitanlib.api.client.render.handledscreen.DrawBackgroundArgs;
 import net.pitan76.mcpitanlib.api.client.render.handledscreen.DrawForegroundArgs;
+import net.pitan76.mcpitanlib.api.client.render.handledscreen.RenderArgs;
 
 /**
  * EMC 转能器 GUI：4 输入槽 → 箭头 → EMC 卡槽 + 玩家物品栏，全部代码绘制（不依赖背景贴图）。
@@ -34,6 +36,27 @@ public class EmcConverterScreen extends SimpleInventoryScreen<EmcConverterScreen
         super(handler, inventory, title);
         setBackgroundWidth(BG_W);
         setBackgroundHeight(BG_H);
+        EmcAutoClientNetwork.attachConverter(this);
+    }
+
+    /** 服务端推送的卡实时余额（-1 = 尚未收到） */
+    private long serverBalance = -1L;
+    private long lastBalanceReqTime = 0;
+
+    /** 服务端心跳下发的实时卡余额 */
+    public void onBalanceReceived(long balance) {
+        this.serverBalance = balance;
+    }
+
+    /** 余额心跳：约每秒请求一次，自动化入账/他人操作后保持显示一致 */
+    private void tickBalance() {
+        var world = MinecraftClient.getInstance().world;
+        if (world == null) return;
+        long t = world.getTime();
+        if (t - lastBalanceReqTime >= 20) {
+            lastBalanceReqTime = t;
+            EmcAutoClientNetwork.sendBalanceRequest();
+        }
     }
 
     @Override
@@ -43,7 +66,20 @@ public class EmcConverterScreen extends SimpleInventoryScreen<EmcConverterScreen
 
     @Override
     public void initOverride() {
-        // nothing extra
+        // 打开即请求一次卡余额（关联卡余额在服务端共享账户，客户端卡 NBT 无此数据）
+        EmcAutoClientNetwork.sendBalanceRequest();
+    }
+
+    @Override
+    public void renderOverride(RenderArgs args) {
+        super.renderOverride(args);
+        tickBalance();
+    }
+
+    @Override
+    public void removedOverride() {
+        EmcAutoClientNetwork.detachConverter(this);
+        super.removedOverride();
     }
 
     @Override
@@ -103,8 +139,10 @@ public class EmcConverterScreen extends SimpleInventoryScreen<EmcConverterScreen
                             Text.literal(name == null ? "?" : name)),
                     this.width / 2, y + 75, TEXT_DIM);
         } else {
+            // 余额优先取服务端推送值：关联卡余额在服务端共享账户，客户端卡 NBT 读不到
+            long shown = serverBalance >= 0 ? serverBalance : EmcCardItem.getStoredEmc(card);
             Text balance = Text.translatable("itemalchemy-expansion.emc_converter.card_balance",
-                    Text.literal(EmcCardItem.formatNumber(EmcCardItem.getBalance(card))));
+                    Text.literal(EmcCardItem.formatNumber(shown)));
             ctx.drawCenteredTextWithShadow(this.textRenderer, balance, this.width / 2, y + 75, ACCENT_DARK);
         }
         ctx.drawCenteredTextWithShadow(this.textRenderer,

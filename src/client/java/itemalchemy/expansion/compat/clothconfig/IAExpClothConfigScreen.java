@@ -246,7 +246,7 @@ public final class IAExpClothConfigScreen {
         automation.addEntry(entries
                 .startEnumSelector(Text.translatable("itemalchemy-expansion.config.automationMode"),
                         IAExpConfig.AutomationMode.class, c.automationMode)
-                .setDefaultValue(IAExpConfig.AutomationMode.CONTINUOUS)
+                .setDefaultValue(IAExpConfig.AutomationMode.PULSE)
                 .setTooltip(Text.translatable("itemalchemy-expansion.config.automationMode.tooltip"))
                 .setEnumNameProvider(AUTOMATION_MODE_NAMING)
                 .setSaveConsumer(v -> c.automationMode = v)

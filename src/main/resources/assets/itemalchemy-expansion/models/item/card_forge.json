@@ -1,6 +1,3 @@
 {
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "itemalchemy-expansion:block/card_forge_item"
-  }
+  "parent": "itemalchemy-expansion:block/card_forge"
 }

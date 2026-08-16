@@ -1,10 +1,12 @@
 package itemalchemy.expansion.network;
 
+import itemalchemy.expansion.ItemAlchemyExpansion;
 import net.minecraft.server.MinecraftServer;
 import net.pitan76.itemalchemy.data.PlayerState;
 import net.pitan76.itemalchemy.data.ServerState;
 import net.pitan76.itemalchemy.data.TeamState;
 
+import java.lang.reflect.Method;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -18,13 +20,61 @@ public final class PlayerEmcUtil {
 
     private PlayerEmcUtil() {}
 
+    private static void log(String fmt, Object... args) {
+        // 诊断日志：仅 debugLogging 开启时输出（绑卡/自动装置高频调用下避免日志刷屏）
+        ItemAlchemyExpansion.debug("[IAExp-emc] " + fmt, args);
+    }
+
+    private static final String MCSERVER_CLASS = "net.pitan76.mcpitanlib.midohra.server.MCServer";
+
+    /** ServerState.of 反射句柄（1.1.3 收 MinecraftServer，1.3.3 改收 MCServer，见 AGENTS.md §4.1） */
+    private static Method serverStateOf;
+    /** 仅 1.3.3 路径需要：MCServer.of(MinecraftServer) 工厂 */
+    private static Method mcServerOf;
+    private static boolean ofTakesMCServer;
+    private static boolean ofResolved;
+
+    /**
+     * 跨版本获取 ServerState：直接按编译期签名调 {@code ServerState.of(MinecraftServer)} 在
+     * itemalchemy 1.3.3 下会 NoSuchMethodError（签名漂移为 {@code of(MCServer)}），导致绑卡
+     * 读写全部静默失败。此处反射适配两版，运行时 itemalchemy 为 1.1.3 或 1.3.3 均可。
+     */
+    private static ServerState resolveServerState(MinecraftServer server) {
+        if (server == null) return null;
+        try {
+            if (!ofResolved) {
+                try {
+                    serverStateOf = ServerState.class.getMethod("of", MinecraftServer.class);
+                    ofTakesMCServer = false;
+                } catch (NoSuchMethodException e) {
+                    Class<?> mc = Class.forName(MCSERVER_CLASS);
+                    mcServerOf = mc.getMethod("of", MinecraftServer.class);
+                    serverStateOf = ServerState.class.getMethod("of", mc);
+                    ofTakesMCServer = true;
+                }
+                ofResolved = true;
+            }
+            Object arg = ofTakesMCServer ? mcServerOf.invoke(null, server) : server;
+            return (ServerState) serverStateOf.invoke(null, arg);
+        } catch (Throwable t) {
+            log("resolveServerState({}) threw: {}", server, t.toString());
+            return null;
+        }
+    }
+
     /** 读取玩家 team EMC；玩家无队伍返回 0 */
     public static long getEmc(MinecraftServer server, UUID uuid) {
         if (server == null || uuid == null) return 0L;
         try {
-            ServerState state = ServerState.of(server);
-            return state.getTeamByPlayer(uuid).map(t -> t.storedEMC).orElse(0L);
+            ServerState state = resolveServerState(server);
+            if (state == null) return 0L;
+            Optional<TeamState> team = state.getTeamByPlayer(uuid);
+            long v = team.map(t -> t.storedEMC).orElse(0L);
+            log("getEmc({}) = {} | teamFound={} teams={} players={}",
+                    uuid, v, team.isPresent(), state.teams.size(), state.players.size());
+            return v;
         } catch (Throwable t) {
+            log("getEmc({}) threw: {}", uuid, t.toString());
             return 0L;
         }
     }
@@ -33,16 +83,22 @@ public final class PlayerEmcUtil {
     public static boolean hasTeam(MinecraftServer server, UUID uuid) {
         if (server == null || uuid == null) return false;
         try {
-            return ServerState.of(server).getTeamByPlayer(uuid).isPresent();
+            ServerState state = resolveServerState(server);
+            if (state == null) return false;
+            boolean found = state.getTeamByPlayer(uuid).isPresent();
+            log("hasTeam({}) = {} | teams={} players={}", uuid, found, state.teams.size(), state.players.size());
+            return found;
         } catch (Throwable t) {
+            log("hasTeam({}) threw: {}", uuid, t.toString());
             return false;
         }
     }
 
     /**
      * 确保目标玩家已有转换桌队伍；没有则创建默认队伍（0 EMC）。
-     * 用于绑卡：即使目标玩家从未用过转换桌，也能有一个可收支的 EMC 账户，
-     * 避免「绑卡放入转换器/输出器被阻塞、余额无处入账」。
+     *
+     * <p>若已有 PlayerState 但指向的 team 已失效（脏数据），复用该 PlayerState 并修正
+     * teamID，避免 {@code getPlayer} 用 {@code findFirst} 返回旧记录导致永远找不到。</p>
      *
      * @param name 队伍显示名（用于新建队伍；无名字时用 UUID 截断）
      * @return 是否确保存在队伍
@@ -50,29 +106,49 @@ public final class PlayerEmcUtil {
     public static boolean ensureTeam(MinecraftServer server, UUID uuid, String name) {
         if (server == null || uuid == null) return false;
         try {
-            ServerState state = ServerState.of(server);
+            ServerState state = resolveServerState(server);
             if (state == null) return false;
-            if (state.getTeamByPlayer(uuid).isPresent()) return true;
 
-            TeamState team = new TeamState();
-            team.name = (name == null || name.isEmpty()) ? uuid.toString().substring(0, 8) : name;
-            team.createdAt = System.currentTimeMillis();
-            team.teamID = UUID.randomUUID();
-            team.owner = uuid;
-            team.storedEMC = 0;
-            team.isDefault = true;
+            Optional<PlayerState> existing = state.getPlayer(uuid);
+            if (existing.isPresent()) {
+                if (state.getTeam(existing.get().teamID).isPresent()) {
+                    log("ensureTeam({}) already ok | teams={} players={}", uuid, state.teams.size(), state.players.size());
+                    return true;
+                }
+                // 残留 PlayerState 指向失效 team：复用并修正 teamID
+                TeamState nt = newTeam(uuid, name);
+                state.teams.add(nt);
+                existing.get().teamID = nt.teamID;
+                state.callMarkDirty();
+                log("ensureTeam({}) repaired dangling PlayerState -> {}", uuid, nt.teamID);
+                return true;
+            }
 
+            // 全新创建
+            TeamState nt = newTeam(uuid, name);
             PlayerState ps = new PlayerState();
             ps.playerUUID = uuid;
-            ps.teamID = team.teamID;
-
-            state.teams.add(team);
+            ps.teamID = nt.teamID;
+            state.teams.add(nt);
             state.players.add(ps);
             state.callMarkDirty();
+            log("ensureTeam({}) created team {} | teams={} players={}", uuid, nt.teamID, state.teams.size(), state.players.size());
             return true;
         } catch (Throwable t) {
+            log("ensureTeam({}) threw: {}", uuid, t.toString());
             return false;
         }
+    }
+
+    private static TeamState newTeam(UUID uuid, String name) {
+        TeamState team = new TeamState();
+        team.name = (name == null || name.isEmpty()) ? uuid.toString().substring(0, 8) : name;
+        team.createdAt = System.currentTimeMillis();
+        team.teamID = UUID.randomUUID();
+        team.owner = uuid;
+        team.storedEMC = 0;
+        team.isDefault = true;
+        return team;
     }
 
     /**
@@ -84,13 +160,17 @@ public final class PlayerEmcUtil {
     public static boolean add(MinecraftServer server, UUID uuid, long amount) {
         if (server == null || uuid == null || amount <= 0) return false;
         try {
-            ServerState state = ServerState.of(server);
+            ServerState state = resolveServerState(server);
+            if (state == null) return false;
             Optional<TeamState> team = state.getTeamByPlayer(uuid);
+            log("add({}, {}) | teamFound={} teams={} players={}",
+                    uuid, amount, team.isPresent(), state.teams.size(), state.players.size());
             if (!team.isPresent()) return false;
             team.get().storedEMC += amount;
             state.callMarkDirty();
             return true;
         } catch (Throwable t) {
+            log("add({}, {}) threw: {}", uuid, amount, t.toString());
             return false;
         }
     }
@@ -99,7 +179,8 @@ public final class PlayerEmcUtil {
     public static boolean subtract(MinecraftServer server, UUID uuid, long amount) {
         if (server == null || uuid == null || amount <= 0) return false;
         try {
-            ServerState state = ServerState.of(server);
+            ServerState state = resolveServerState(server);
+            if (state == null) return false;
             Optional<TeamState> team = state.getTeamByPlayer(uuid);
             if (!team.isPresent()) return false;
             TeamState ts = team.get();
@@ -108,6 +189,7 @@ public final class PlayerEmcUtil {
             state.callMarkDirty();
             return true;
         } catch (Throwable t) {
+            log("subtract({}, {}) threw: {}", uuid, amount, t.toString());
             return false;
         }
     }

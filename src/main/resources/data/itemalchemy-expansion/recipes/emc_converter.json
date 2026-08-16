@@ -1,22 +1,22 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    "IEI",
-    "RHR",
+    " P ",
+    "WRW",
     "III"
   ],
   "key": {
     "I": {
       "item": "minecraft:iron_ingot"
     },
-    "E": {
-      "item": "minecraft:emerald"
+    "W": {
+      "item": "minecraft:oak_planks"
     },
     "R": {
       "item": "minecraft:redstone"
     },
-    "H": {
-      "item": "minecraft:hopper"
+    "P": {
+      "item": "itemalchemy:philosopher_stone"
     }
   },
   "result": {

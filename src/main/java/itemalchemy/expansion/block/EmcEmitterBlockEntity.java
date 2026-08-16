@@ -1,6 +1,7 @@
 package itemalchemy.expansion.block;
 
 import itemalchemy.expansion.IAExpServices;
+import itemalchemy.expansion.ItemAlchemyExpansion;
 import itemalchemy.expansion.config.IAExpConfig;
 import itemalchemy.expansion.config.IAExpConfigHolder;
 import itemalchemy.expansion.gui.EmcEmitterScreenHandler;
@@ -98,6 +99,24 @@ public class EmcEmitterBlockEntity extends CompatBlockEntity
         markDirty();
     }
 
+    /**
+     * 喷出方向：优先取方块状态 FACING（与模型正面一致，旧存档也正确），
+     * 读取失败时回退到存储值。
+     */
+    private Direction effectiveFacing() {
+        try {
+            if (world != null) {
+                BlockState bs = world.getBlockState(getPos());
+                if (bs != null && bs.getBlock() instanceof EmcEmitterBlock) {
+                    Direction d = bs.get(EmcEmitterBlock.FACING.getProperty());
+                    if (d != null) return d;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return facing;
+    }
+
     // ==================== tick ====================
 
     @Override
@@ -128,25 +147,48 @@ public class EmcEmitterBlockEntity extends CompatBlockEntity
         eject();
     }
 
+    private static void log(String fmt, Object... args) {
+        // 诊断日志：仅 debugLogging 开启时输出（高频红石下避免每 tick 刷日志）
+        ItemAlchemyExpansion.debug("[IAExp-eject] " + fmt, args);
+    }
+
     /** 扣除 EMC 并按朝向喷出所选物品 */
     private void eject() {
         ItemStack card = slots[CARD_SLOT];
-        if (card.isEmpty() || !(card.getItem() instanceof EmcCardItem)) return;
-        if (selectedVariant == null) return;
+        if (card.isEmpty() || !(card.getItem() instanceof EmcCardItem)) {
+            log("eject skipped: no card (empty={})", card.isEmpty());
+            return;
+        }
+        if (selectedVariant == null) {
+            log("eject skipped: no selected variant");
+            return;
+        }
 
         ItemVariantKey vk = ItemVariantKey.fromStorageString(selectedVariant);
-        if (vk == null) return;
+        if (vk == null) {
+            log("eject skipped: bad variant '{}'", selectedVariant);
+            return;
+        }
         ItemStack out = IAExpServices.rebuildStack(vk);
-        if (out.isEmpty()) return;
+        if (out.isEmpty()) {
+            log("eject skipped: rebuild empty for '{}'", selectedVariant);
+            return;
+        }
 
         long cost = EMCManager.get(out);
-        if (cost <= 0) return;
-        if (!EmcCardBalanceUtil.subtract(getServerWorld().getServer(), card, cost)) return;
+        if (cost <= 0) {
+            log("eject skipped: emc<=0 for '{}'", selectedVariant);
+            return;
+        }
+        if (!EmcCardBalanceUtil.subtract(getServerWorld().getServer(), card, cost)) {
+            log("eject skipped: subtract failed, cost={}, bound={}", cost, EmcCardItem.getBindUuid(card) != null);
+            return;
+        }
 
         World world = getWorld();
         if (world == null) return;
         BlockPos pos = getPos();
-        Direction dir = facing;
+        Direction dir = effectiveFacing();
 
         // 生成位置：沿朝向偏移到方块面外（竖直朝向用较小偏移，避免嵌入相邻方块）
         double hOff = dir.getAxis().isHorizontal() ? 0.7 : 0.4;
