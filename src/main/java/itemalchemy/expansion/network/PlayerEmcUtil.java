@@ -1,6 +1,7 @@
 package itemalchemy.expansion.network;
 
 import net.minecraft.server.MinecraftServer;
+import net.pitan76.itemalchemy.data.PlayerState;
 import net.pitan76.itemalchemy.data.ServerState;
 import net.pitan76.itemalchemy.data.TeamState;
 
@@ -25,6 +26,52 @@ public final class PlayerEmcUtil {
             return state.getTeamByPlayer(uuid).map(t -> t.storedEMC).orElse(0L);
         } catch (Throwable t) {
             return 0L;
+        }
+    }
+
+    /** 玩家是否已有转换桌队伍（绑卡前置条件：无队伍时卡无法接收/支出 EMC） */
+    public static boolean hasTeam(MinecraftServer server, UUID uuid) {
+        if (server == null || uuid == null) return false;
+        try {
+            return ServerState.of(server).getTeamByPlayer(uuid).isPresent();
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /**
+     * 确保目标玩家已有转换桌队伍；没有则创建默认队伍（0 EMC）。
+     * 用于绑卡：即使目标玩家从未用过转换桌，也能有一个可收支的 EMC 账户，
+     * 避免「绑卡放入转换器/输出器被阻塞、余额无处入账」。
+     *
+     * @param name 队伍显示名（用于新建队伍；无名字时用 UUID 截断）
+     * @return 是否确保存在队伍
+     */
+    public static boolean ensureTeam(MinecraftServer server, UUID uuid, String name) {
+        if (server == null || uuid == null) return false;
+        try {
+            ServerState state = ServerState.of(server);
+            if (state == null) return false;
+            if (state.getTeamByPlayer(uuid).isPresent()) return true;
+
+            TeamState team = new TeamState();
+            team.name = (name == null || name.isEmpty()) ? uuid.toString().substring(0, 8) : name;
+            team.createdAt = System.currentTimeMillis();
+            team.teamID = UUID.randomUUID();
+            team.owner = uuid;
+            team.storedEMC = 0;
+            team.isDefault = true;
+
+            PlayerState ps = new PlayerState();
+            ps.playerUUID = uuid;
+            ps.teamID = team.teamID;
+
+            state.teams.add(team);
+            state.players.add(ps);
+            state.callMarkDirty();
+            return true;
+        } catch (Throwable t) {
+            return false;
         }
     }
 

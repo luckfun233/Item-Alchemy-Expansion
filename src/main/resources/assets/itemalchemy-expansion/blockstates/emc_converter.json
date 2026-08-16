@@ -1,7 +1,10 @@
 {
   "variants": {
-    "": {
-      "model": "itemalchemy-expansion:block/emc_converter"
-    }
+    "facing=down": { "model": "itemalchemy-expansion:block/emc_converter", "x": 90 },
+    "facing=up":   { "model": "itemalchemy-expansion:block/emc_converter", "x": 270 },
+    "facing=north":{ "model": "itemalchemy-expansion:block/emc_converter" },
+    "facing=south":{ "model": "itemalchemy-expansion:block/emc_converter", "y": 180 },
+    "facing=west": { "model": "itemalchemy-expansion:block/emc_converter", "y": 270 },
+    "facing=east": { "model": "itemalchemy-expansion:block/emc_converter", "y": 90 }
   }
 }

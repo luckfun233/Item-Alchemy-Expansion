@@ -61,7 +61,13 @@ public class CardForgeBlock extends CompatBlock implements ExtendBlockEntityProv
 
     @Override
     public VoxelShape getOutlineShape(net.pitan76.mcpitanlib.api.block.args.v2.OutlineShapeEvent e) {
-        return VoxelShapeUtil.cuboid(0, 0, 0, 1, 0.75, 1);
+        return VoxelShapeUtil.cuboid(0, 0, 0, 1, 1, 1);
+    }
+
+    @Override
+    public VoxelShape getCollisionShape(net.pitan76.mcpitanlib.api.block.args.v2.CollisionShapeEvent e) {
+        // 满方块碰撞：保证按钮/拉杆等可附着在六个面上
+        return VoxelShapeUtil.cuboid(0, 0, 0, 1, 1, 1);
     }
 
     @Override

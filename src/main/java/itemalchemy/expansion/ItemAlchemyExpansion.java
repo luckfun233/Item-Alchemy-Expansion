@@ -7,6 +7,7 @@ import itemalchemy.expansion.config.IAExpConfig;
 import itemalchemy.expansion.config.IAExpConfigHolder;
 import itemalchemy.expansion.gui.CardForgeScreenHandlers;
 import itemalchemy.expansion.gui.EmcConverterScreenHandlers;
+import itemalchemy.expansion.gui.EmcEmitterScreenHandlers;
 import itemalchemy.expansion.item.IAExpItems;
 import itemalchemy.expansion.network.AutoEmcStore;
 import itemalchemy.expansion.network.CardAccountStore;
@@ -50,6 +51,7 @@ public class ItemAlchemyExpansion implements ModInitializer {
 		EmcAutoBlocks.init();
 		CardForgeScreenHandlers.init();
 		EmcConverterScreenHandlers.init();
+		EmcEmitterScreenHandlers.init();
 
 		// 制卡台加入 Item Alchemy 创造物品栏
 		try {
@@ -60,18 +62,17 @@ public class ItemAlchemyExpansion implements ModInitializer {
 			LOGGER.warn("[IAExp] Failed to register card forge in item group: {}", t.toString());
 		}
 
-		// 自动装置加入创造物品栏（总开关关闭时不在物品栏出现）
-		if (IAExpConfigHolder.get().automationEnabled) {
-			try {
-				ItemGroupEvents.modifyEntriesEvent(
-						RegistryKey.of(RegistryKeys.ITEM_GROUP, new Identifier("itemalchemy", "item_alchemy")))
-						.register(entries -> {
-							entries.add(new ItemStack(EmcAutoBlocks.CONVERTER_ITEM));
-							entries.add(new ItemStack(EmcAutoBlocks.EMITTER_ITEM));
-						});
-			} catch (Throwable t) {
-				LOGGER.warn("[IAExp] Failed to register automation blocks in item group: {}", t.toString());
-			}
+		// 自动装置加入创造物品栏（总开关关闭时不出现在物品栏；回调内运行时判定，reload 后即时生效）
+		try {
+			ItemGroupEvents.modifyEntriesEvent(
+					RegistryKey.of(RegistryKeys.ITEM_GROUP, new Identifier("itemalchemy", "item_alchemy")))
+					.register(entries -> {
+						if (!IAExpConfigHolder.get().automationEnabled) return;
+						entries.add(new ItemStack(EmcAutoBlocks.CONVERTER_ITEM));
+						entries.add(new ItemStack(EmcAutoBlocks.EMITTER_ITEM));
+					});
+		} catch (Throwable t) {
+			LOGGER.warn("[IAExp] Failed to register automation blocks in item group: {}", t.toString());
 		}
 
 		SetEmcNetwork.registerServer();

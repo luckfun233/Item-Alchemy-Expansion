@@ -11,8 +11,11 @@ import net.pitan76.mcpitanlib.api.block.ExtendBlockEntityProvider;
 import net.pitan76.mcpitanlib.api.block.args.v2.PlacementStateArgs;
 import net.pitan76.mcpitanlib.api.block.v2.CompatBlock;
 import net.pitan76.mcpitanlib.api.block.v2.CompatibleBlockSettings;
+import net.pitan76.mcpitanlib.api.event.block.AppendPropertiesArgs;
 import net.pitan76.mcpitanlib.api.event.block.BlockUseEvent;
 import net.pitan76.mcpitanlib.api.event.block.StateReplacedEvent;
+import net.pitan76.mcpitanlib.api.state.property.CompatProperties;
+import net.pitan76.mcpitanlib.api.state.property.DirectionProperty;
 import net.pitan76.mcpitanlib.api.util.CompatActionResult;
 import net.pitan76.mcpitanlib.api.util.VoxelShapeUtil;
 import net.pitan76.mcpitanlib.core.serialization.CompatMapCodec;
@@ -22,15 +25,25 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * EMC 转能器方块：漏斗输入物品，有红石信号时转换为 EMC 存入卡内。
- * 自动装置总开关关闭时右键提示且不可用。
+ * 自动装置总开关关闭时右键提示且不可用。放置朝向为玩家视线方向（类似发射器，纯装饰）。
  */
 public class EmcConverterBlock extends CompatBlock implements ExtendBlockEntityProvider {
+
+    /** 摆放朝向（全向，纯装饰，用于模型正面朝向） */
+    public static final DirectionProperty FACING = CompatProperties.FACING;
 
     protected final CompatMapCodec<? extends CompatBlock> codec =
             CompatBlockMapCodecUtil.createCodec(EmcConverterBlock::new);
 
     public EmcConverterBlock(CompatibleBlockSettings settings) {
         super(settings);
+        setDefaultState(getDefaultMidohraState().with(FACING, net.pitan76.mcpitanlib.midohra.util.math.Direction.NORTH));
+    }
+
+    @Override
+    public void appendProperties(AppendPropertiesArgs args) {
+        args.addProperty(FACING);
+        super.appendProperties(args);
     }
 
     @Override
@@ -63,12 +76,24 @@ public class EmcConverterBlock extends CompatBlock implements ExtendBlockEntityP
 
     @Override
     public @Nullable BlockState getPlacementState(PlacementStateArgs args) {
-        return super.getPlacementState(args);
+        BlockState state = super.getPlacementState(args);
+        if (state == null) return null;
+        // 面向玩家视线方向（发射器式，含上下），供模型正面朝向
+        net.pitan76.mcpitanlib.midohra.util.math.Direction[] dirs = args.getPlacementDirections();
+        net.pitan76.mcpitanlib.midohra.util.math.Direction facing =
+                (dirs.length > 0) ? dirs[0] : net.pitan76.mcpitanlib.midohra.util.math.Direction.NORTH;
+        return state.with(FACING, facing);
     }
 
     @Override
     public VoxelShape getOutlineShape(net.pitan76.mcpitanlib.api.block.args.v2.OutlineShapeEvent e) {
-        return VoxelShapeUtil.cuboid(0, 0, 0, 1, 0.75, 1);
+        return VoxelShapeUtil.cuboid(0, 0, 0, 1, 1, 1);
+    }
+
+    @Override
+    public VoxelShape getCollisionShape(net.pitan76.mcpitanlib.api.block.args.v2.CollisionShapeEvent e) {
+        // 满方块碰撞：保证按钮/拉杆等可附着在六个面上
+        return VoxelShapeUtil.cuboid(0, 0, 0, 1, 1, 1);
     }
 
     @Override

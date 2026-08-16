@@ -4,7 +4,7 @@
     "particle": "itemalchemy-expansion:block/emc_emitter_side",
     "down": "itemalchemy-expansion:block/emc_emitter_bottom",
     "up": "itemalchemy-expansion:block/emc_emitter_top",
-    "north": "itemalchemy-expansion:block/emc_emitter_side",
+    "north": "itemalchemy-expansion:block/emc_emitter_front",
     "south": "itemalchemy-expansion:block/emc_emitter_side",
     "east": "itemalchemy-expansion:block/emc_emitter_side",
     "west": "itemalchemy-expansion:block/emc_emitter_side"

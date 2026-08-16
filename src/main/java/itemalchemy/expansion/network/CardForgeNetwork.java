@@ -271,17 +271,21 @@ public final class CardForgeNetwork {
             return;
         }
         String uuid = profile.get().getId().toString();
-        // 卡内原余额转入绑定玩家 EMC，避免绑定后"消失"
+        // 确保目标玩家有转换桌队伍：没有则创建默认队伍（0 EMC）。
+        // 否则绑卡放入转换器/输出器会因无处入账而静默失败。
+        if (!PlayerEmcUtil.ensureTeam(player.getServer(), java.util.UUID.fromString(uuid), profile.get().getName())) {
+            msg(player, "card_forge.bind.no_team", Text.literal(profile.get().getName()));
+            return;
+        }
+        // 卡内原余额转入绑定玩家 EMC，避免绑定后"消失"（ensureTeam 已保证可入账）
         long stored = EmcCardItem.getStoredEmc(card);
         if (stored > 0) {
-            // 入账失败（目标玩家无队伍数据）时拒绝绑定，否则卡内余额会被凭空清零
-            if (!PlayerEmcUtil.add(player.getServer(), java.util.UUID.fromString(uuid), stored)) {
-                msg(player, "card_forge.bind.no_team", Text.literal(profile.get().getName()));
-                return;
-            }
+            PlayerEmcUtil.add(player.getServer(), java.util.UUID.fromString(uuid), stored);
             EmcCardItem.setStoredEmc(card, 0);
         }
         EmcCardItem.setBindUuid(card, uuid);
+        // 记录玩家名供界面离线显示（不参与判定）
+        EmcCardItem.setBindName(card, profile.get().getName());
         // 绑定后默认自动设为私有，绑定给该玩家
         EmcCardItem.setVisibility(card, true);
         EmcCardItem.setOwnerUuid(card, uuid);
@@ -299,6 +303,7 @@ public final class CardForgeNetwork {
             return;
         }
         EmcCardItem.setBindUuid(card, null);
+        EmcCardItem.setBindName(card, null);
         EmcCardItem.setBindSingleLimit(card, 0);
         EmcCardItem.setBindTotalLimit(card, 0);
         // 解除绑定同时清理自动设置的私有

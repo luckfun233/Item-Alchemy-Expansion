@@ -1,7 +1,9 @@
 package itemalchemy.expansion.block;
 
 import itemalchemy.expansion.IAExpServices;
+import itemalchemy.expansion.config.IAExpConfig;
 import itemalchemy.expansion.config.IAExpConfigHolder;
+import itemalchemy.expansion.gui.EmcEmitterScreenHandler;
 import itemalchemy.expansion.item.EmcCardItem;
 import itemalchemy.expansion.nbt.ItemVariantKey;
 import itemalchemy.expansion.network.EmcCardBalanceUtil;
@@ -13,16 +15,21 @@ import net.minecraft.inventory.Inventory;
 import net.minecraft.inventory.SidedInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.screen.ScreenHandler;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.world.World;
 import net.pitan76.itemalchemy.EMCManager;
 import net.pitan76.mcpitanlib.api.event.block.TileCreateEvent;
+import net.pitan76.mcpitanlib.api.event.container.factory.DisplayNameArgs;
 import net.pitan76.mcpitanlib.api.event.nbt.ReadNbtArgs;
 import net.pitan76.mcpitanlib.api.event.nbt.WriteNbtArgs;
 import net.pitan76.mcpitanlib.api.event.tile.TileTickEvent;
+import net.pitan76.mcpitanlib.api.gui.args.CreateMenuEvent;
+import net.pitan76.mcpitanlib.api.gui.v2.SimpleScreenHandlerFactory;
 import net.pitan76.mcpitanlib.api.tile.CompatBlockEntity;
 import net.pitan76.mcpitanlib.api.tile.ExtendBlockEntityTicker;
+import net.pitan76.mcpitanlib.api.util.TextUtil;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -32,7 +39,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>所选物品存于方块 NBT（共享），他人打开可见同一设置。自动装置总开关关闭时 tick 直接返回。</p>
  */
 public class EmcEmitterBlockEntity extends CompatBlockEntity
-        implements Inventory, SidedInventory, ExtendBlockEntityTicker<EmcEmitterBlockEntity> {
+        implements Inventory, SidedInventory, ExtendBlockEntityTicker<EmcEmitterBlockEntity>, SimpleScreenHandlerFactory {
 
     public static final int SLOT_COUNT = 1;
     public static final int CARD_SLOT = 0;
@@ -49,6 +56,12 @@ public class EmcEmitterBlockEntity extends CompatBlockEntity
     private final ItemStack[] slots = new ItemStack[SLOT_COUNT];
     private String selectedVariant = null;
     private Direction facing = Direction.UP;
+
+    /** 有红石信号期间的 tick 计数，按 {@code automationIntervalTicks} 降频 */
+    private int workTicks = 0;
+
+    /** 上一 tick 是否有红石信号（脉冲模式判断上升沿用） */
+    private boolean wasPowered = false;
 
     public EmcEmitterBlockEntity(BlockEntityType<?> type, TileCreateEvent event) {
         super(type, event);
@@ -93,7 +106,25 @@ public class EmcEmitterBlockEntity extends CompatBlockEntity
         if (!IAExpConfigHolder.get().automationEnabled) return;
         if (!hasServerWorld()) return;
         World world = event.getWorld();
-        if (world == null || !world.isReceivingRedstonePower(getPos())) return;
+        if (world == null) return;
+        IAExpConfig cfg = IAExpConfigHolder.get();
+        boolean powered = world.isReceivingRedstonePower(getPos());
+        if (cfg.automationMode == IAExpConfig.AutomationMode.PULSE) {
+            // 脉冲模式：每次信号上升沿触发一件（类似投掷器，需高频信号，不持续运行）
+            if (powered) {
+                if (!wasPowered) {
+                    wasPowered = true;
+                    eject();
+                }
+            } else {
+                wasPowered = false;
+            }
+            return;
+        }
+        // 持续模式：有信号期间按间隔工作
+        if (!powered) return;
+        int interval = Math.max(1, cfg.automationIntervalTicks);
+        if (++workTicks % interval != 0) return;
         eject();
     }
 
@@ -244,5 +275,18 @@ public class EmcEmitterBlockEntity extends CompatBlockEntity
             Direction d = Direction.byName(nbt.getString(FACING_KEY));
             facing = (d == null) ? Direction.UP : d;
         }
+    }
+
+    // ==================== SimpleScreenHandlerFactory ====================
+
+    @Nullable
+    @Override
+    public ScreenHandler createMenu(CreateMenuEvent e) {
+        return new EmcEmitterScreenHandler(e, this);
+    }
+
+    @Override
+    public net.minecraft.text.Text getDisplayName(DisplayNameArgs args) {
+        return TextUtil.translatable("block.itemalchemy-expansion.emc_emitter");
     }
 }

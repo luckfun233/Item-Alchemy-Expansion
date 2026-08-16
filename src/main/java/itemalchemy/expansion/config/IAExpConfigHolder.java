@@ -161,6 +161,23 @@ public final class IAExpConfigHolder {
             needsSave = true;
         }
 
+        // configVersion < 12: 新增自动装置工作间隔。Gson Unsafe 会把 int 零初始化为 0，
+        // 0 会导致每 tick 取模异常，故 <=0 时补默认值
+        if (loaded.configVersion < 12) {
+            ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 12 (add automation interval)", loaded.configVersion);
+            if (loaded.automationIntervalTicks <= 0) loaded.automationIntervalTicks = def.automationIntervalTicks;
+            loaded.configVersion = 12;
+            needsSave = true;
+        }
+
+        // configVersion < 13: 新增自动装置工作模式。Gson 缺省时枚举为 null，需补默认持续模式
+        if (loaded.configVersion < 13) {
+            ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 13 (add automation mode)", loaded.configVersion);
+            if (loaded.automationMode == null) loaded.automationMode = def.automationMode;
+            loaded.configVersion = 13;
+            needsSave = true;
+        }
+
         return loaded;
     }
 

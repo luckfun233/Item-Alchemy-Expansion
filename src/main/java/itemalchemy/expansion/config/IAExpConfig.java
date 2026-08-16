@@ -20,6 +20,12 @@ public class IAExpConfig {
         @SerializedName("icon_and_name") ICON_AND_NAME
     }
 
+    /** 自动装置工作模式 */
+    public enum AutomationMode {
+        @SerializedName("continuous") CONTINUOUS,
+        @SerializedName("pulse") PULSE
+    }
+
     /** 潜影盒功能开关 */
     public enum ShulkerBoxMode {
         @SerializedName("allow") ALLOW,
@@ -40,8 +46,8 @@ public class IAExpConfig {
         @SerializedName("first") FIRST
     }
 
-    /** 配置版本号，用于旧配置自动升级。缺省（旧配置）视为 0，当前为 11。 */
-    public int configVersion = 11;
+    /** 配置版本号，用于旧配置自动升级。缺省（旧配置）视为 0，当前为 13。 */
+    public int configVersion = 13;
 
     /** 转换桌展示方式，默认 图标+名称 */
     public DisplayMode displayMode = DisplayMode.ICON_AND_NAME;
@@ -159,6 +165,20 @@ public class IAExpConfig {
      */
     public boolean automationEnabled = true;
 
+    /**
+     * 自动装置工作间隔（tick，默认 5）。
+     * 持续模式下转换器/输出器每 N 个（有红石信号的）tick 才处理一件物品，降低吞吐防刷屏。
+     * 原为每 tick 一件（20/秒），默认降为约 4 件/秒。脉冲模式下该值不生效（每次信号触发一件）。
+     */
+    public int automationIntervalTicks = 5;
+
+    /**
+     * 自动装置工作模式（默认 持续）。
+     * 持续（CONTINUOUS）：有红石信号期间按 {@link #automationIntervalTicks} 间隔持续工作；
+     * 脉冲（PULSE）：每次红石信号上升沿触发一件（类似投掷器，需高频信号，不持续运行）。
+     */
+    public AutomationMode automationMode = AutomationMode.CONTINUOUS;
+
     /** 返回一份副本（不修改本对象） */
     public IAExpConfig copy() {
         IAExpConfig c = new IAExpConfig();
@@ -182,6 +202,8 @@ public class IAExpConfig {
         c.autoPricingRepricePromptShown = autoPricingRepricePromptShown;
         c.featureNoticeShown = featureNoticeShown;
         c.automationEnabled = automationEnabled;
+        c.automationIntervalTicks = automationIntervalTicks;
+        c.automationMode = automationMode;
         return c;
     }
 }

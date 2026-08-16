@@ -33,22 +33,19 @@ public final class EmcAutoClientNetwork {
         if (activeScreen == screen) activeScreen = null;
     }
 
-    /** 客户端请求打开者的转换桌列表（C2S） */
-    public static void sendRequest(long pos) {
+    /** 客户端请求打开者的转换桌列表（C2S，无载荷；服务端按当前打开的输出器菜单定位） */
+    public static void sendRequest() {
         try {
-            PacketByteBuf buf = PacketByteBufs.create();
-            buf.writeLong(pos);
-            ClientPlayNetworking.send(EmcAutoNetwork.REQ_ID, buf);
+            ClientPlayNetworking.send(EmcAutoNetwork.REQ_ID, PacketByteBufs.create());
         } catch (Throwable t) {
             ItemAlchemyExpansion.LOGGER.warn("[IAExp] emc emitter: failed to send list request: {}", t.toString());
         }
     }
 
     /** 客户端设置所选物品（variant 为 null 表示清除） */
-    public static void sendSet(long pos, String variant) {
+    public static void sendSet(String variant) {
         try {
             PacketByteBuf buf = PacketByteBufs.create();
-            buf.writeLong(pos);
             buf.writeBoolean(variant != null && !variant.isEmpty());
             if (variant != null && !variant.isEmpty()) {
                 buf.writeString(variant);
@@ -59,28 +56,28 @@ public final class EmcAutoClientNetwork {
         }
     }
 
-    /** 注册 S2C 接收器：打开界面 / 下发列表 / 更新所选 */
-    public static void registerClientReceiver() {
-        ClientPlayNetworking.registerGlobalReceiver(EmcAutoNetwork.OPEN_ID,
-                (client, handler, buf, responseSender) -> {
-                    final long pos = buf.readLong();
-                    client.execute(() -> {
-                        try {
-                            MinecraftClient mc = MinecraftClient.getInstance();
-                            if (mc == null || mc.player == null) return;
-                            mc.setScreen(new EmcEmitterScreen(pos, true));
-                        } catch (Throwable t) {
-                            ItemAlchemyExpansion.LOGGER.warn("[IAExp] failed to open emc emitter screen: {}", t.toString());
-                        }
-                    });
-                });
+    /** 客户端通知服务端同步自动装置合成配方（配置保存后调用，开关变更即时生效） */
+    public static void sendConfigSync() {
+        try {
+            if (MinecraftClient.getInstance() == null
+                    || MinecraftClient.getInstance().getNetworkHandler() == null) {
+                return;
+            }
+            ClientPlayNetworking.send(EmcAutoNetwork.CFG_SYNC_ID, PacketByteBufs.create());
+        } catch (Throwable t) {
+            ItemAlchemyExpansion.LOGGER.warn("[IAExp] emc auto: failed to send config sync: {}", t.toString());
+        }
+    }
 
+    /** 注册 S2C 接收器：下发列表 / 更新所选（界面由容器打开，无需 S2C 打开包） */
+    public static void registerClientReceiver() {
         ClientPlayNetworking.registerGlobalReceiver(EmcAutoNetwork.LIST_S2C_ID,
                 (client, handler, buf, responseSender) -> {
                     final String selected = buf.readString();
                     final long balance = buf.readLong();
-                    // 与服务端 handleListRequest 写入顺序严格一致（含 facing），漏读会导致后续字节全部错位
+                    // 与服务端 handleListRequest 写入顺序严格一致（含 facing + card），漏读会导致后续字节全部错位
                     final String facing = buf.readString();
+                    final ItemStack card = buf.readItemStack();
                     final int n = buf.readInt();
                     final List<String> keys = new ArrayList<>(n);
                     final List<ItemStack> stacks = new ArrayList<>(n);
@@ -96,7 +93,7 @@ public final class EmcAutoClientNetwork {
                     }
                     client.execute(() -> {
                         if (activeScreen != null) {
-                            activeScreen.onListReceived(keys, stacks, selected, balance, facing);
+                            activeScreen.onListReceived(keys, stacks, selected, balance, facing, card);
                         }
                     });
                 });

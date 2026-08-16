@@ -106,11 +106,28 @@ public class EmcCardMainScreen extends Screen {
 
         int dataY = lineY + 12;
 
-        // 数据行：标签左对齐，数值右对齐（卡片本身价值不在此展示）
-        drawDataRow(context, "itemalchemy-expansion.emc_card.card_emc",
-                EmcCardItem.formatNumber(cardEmc), panelLeft, dataY, 0xFF40A0FF, 0xFF60C0FF);
-        drawDataRow(context, "itemalchemy-expansion.emc_card.player_emc",
-                EmcCardItem.formatNumber(playerEmc), panelLeft, dataY + LINE_HEIGHT + 8, 0xFFC0C0C0, 0xFFFFFF55);
+        // 绑卡：额外显示「已绑定：玩家名」并把卡内余额行改名为绑定余额
+        MinecraftClient mc = MinecraftClient.getInstance();
+        ItemStack mainHand = (mc != null && mc.player != null)
+                ? mc.player.getMainHandStack() : ItemStack.EMPTY;
+        boolean bound = !mainHand.isEmpty()
+                && mainHand.getItem() instanceof EmcCardItem && EmcCardItem.isBound(mainHand);
+
+        if (bound) {
+            String bindName = resolveBindName(mainHand);
+            drawDataRow(context, "itemalchemy-expansion.emc_card.bind.label",
+                    bindName, panelLeft, dataY, 0xFF40FF80, 0xFFE0FFC0);
+            drawDataRow(context, "itemalchemy-expansion.emc_card.bind_emc",
+                    EmcCardItem.formatNumber(cardEmc), panelLeft, dataY + LINE_HEIGHT + 8, 0xFF40A0FF, 0xFF60C0FF);
+            drawDataRow(context, "itemalchemy-expansion.emc_card.player_emc",
+                    EmcCardItem.formatNumber(playerEmc), panelLeft, dataY + (LINE_HEIGHT + 8) * 2, 0xFFC0C0C0, 0xFFFFFF55);
+        } else {
+            // 数据行：标签左对齐，数值右对齐（卡片本身价值不在此展示）
+            drawDataRow(context, "itemalchemy-expansion.emc_card.card_emc",
+                    EmcCardItem.formatNumber(cardEmc), panelLeft, dataY, 0xFF40A0FF, 0xFF60C0FF);
+            drawDataRow(context, "itemalchemy-expansion.emc_card.player_emc",
+                    EmcCardItem.formatNumber(playerEmc), panelLeft, dataY + LINE_HEIGHT + 8, 0xFFC0C0C0, 0xFFFFFF55);
+        }
 
         // 分隔线
         int divY = dataY + LINE_HEIGHT * 2 + 16;
@@ -133,6 +150,26 @@ public class EmcCardMainScreen extends Screen {
                 panelLeft + PADDING, y, labelColor, false);
         context.drawText(this.textRenderer, value,
                 panelLeft + PANEL_WIDTH - PADDING - textRenderer.getWidth(value), y, valueColor, false);
+    }
+
+    /** 解析绑卡玩家名：卡上存的绑定名（离线可读）> 在线玩家档案 > UUID 截断 */
+    private static String resolveBindName(ItemStack card) {
+        String stored = EmcCardItem.getBindName(card);
+        if (stored != null && !stored.isEmpty()) return stored;
+        String uuid = EmcCardItem.getBindUuid(card);
+        if (uuid == null) return "";
+        try {
+            MinecraftClient mc = MinecraftClient.getInstance();
+            if (mc != null && mc.getNetworkHandler() != null) {
+                var entry = mc.getNetworkHandler().getPlayerListEntry(java.util.UUID.fromString(uuid));
+                if (entry != null && entry.getProfile() != null) {
+                    return entry.getProfile().getName();
+                }
+            }
+        } catch (Throwable t) {
+            // fallthrough
+        }
+        return uuid.length() > 8 ? uuid.substring(0, 8) : uuid;
     }
 
     /** 当前主手卡内 EMC（优先用服务端同步余额，反映关联账户值）。 */

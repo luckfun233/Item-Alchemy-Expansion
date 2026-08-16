@@ -3,12 +3,13 @@ package itemalchemy.expansion.network;
 import itemalchemy.expansion.ItemAlchemyExpansion;
 import itemalchemy.expansion.block.EmcEmitterBlockEntity;
 import itemalchemy.expansion.config.IAExpConfigHolder;
+import itemalchemy.expansion.gui.EmcEmitterScreenHandler;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.item.ItemStack;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
 import net.pitan76.itemalchemy.api.PlayerRegisteredItemUtil;
 import net.pitan76.mcpitanlib.api.entity.Player;
 
@@ -18,58 +19,64 @@ import java.util.List;
 /**
  * 自动装置（EMC 转能器 / EMC 输出器）网络层。
  *
- * <p>目前用于 EMC 输出器：右键方块 → 服务端 S2C 打开选择界面；客户端请求打开者转换桌列表
- * （按「打开者」取列表）；设置所选物品后存入方块 NBT（共享，他人可见）。</p>
+ * <p>输出器为容器 GUI：右键方块由 {@code SimpleScreenHandlerFactory} 打开，服务端通过
+ * {@code player.currentScreenHandler} 定位对应 {@link EmcEmitterBlockEntity}（菜单的
+ * {@code canUse} 每 tick 校验距离，越界自动关闭，防伪造包）。客户端请求打开者转换桌列表、
+ * 设置所选物品；卡槽为真实容器槽，直接拖动放入/取出，无需额外协议。</p>
  */
 public final class EmcAutoNetwork {
 
-    /** S2C：打开输出器选择界面（携带方块位置） */
-    public static final Identifier OPEN_ID =
-            new Identifier(ItemAlchemyExpansion.MOD_ID, "emc_emitter_open");
-    /** C2S：请求列表（携带方块位置） */
+    /** C2S：请求列表（无载荷，服务端按当前打开的输出器菜单定位） */
     public static final Identifier REQ_ID =
             new Identifier(ItemAlchemyExpansion.MOD_ID, "emc_emitter_req");
-    /** C2S：设置所选物品（携带方块位置 + 变体键） */
+    /** C2S：设置所选物品（携带变体键） */
     public static final Identifier SET_ID =
             new Identifier(ItemAlchemyExpansion.MOD_ID, "emc_emitter_set");
-    /** S2C：下发列表 + 当前所选 + 卡余额 */
+    /** S2C：下发列表 + 当前所选 + 卡余额 + 卡栈 */
     public static final Identifier LIST_S2C_ID =
             new Identifier(ItemAlchemyExpansion.MOD_ID, "emc_emitter_list_s2c");
     /** S2C：下发更新后的所选物品 */
     public static final Identifier SELECTED_S2C_ID =
             new Identifier(ItemAlchemyExpansion.MOD_ID, "emc_emitter_selected_s2c");
+    /** C2S：配置保存后通知服务端同步自动装置合成配方（开关变更即时生效） */
+    public static final Identifier CFG_SYNC_ID =
+            new Identifier(ItemAlchemyExpansion.MOD_ID, "emc_auto_cfg_sync");
 
     private EmcAutoNetwork() {}
 
     /** 服务端注册 C2S 接收器 */
     public static void registerServer() {
         ServerPlayNetworking.registerGlobalReceiver(REQ_ID, (server, player, handler, buf, responseSender) -> {
-            final long pos = buf.readLong();
-            server.execute(() -> handleListRequest(player, pos));
+            server.execute(() -> handleListRequest(player));
         });
         ServerPlayNetworking.registerGlobalReceiver(SET_ID, (server, player, handler, buf, responseSender) -> {
-            final long pos = buf.readLong();
             final boolean has = buf.readBoolean();
             final String variant = has ? buf.readString() : null;
-            server.execute(() -> handleSet(player, pos, variant));
+            server.execute(() -> handleSet(player, variant));
+        });
+        ServerPlayNetworking.registerGlobalReceiver(CFG_SYNC_ID, (server, player, handler, buf, responseSender) -> {
+            server.execute(() -> {
+                try {
+                    ItemAlchemyExpansion.syncAutomationRecipes(server);
+                } catch (Throwable t) {
+                    ItemAlchemyExpansion.LOGGER.warn("[IAExp] emc emitter: failed to sync automation recipes: {}", t.toString());
+                }
+            });
         });
     }
 
-    /** 服务端发 S2C：打开输出器选择界面 */
-    public static void sendOpen(ServerPlayerEntity player, BlockPos pos) {
-        try {
-            PacketByteBuf buf = PacketByteBufs.create();
-            buf.writeLong(pos.asLong());
-            ServerPlayNetworking.send(player, OPEN_ID, buf);
-        } catch (Throwable t) {
-            ItemAlchemyExpansion.LOGGER.warn("[IAExp] emc emitter: failed to send open: {}", t.toString());
+    /** 通过当前打开的容器菜单定位输出器方块（菜单 canUse 已校验距离） */
+    private static EmcEmitterBlockEntity currentEmitterTile(ServerPlayerEntity player) {
+        if (player.currentScreenHandler instanceof EmcEmitterScreenHandler sh) {
+            return sh.tile;
         }
+        return null;
     }
 
-    private static void handleListRequest(ServerPlayerEntity player, long pos) {
+    private static void handleListRequest(ServerPlayerEntity player) {
         // 自动装置总开关关闭时拒绝（与方块右键/tick 闸门一致，防伪造包绕过）
         if (!IAExpConfigHolder.get().automationEnabled) return;
-        EmcEmitterBlockEntity tile = findTile(player, pos);
+        EmcEmitterBlockEntity tile = currentEmitterTile(player);
         if (tile == null) return;
 
         List<String> ids;
@@ -82,11 +89,13 @@ public final class EmcAutoNetwork {
         long balance = EmcCardBalanceUtil.getBalance(player.getServer(), tile.getStack(EmcEmitterBlockEntity.CARD_SLOT));
         String selected = tile.getSelectedVariant() == null ? "" : tile.getSelectedVariant();
         String facing = tile.getFacing().getName();
+        ItemStack card = tile.getStack(EmcEmitterBlockEntity.CARD_SLOT);
 
         PacketByteBuf buf = PacketByteBufs.create();
         buf.writeString(selected);
         buf.writeLong(balance);
         buf.writeString(facing);
+        buf.writeItemStack(card);
         buf.writeInt(ids.size());
         for (String s : ids) {
             buf.writeString(s);
@@ -94,10 +103,9 @@ public final class EmcAutoNetwork {
         ServerPlayNetworking.send(player, LIST_S2C_ID, buf);
     }
 
-    private static void handleSet(ServerPlayerEntity player, long pos, String variant) {
-        // 自动装置总开关关闭时拒绝（与方块右键/tick 闸门一致，防伪造包绕过）
+    private static void handleSet(ServerPlayerEntity player, String variant) {
         if (!IAExpConfigHolder.get().automationEnabled) return;
-        EmcEmitterBlockEntity tile = findTile(player, pos);
+        EmcEmitterBlockEntity tile = currentEmitterTile(player);
         if (tile == null) return;
 
         // 校验所选物品属于打开者自己的转换桌列表（防止设置任意物品）
@@ -123,21 +131,5 @@ public final class EmcAutoNetwork {
         } catch (Throwable t) {
             ItemAlchemyExpansion.LOGGER.warn("[IAExp] emc emitter: failed to send selected: {}", t.toString());
         }
-    }
-
-    private static EmcEmitterBlockEntity findTile(ServerPlayerEntity player, long pos) {
-        try {
-            BlockPos bp = BlockPos.fromLong(pos);
-            // 距离校验：仅允许操作 8 格内的输出器（与 canPlayerUse 一致，防伪造坐标刷物品）
-            if (player.squaredDistanceTo(bp.getX() + 0.5, bp.getY() + 0.5, bp.getZ() + 0.5) > 64.0) {
-                return null;
-            }
-            if (player.getServerWorld().getBlockEntity(bp) instanceof EmcEmitterBlockEntity tile) {
-                return tile;
-            }
-        } catch (Throwable t) {
-            ItemAlchemyExpansion.LOGGER.warn("[IAExp] emc emitter: find tile failed: {}", t.toString());
-        }
-        return null;
     }
 }

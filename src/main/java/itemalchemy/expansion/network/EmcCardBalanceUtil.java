@@ -43,7 +43,14 @@ public final class EmcCardBalanceUtil {
         normalizeCard(card);
         String bind = EmcCardItem.getBindUuid(card);
         if (bind != null) {
-            return PlayerEmcUtil.add(server, parseUuid(bind), amount);
+            UUID bid = parseUuid(bind);
+            // 懒补建：绑卡目标若从未建过队伍（旧卡/离线目标），先补默认队伍再入账，
+            // 否则转换器会被绑卡阻塞、EMC 无处存放
+            if (bid != null && !PlayerEmcUtil.hasTeam(server, bid)) {
+                String nm = EmcCardItem.getBindName(card);
+                PlayerEmcUtil.ensureTeam(server, bid, nm);
+            }
+            return PlayerEmcUtil.add(server, bid, amount);
         }
         String group = EmcCardItem.getLinkGroup(card);
         if (group != null) {

@@ -11,6 +11,7 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.pitan76.mcpitanlib.api.client.gui.screen.SimpleInventoryScreen;
 import net.pitan76.mcpitanlib.api.client.render.handledscreen.DrawBackgroundArgs;
+import net.pitan76.mcpitanlib.api.client.render.handledscreen.DrawForegroundArgs;
 
 /**
  * EMC 转能器 GUI：4 输入槽 → 箭头 → EMC 卡槽 + 玩家物品栏，全部代码绘制（不依赖背景贴图）。
@@ -46,6 +47,11 @@ public class EmcConverterScreen extends SimpleInventoryScreen<EmcConverterScreen
     }
 
     @Override
+    protected void drawForegroundOverride(DrawForegroundArgs args) {
+        // 标题已在 drawBackgroundOverride 居中绘制，跳过原版 foreground（否则标题/物品栏标签被二次绘制，产生重影与重叠）
+    }
+
+    @Override
     public void drawBackgroundOverride(DrawBackgroundArgs args) {
         // 纯代码绘制，不调 super（背景贴图缺失时避免 GL 报错）
         DrawContext ctx = args.drawObjectDM.getContext();
@@ -64,9 +70,6 @@ public class EmcConverterScreen extends SimpleInventoryScreen<EmcConverterScreen
         ctx.drawText(this.textRenderer,
                 Text.translatable("itemalchemy-expansion.emc_converter.input_label"),
                 x + 8, y + 8, TEXT_DIM, false);
-        ctx.drawText(this.textRenderer,
-                Text.translatable("itemalchemy-expansion.emc_converter.card_label"),
-                x + 104, y + 57, TEXT_DIM, false);
 
         // 流向箭头：输入槽 -> 卡槽
         drawDownArrow(ctx, x + 86, y + 36, PANEL_LINE);
@@ -93,8 +96,11 @@ public class EmcConverterScreen extends SimpleInventoryScreen<EmcConverterScreen
                     Text.translatable("itemalchemy-expansion.emc_converter.no_card"),
                     this.width / 2, y + 75, TEXT_DIM);
         } else if (EmcCardItem.isBound(card)) {
+            String name = EmcCardItem.getBindName(card);
+            if (name == null || name.isEmpty()) name = EmcCardItem.getBindUuid(card);
             ctx.drawCenteredTextWithShadow(this.textRenderer,
-                    Text.translatable("itemalchemy-expansion.emc_converter.bound_card"),
+                    Text.translatable("itemalchemy-expansion.emc_converter.bound_card",
+                            Text.literal(name == null ? "?" : name)),
                     this.width / 2, y + 75, TEXT_DIM);
         } else {
             Text balance = Text.translatable("itemalchemy-expansion.emc_converter.card_balance",

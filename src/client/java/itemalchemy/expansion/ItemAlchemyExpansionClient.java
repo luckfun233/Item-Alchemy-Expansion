@@ -7,10 +7,12 @@ import itemalchemy.expansion.client.SetEmcClientNetwork;
 import itemalchemy.expansion.client.SetEmcKeybind;
 import itemalchemy.expansion.client.CardForgeScreen;
 import itemalchemy.expansion.client.EmcConverterScreen;
+import itemalchemy.expansion.client.EmcEmitterScreen;
 import itemalchemy.expansion.gui.CardForgeScreenHandlers;
 import itemalchemy.expansion.gui.CardForgeScreenHandler;
 import itemalchemy.expansion.gui.EmcConverterScreenHandlers;
 import itemalchemy.expansion.gui.EmcConverterScreenHandler;
+import itemalchemy.expansion.gui.EmcEmitterScreenHandlers;
 import net.fabricmc.api.ClientModInitializer;
 
 /**
@@ -69,6 +71,14 @@ public class ItemAlchemyExpansionClient implements ClientModInitializer {
 					EmcConverterScreenHandlers.TYPE, EmcConverterScreen::new);
 		} catch (Throwable t) {
 			ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to register emc converter screen: {}", t.toString());
+		}
+
+		// EMC 输出器 Screen 注册（容器 GUI：左列表 + 右背包）
+		try {
+			net.minecraft.client.gui.screen.ingame.HandledScreens.register(
+					EmcEmitterScreenHandlers.TYPE, EmcEmitterScreen::new);
+		} catch (Throwable t) {
+			ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to register emc emitter screen: {}", t.toString());
 		}
 
 		// 自动装置 S2C 接收器（输出器打开/列表/所选）

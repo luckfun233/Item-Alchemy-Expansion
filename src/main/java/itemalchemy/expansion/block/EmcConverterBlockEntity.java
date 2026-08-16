@@ -1,5 +1,6 @@
 package itemalchemy.expansion.block;
 
+import itemalchemy.expansion.config.IAExpConfig;
 import itemalchemy.expansion.config.IAExpConfigHolder;
 import itemalchemy.expansion.gui.EmcConverterScreenHandler;
 import itemalchemy.expansion.item.EmcCardItem;
@@ -47,6 +48,12 @@ public class EmcConverterBlockEntity extends CompatBlockEntity
 
     private final ItemStack[] slots = new ItemStack[SLOT_COUNT];
 
+    /** 有红石信号期间的 tick 计数，按 {@code automationIntervalTicks} 降频 */
+    private int workTicks = 0;
+
+    /** 上一 tick 是否有红石信号（脉冲模式判断上升沿用） */
+    private boolean wasPowered = false;
+
     public EmcConverterBlockEntity(BlockEntityType<?> type, TileCreateEvent event) {
         super(type, event);
         clearSlots();
@@ -71,7 +78,25 @@ public class EmcConverterBlockEntity extends CompatBlockEntity
         if (!IAExpConfigHolder.get().automationEnabled) return;
         if (!hasServerWorld()) return;
         World world = event.getWorld();
-        if (world == null || !world.isReceivingRedstonePower(getPos())) return;
+        if (world == null) return;
+        IAExpConfig cfg = IAExpConfigHolder.get();
+        boolean powered = world.isReceivingRedstonePower(getPos());
+        if (cfg.automationMode == IAExpConfig.AutomationMode.PULSE) {
+            // 脉冲模式：每次信号上升沿触发一件（类似投掷器，需高频信号，不持续运行）
+            if (powered) {
+                if (!wasPowered) {
+                    wasPowered = true;
+                    convert();
+                }
+            } else {
+                wasPowered = false;
+            }
+            return;
+        }
+        // 持续模式：有信号期间按间隔工作
+        if (!powered) return;
+        int interval = Math.max(1, cfg.automationIntervalTicks);
+        if (++workTicks % interval != 0) return;
         convert();
     }
 

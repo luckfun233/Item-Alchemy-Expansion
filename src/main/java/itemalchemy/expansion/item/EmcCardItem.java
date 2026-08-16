@@ -67,6 +67,9 @@ public class EmcCardItem extends CompatItem {
     /** NBT 键：绑定的玩家 UUID（String，仅绑卡有）。卡余额/收支同步该玩家 EMC */
     public static final String BIND_UUID_KEY = "bind_uuid";
 
+    /** NBT 键：绑定的玩家名（String，仅绑卡有）。用于离线时界面显示，不参与任何判定 */
+    public static final String BIND_NAME_KEY = "bind_name";
+
     /** NBT 键：单次支出限额（long，0 表示不限） */
     public static final String BIND_SINGLE_LIMIT_KEY = "bind_single_limit";
 
@@ -213,6 +216,26 @@ public class EmcCardItem extends CompatItem {
             stack.getOrCreateNbt().remove(BIND_UUID_KEY);
         } else {
             stack.getOrCreateNbt().putString(BIND_UUID_KEY, uuid);
+        }
+    }
+
+    /** 返回绑定的玩家名（String），未绑定返回 null */
+    public static String getBindName(ItemStack stack) {
+        NbtCompound nbt = stack == null ? null : stack.getNbt();
+        if (nbt != null && nbt.contains(BIND_NAME_KEY)) {
+            String s = nbt.getString(BIND_NAME_KEY);
+            return s.isEmpty() ? null : s;
+        }
+        return null;
+    }
+
+    /** 设置/清除绑定玩家名（仅展示用） */
+    public static void setBindName(ItemStack stack, String name) {
+        if (stack == null || stack.isEmpty()) return;
+        if (name == null || name.isEmpty()) {
+            stack.getOrCreateNbt().remove(BIND_NAME_KEY);
+        } else {
+            stack.getOrCreateNbt().putString(BIND_NAME_KEY, name);
         }
     }
 
