@@ -186,6 +186,15 @@ public final class IAExpConfigHolder {
             needsSave = true;
         }
 
+        // configVersion < 15: 新增「设置 EMC 仅限 OP」开关。Gson Unsafe 会把 boolean 零初始化为 false，
+        // 需显式补回默认 true（旧配置也应默认受保护）
+        if (loaded.configVersion < 15) {
+            ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 15 (add set-EMC op-only switch)", loaded.configVersion);
+            loaded.setEmcRequireOp = true;
+            loaded.configVersion = 15;
+            needsSave = true;
+        }
+
         return loaded;
     }
 

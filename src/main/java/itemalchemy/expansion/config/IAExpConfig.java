@@ -46,8 +46,8 @@ public class IAExpConfig {
         @SerializedName("first") FIRST
     }
 
-    /** 配置版本号，用于旧配置自动升级。缺省（旧配置）视为 0，当前为 14。 */
-    public int configVersion = 14;
+    /** 配置版本号，用于旧配置自动升级。缺省（旧配置）视为 0，当前为 15。 */
+    public int configVersion = 15;
 
     /** 转换桌展示方式，默认 图标+名称 */
     public DisplayMode displayMode = DisplayMode.ICON_AND_NAME;
@@ -156,6 +156,15 @@ public class IAExpConfig {
      */
     public boolean featureNoticeShown = false;
 
+    // ===== 权限 =====
+
+    /**
+     * 「设置 EMC」是否仅限 OP（默认 true）。
+     * 开启时：非单人（专用服务器/联机）里仅权限等级 2 的玩家可用 K 键 GUI 改价，单人存档自动豁免；
+     * 关闭时任何玩家都能改价（旧行为）。修改后 /itemalchemy-expansion reload 或重启生效。
+     */
+    public boolean setEmcRequireOp = true;
+
     // ===== 自动装置（EMC 转能器 / EMC 输出器）=====
 
     /**
@@ -201,6 +210,7 @@ public class IAExpConfig {
         c.autoPricingTickBudgetMs = autoPricingTickBudgetMs;
         c.autoPricingRepricePromptShown = autoPricingRepricePromptShown;
         c.featureNoticeShown = featureNoticeShown;
+        c.setEmcRequireOp = setEmcRequireOp;
         c.automationEnabled = automationEnabled;
         c.automationIntervalTicks = automationIntervalTicks;
         c.automationMode = automationMode;
