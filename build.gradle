@@ -11,9 +11,7 @@ base {
 }
 
 repositories {
-	maven {
-		url = "https://maven.pitan76.net/"
-	}
+	// Item Alchemy + mcpitanlib 用 libs/ 内置 jar，不再走 maven.pitan76.net（现返回 403）
 	maven { url = "https://maven.architectury.dev/" }
 	maven { url = "https://maven.terraformersmc.com/releases/" }
 	mavenCentral()
@@ -46,9 +44,9 @@ dependencies {
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-	// Item Alchemy（1.19.2 多版本发布 jar，运行时验证可用）+ mcpitanlib
-	modImplementation files("${project.itemalchemy_jar}")
-	modImplementation "net.pitan76:mcpitanlib-fabric-1.19.2:${project.mcpitanlib_version}"
+	// Item Alchemy（1.19.2 多版本发布 jar）+ mcpitanlib，均用 libs/ 内置 jar
+	modImplementation files("libs/itemalchemy-${project.itemalchemy_version}.jar")
+	modImplementation files("libs/mcpitanlib-fabric-${project.minecraft_version}-${project.mcpitanlib_version}.jar")
 
 	// 可选配置界面
 	modImplementation("me.shedaniel.cloth:cloth-config-fabric:${project.cloth_config_version}") { exclude(group: "net.fabricmc.fabric-api") }
