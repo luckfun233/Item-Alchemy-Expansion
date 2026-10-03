@@ -11,10 +11,8 @@ base {
 }
 
 repositories {
-	// itemalchemy / mcpitanlib 走本地 maven（publishToMavenLocal 或 install-file）
+	// itemalchemy / mcpitanlib 用 libs/ 内置 jar（原 maven.pitan76.net 现返回 403）
 	mavenLocal()
-	// Item Alchemy + mcpitanlib（备用线上源）
-	maven { url = "https://maven.pitan76.net/" }
 	// architectury（mcpitanlib 依赖）
 	maven { url = "https://maven.architectury.dev/" }
 	// Cloth Config API
@@ -51,9 +49,9 @@ dependencies {
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-	// Item Alchemy（本模组前置）+ 配套 mcpitanlib（本地 maven，见 gradle.properties 注释）
-	modImplementation "net.pitan76:itemalchemy:${project.itemalchemy_version}"
-	modImplementation "net.pitan76:mcpitanlib-fabric.1.21.4:${project.mcpitanlib_version}"
+	// Item Alchemy（本模组前置）+ 配套 mcpitanlib，均用 libs/ 内置 jar
+	modImplementation files("libs/itemalchemy-${project.itemalchemy_version}.jar")
+	modImplementation files("libs/mcpitanlib-fabric.${project.minecraft_version}-${project.mcpitanlib_version}.jar")
 
 	// 可选配置 UI：Cloth Config API + Mod Menu（软依赖）
 	modApi("me.shedaniel.cloth:cloth-config-fabric:${project.cloth_config_version}") {
