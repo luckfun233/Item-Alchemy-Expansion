@@ -17,8 +17,7 @@ repositories {
 	// See https://docs.gradle.org/current/userguide/declaring_repositories.html
 	// for more information about declaring repositories.
 
-	// Item Alchemy + mcpitanlib
-	maven { url = "https://maven.pitan76.net/" }
+	// Item Alchemy + mcpitanlib 用 libs/ 内置 jar，不再走 maven.pitan76.net（现返回 403）
 	// architectury (transitive dep of mcpitanlib)
 	maven { url = "https://maven.architectury.dev/" }
 	// Cloth Config API
@@ -56,8 +55,12 @@ dependencies {
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
 	// Item Alchemy (the mod this is an addon of) + its dependency mcpitanlib
-	modImplementation "net.pitan76:itemalchemy:${project.itemalchemy_version}"
-	modImplementation "net.pitan76:mcpitanlib-fabric+1.20.1:${project.mcpitanlib_version}"
+	// 内置 jar（maven.pitan76.net 现返回 403，见 libs/README.md）
+	modImplementation files("libs/itemalchemy-${project.itemalchemy_version}.jar")
+	modImplementation files("libs/mcpitanlib-fabric+${project.minecraft_version}-${project.mcpitanlib_version}.jar")
+	// 内置 jar 不再读 POM，mcpitanlib 原传递依赖按原 POM 显式补回
+	modImplementation "dev.architectury:architectury-fabric:9.0.7"
+	runtimeOnly "org.yaml:snakeyaml:2.0"
 
 	// Optional config UI: Cloth Config API + Mod Menu (soft deps at runtime)
 	modApi("me.shedaniel.cloth:cloth-config-fabric:${project.cloth_config_version}") {
