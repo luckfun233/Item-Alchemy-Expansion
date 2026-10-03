@@ -11,10 +11,9 @@ base {
 }
 
 repositories {
-	// 本地 maven：itemalchemy 与 mcpitanlib 均通过 publishToMavenLocal 发布
+	// 本地 maven（publishToMavenLocal 的其他产物）
 	mavenLocal()
-	// Item Alchemy + mcpitanlib（线上兜底）
-	maven { url = "https://maven.pitan76.net/" }
+	// Item Alchemy + mcpitanlib 用 libs/ 内置 jar，不再走 maven.pitan76.net（现返回 403）
 	// architectury（mcpitanlib 传递依赖）
 	maven { url = "https://maven.architectury.dev/" }
 	// Cloth Config API
@@ -50,10 +49,12 @@ dependencies {
 	// Fabric API
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-	// Item Alchemy (本模组的前置) + 其依赖 mcpitanlib
-	// 本地构建版：mcpitanlib artifactId 为 mcpitanlib-fabric.1.21.1（'.' 代替 '+'）
-	modImplementation "net.pitan76:itemalchemy:${project.itemalchemy_version}"
-	modImplementation "net.pitan76:mcpitanlib-fabric.1.21.1:${project.mcpitanlib_version}"
+	// Item Alchemy (本模组的前置) + 其依赖 mcpitanlib，均用 libs/ 内置 jar
+	modImplementation files("libs/itemalchemy-${project.itemalchemy_version}.jar")
+	modImplementation files("libs/mcpitanlib-fabric.${project.minecraft_version}-${project.mcpitanlib_version}.jar")
+	// 内置 jar 不再读 POM，mcpitanlib 原传递依赖按原 POM 显式补回
+	modImplementation "dev.architectury:architectury-fabric:13.0.8"
+	runtimeOnly "org.yaml:snakeyaml:2.0"
 
 	// 可选配置 UI：Cloth Config API + Mod Menu（运行时软依赖）
 	modApi("me.shedaniel.cloth:cloth-config-fabric:${project.cloth_config_version}") {
