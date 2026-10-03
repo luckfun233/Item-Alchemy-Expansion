@@ -75,6 +75,8 @@ public final class IAExpClothConfigScreen {
             IAExpConfigHolder.get().autoPricingRespectUpstream = editing.autoPricingRespectUpstream;
             IAExpConfigHolder.get().autoPricingBatchSize = editing.autoPricingBatchSize;
             IAExpConfigHolder.get().autoPricingTickBudgetMs = editing.autoPricingTickBudgetMs;
+            IAExpConfigHolder.get().setEmcRequireOp = editing.setEmcRequireOp;
+            IAExpConfigHolder.get().commandsRequireOp = editing.commandsRequireOp;
             // 精确模式始终开启
             IAExpConfigHolder.get().preciseMode = true;
             IAExpConfigHolder.get().autoPricingFromRecipes = editing.autoPricingFromRecipes;
@@ -118,7 +120,7 @@ public final class IAExpClothConfigScreen {
      * <ul>
      *   <li>general — 展示、搜索</li>
      *   <li>shulker_box — 潜影盒相关</li>
-     *   <li>advanced — 调试日志、NBT 过滤、忽略 key 列表</li>
+     *   <li>advanced — 调试日志、权限开关、NBT 过滤、忽略 key 列表</li>
      *   <li>experimental — 实验性功能（配方自动定价，默认关闭）</li>
      * </ul>
      * </p>
@@ -201,6 +203,22 @@ public final class IAExpClothConfigScreen {
                 .setDefaultValue(true)
                 .setTooltip(Text.translatable("itemalchemy-expansion.config.fullIgnoreDamageAndRepairCost.tooltip"))
                 .setSaveConsumer(v -> c.fullIgnoreDamageAndRepairCost = v)
+                .build());
+
+        advanced.addEntry(entries
+                .startBooleanToggle(Text.translatable("itemalchemy-expansion.config.setEmcRequireOp"),
+                        c.setEmcRequireOp)
+                .setDefaultValue(true)
+                .setTooltip(Text.translatable("itemalchemy-expansion.config.setEmcRequireOp.tooltip"))
+                .setSaveConsumer(v -> c.setEmcRequireOp = v)
+                .build());
+
+        advanced.addEntry(entries
+                .startBooleanToggle(Text.translatable("itemalchemy-expansion.config.commandsRequireOp"),
+                        c.commandsRequireOp)
+                .setDefaultValue(true)
+                .setTooltip(Text.translatable("itemalchemy-expansion.config.commandsRequireOp.tooltip"))
+                .setSaveConsumer(v -> c.commandsRequireOp = v)
                 .build());
 
         advanced.addEntry(entries

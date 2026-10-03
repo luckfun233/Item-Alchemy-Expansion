@@ -38,6 +38,12 @@
   "itemalchemy-expansion.config.fullIgnoreDamageAndRepairCost": "忽略 Damage 与 RepairCost",
   "itemalchemy-expansion.config.fullIgnoreDamageAndRepairCost.tooltip": "忽略 Damage 和 RepairCost，避免同一工具因耐久不同产生大量变体。",
 
+  "itemalchemy-expansion.config.setEmcRequireOp": "改价仅限 OP",
+  "itemalchemy-expansion.config.setEmcRequireOp.tooltip": "开启后，非单人存档里仅 OP（权限等级 2）可用 K 键 GUI 改价、或确认重新定价，单人存档自动豁免；关闭则任何玩家都能改价（旧行为）。服务端配置生效。",
+
+  "itemalchemy-expansion.config.commandsRequireOp": "命令仅限 OP",
+  "itemalchemy-expansion.config.commandsRequireOp.tooltip": "开启后，非单人存档里仅 OP（权限等级 2）可执行 /itemalchemy-expansion reprice，单人存档自动豁免；关闭则任何玩家都能执行。服务端配置，每次执行命令时判定。",
+
   "itemalchemy-expansion.config.ignoreNbtKeys": "忽略的 NBT 键",
   "itemalchemy-expansion.config.ignoreNbtKeys.tooltip": "始终从指纹中排除的 NBT 键，避免运行时状态变化导致指纹失配。每行一个。",
 
@@ -74,6 +80,7 @@
   "itemalchemy-expansion.set_emc.fail.invalid_scope": "作用范围无效",
   "itemalchemy-expansion.set_emc.fail.exception": "设置 EMC 时发生错误，请查看日志",
   "itemalchemy-expansion.set_emc.fail.shulker_with_contents": "带内容物的潜影盒无法手动定价，其 EMC 按内容物自动求和",
+  "itemalchemy-expansion.set_emc.fail.no_permission": "改价仅限服务器 OP（服主可在配置文件中关闭该限制）",
 
   "itemalchemy-expansion.overwrite_precise.title": "发现精确价格设定",
   "itemalchemy-expansion.overwrite_precise.subtitle": "物品 %s  通用价: %s",

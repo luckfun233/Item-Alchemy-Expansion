@@ -38,6 +38,12 @@
   "itemalchemy-expansion.config.fullIgnoreDamageAndRepairCost": "Ignore Damage & RepairCost",
   "itemalchemy-expansion.config.fullIgnoreDamageAndRepairCost.tooltip": "Ignore Damage and RepairCost so tools with different durability don't create many variants.",
 
+  "itemalchemy-expansion.config.setEmcRequireOp": "Set-EMC Requires OP",
+  "itemalchemy-expansion.config.setEmcRequireOp.tooltip": "When enabled, only operators (permission level 2) can change prices with the K-key GUI or confirm re-pricing on non-singleplayer saves; singleplayer is exempt. Disable to let anyone change prices (legacy behavior). Server-side config.",
+
+  "itemalchemy-expansion.config.commandsRequireOp": "Commands Require OP",
+  "itemalchemy-expansion.config.commandsRequireOp.tooltip": "When enabled, only operators (permission level 2) can run /itemalchemy-expansion reprice on non-singleplayer saves; singleplayer is exempt. Disable to let anyone run it. Server-side config, evaluated on every command execution.",
+
   "itemalchemy-expansion.config.ignoreNbtKeys": "Ignored NBT Keys",
   "itemalchemy-expansion.config.ignoreNbtKeys.tooltip": "NBT keys always excluded from fingerprints to avoid mismatch from runtime state changes. One per line.",
 
@@ -74,6 +80,7 @@
   "itemalchemy-expansion.set_emc.fail.invalid_scope": "Invalid scope",
   "itemalchemy-expansion.set_emc.fail.exception": "Error while setting EMC, check logs",
   "itemalchemy-expansion.set_emc.fail.shulker_with_contents": "Shulker boxes with contents cannot be manually priced; their EMC is auto-summed from contents",
+  "itemalchemy-expansion.set_emc.fail.no_permission": "Changing prices is restricted to server operators (can be disabled in the config file)",
 
   "itemalchemy-expansion.overwrite_precise.title": "Precise Prices Found",
   "itemalchemy-expansion.overwrite_precise.subtitle": "Item %s  General price: %s",

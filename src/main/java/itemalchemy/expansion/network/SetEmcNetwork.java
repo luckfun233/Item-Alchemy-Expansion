@@ -1,5 +1,6 @@
 package itemalchemy.expansion.network;
 
+import itemalchemy.expansion.IAExpPermissions;
 import itemalchemy.expansion.ItemAlchemyExpansion;
 import itemalchemy.expansion.config.IAExpConfig;
 import itemalchemy.expansion.config.IAExpConfigHolder;
@@ -39,8 +40,10 @@ import java.util.Set;
  * <p><b>注意</b>：客户端发送方法在 {@code SetEmcClientNetwork}（client source set）中，
  * 因为 {@code ClientPlayNetworking} 是客户端专属 API，不能在 main source set 引用。</p>
  *
- * <p><b>安全</b>：服务端校验 {@code itemId} 非空、emc >= 0，scope 仅 0/1。
- * 任意玩家可设（EMC 修改是创作向功能）。服主若需限制可在 {@code applyOnServer} 加 {@code player.hasPermissionLevel(2)} 判断。</p>
+ * <p><b>安全</b>：服务端校验 {@code itemId} 非空、emc >= 0，scope 仅 0/1；
+ * 并按配置 {@code setEmcRequireOp}（默认 true）做权限门禁：非单人存档里仅权限等级 2（OP）可改价，
+ * 单人存档自动豁免；服主可在 {@code config/itemalchemy-expansion.json5} 里设为 false 完全放开。
+ * 「重新定价确认」包同源共用该门禁（它会移除手动定价并触发全服重算）。</p>
  */
 public final class SetEmcNetwork {
 
@@ -165,6 +168,14 @@ public final class SetEmcNetwork {
                               String itemId, long emc, int scope,
                               boolean precise, String variantKey,
                               List<String> preciseVkStrsToClear) {
+        // 权限门禁：默认仅 OP（权限等级 2）可改价；单人存档豁免（自己玩不受影响）；
+        // 服主可在 config 里把 setEmcRequireOp 设为 false 完全放开。判定与命令门禁共用 IAExpPermissions
+        if (!IAExpPermissions.canSetEmc(server, player)) {
+            ItemAlchemyExpansion.LOGGER.warn("[IAExp][SetEmc] rejected: {} has no permission level 2",
+                    player.getName().getString());
+            sendFeedback(player, "itemalchemy-expansion.set_emc.fail.no_permission");
+            return;
+        }
         if (itemId == null || itemId.isEmpty()) {
             sendFeedback(player, "itemalchemy-expansion.set_emc.fail.invalid_id");
             return;
@@ -375,6 +386,13 @@ public final class SetEmcNetwork {
     static void handleRepriceSelective(net.minecraft.server.MinecraftServer server,
                                        ServerPlayerEntity player,
                                        List<String> generalIds, List<String> preciseVkStrs) {
+        // 权限门禁：与改价同源（会移除手动定价并触发全服重算），非单人存档下要求 OP
+        if (!IAExpPermissions.canSetEmc(server, player)) {
+            ItemAlchemyExpansion.LOGGER.warn("[IAExp][Reprice] rejected: {} has no permission level 2",
+                    player.getName().getString());
+            sendFeedback(player, "itemalchemy-expansion.set_emc.fail.no_permission");
+            return;
+        }
         IAExpConfigHolder.get().autoPricingRepricePromptShown = true;
         IAExpConfigHolder.save();
 
