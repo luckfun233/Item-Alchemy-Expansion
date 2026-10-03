@@ -152,6 +152,16 @@ public final class IAExpConfigHolder {
             needsSave = true;
         }
 
+        // configVersion < 11: 新增「改价 / 命令仅限 OP」开关。Gson Unsafe 会把 boolean 零初始化为 false，
+        // 需显式补回默认 true（旧配置也应默认受保护）
+        if (loaded.configVersion < 11) {
+            ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 11 (add op-only permission switches)", loaded.configVersion);
+            loaded.setEmcRequireOp = true;
+            loaded.commandsRequireOp = true;
+            loaded.configVersion = 11;
+            needsSave = true;
+        }
+
         return loaded;
     }
 

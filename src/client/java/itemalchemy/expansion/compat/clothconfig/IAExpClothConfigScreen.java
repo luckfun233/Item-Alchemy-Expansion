@@ -78,6 +78,8 @@ public final class IAExpClothConfigScreen {
             // 精确模式始终开启
             IAExpConfigHolder.get().preciseMode = true;
             IAExpConfigHolder.get().autoPricingFromRecipes = editing.autoPricingFromRecipes;
+            IAExpConfigHolder.get().setEmcRequireOp = editing.setEmcRequireOp;
+            IAExpConfigHolder.get().commandsRequireOp = editing.commandsRequireOp;
             IAExpConfigHolder.save();
             IAExpServices.refresh();
 
@@ -201,6 +203,22 @@ public final class IAExpClothConfigScreen {
                 .setDefaultValue(true)
                 .setTooltip(Text.translatable("itemalchemy-expansion.config.fullIgnoreDamageAndRepairCost.tooltip"))
                 .setSaveConsumer(v -> c.fullIgnoreDamageAndRepairCost = v)
+                .build());
+
+        advanced.addEntry(entries
+                .startBooleanToggle(Text.translatable("itemalchemy-expansion.config.setEmcRequireOp"),
+                        c.setEmcRequireOp)
+                .setDefaultValue(true)
+                .setTooltip(Text.translatable("itemalchemy-expansion.config.setEmcRequireOp.tooltip"))
+                .setSaveConsumer(v -> c.setEmcRequireOp = v)
+                .build());
+
+        advanced.addEntry(entries
+                .startBooleanToggle(Text.translatable("itemalchemy-expansion.config.commandsRequireOp"),
+                        c.commandsRequireOp)
+                .setDefaultValue(true)
+                .setTooltip(Text.translatable("itemalchemy-expansion.config.commandsRequireOp.tooltip"))
+                .setSaveConsumer(v -> c.commandsRequireOp = v)
                 .build());
 
         advanced.addEntry(entries
