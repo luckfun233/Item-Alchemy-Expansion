@@ -119,9 +119,9 @@
   "itemalchemy-expansion.config.autoPricingTickBudgetMs.tooltip": "自动定价扫描每 tick 的时间预算，超过则让出主线程。默认 8ms，可兼顾扫描速度与 TPS。",
 
   "itemalchemy-expansion.config.setEmcRequireOp": "改价仅限 OP",
-  "itemalchemy-expansion.config.setEmcRequireOp.tooltip": "开启后，非单人存档里仅 OP（权限等级 2）可用 K 键 GUI 改价、或确认重新定价，单人存档自动豁免；关闭则任何玩家都能改价（旧行为）。服务端配置生效。",
+  "itemalchemy-expansion.config.setEmcRequireOp.tooltip": "开启后，仅 OP（权限等级 2）可用 K 键 GUI 改价、或确认重新定价；只有自己一人在线（真单人）时自动豁免。关闭则任何玩家都能改价（旧行为）。服务端配置生效。",
   "itemalchemy-expansion.config.commandsRequireOp": "命令仅限 OP",
-  "itemalchemy-expansion.config.commandsRequireOp.tooltip": "开启后，非单人存档里仅 OP（权限等级 2）可执行 /itemalchemy-expansion reprice，单人存档自动豁免；关闭则任何玩家都能执行。服务端配置，每次执行命令时判定。",
+  "itemalchemy-expansion.config.commandsRequireOp.tooltip": "开启后，仅 OP（权限等级 2）可执行 /itemalchemy-expansion reprice；只有自己一人在线（真单人）时自动豁免。关闭则任何玩家都能执行。服务端配置，每次执行命令时判定。",
 
   "itemalchemy-expansion.new_feature_toast.title": "Item Alchemy Expansion 新功能",
   "itemalchemy-expansion.new_feature_toast.desc1": "新增「配方自动定价」功能。",
