@@ -4,7 +4,6 @@ import itemalchemy.expansion.ItemAlchemyExpansion;
 import itemalchemy.expansion.config.IAExpConfigHolder;
 import itemalchemy.expansion.network.SetEmcNetwork;
 import itemalchemy.expansion.recipe.RecipeAutoPricer;
-import net.pitan76.mcpitanlib.api.command.CommandSettings;
 import net.pitan76.mcpitanlib.api.command.LiteralCommand;
 import net.pitan76.mcpitanlib.api.event.ServerCommandEvent;
 
@@ -13,17 +12,13 @@ import net.pitan76.mcpitanlib.api.event.ServerCommandEvent;
  *
  * <p>用途：安装新模组/新配方后刷新自动定价；或重新定价对话框已弹过（{@code autoPricingRepricePromptShown=true}）
  * 后想再次触发候选流程；等效于删除 {@code <world>/itemalchemy_expansion_auto_emc.json} 缓存后重启。
- * 权限：permissionLevel 2（与上游 {@code /itemalchemy reloademc} 一致）。
+ * 权限：门禁挂在顶层 {@link IAExpCommand}（子命令的 CommandSettings 不被 mcpitanlib 接入 Brigadier），
+ * 默认仅 OP、单人存档豁免，服主可用配置项 {@code commandsRequireOp} 放开。
  * 自动定价关闭时执行也能跑（强制扫一遍写出缓存，下次开启时直接命中缓存）。
  * 若要清空自动定价结果，请在配置 GUI 关闭「配方自动定价」（调用
  * {@link itemalchemy.expansion.network.AutoEmcStore#clear()}）。</p>
  */
 public class RepriceCommand extends LiteralCommand {
-
-    @Override
-    public void init(CommandSettings settings) {
-        settings.permissionLevel(2);
-    }
 
     @Override
     public void execute(ServerCommandEvent e) {
