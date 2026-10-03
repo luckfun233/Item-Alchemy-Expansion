@@ -8,7 +8,8 @@ import net.pitan76.mcpitanlib.api.event.ServerCommandEvent;
 /**
  * 顶层命令 {@code /itemalchemy-expansion}：本模组的命令入口。
  *
- * <p>子命令 {@code reprice} 强制重新扫描配方、重算自动定价 EMC（{@link RepriceCommand}）。</p>
+ * <p>子命令 {@code reprice} 强制重新扫描配方、重算自动定价 EMC（{@link RepriceCommand}），
+ * {@code reload} 重读配置并重建 NBT 指纹器（{@link ReloadCommand}）。</p>
  *
  * <p><b>权限门禁挂在本类</b>：mcpitanlib 只把顶层 {@code CommandSettings} 接到 Brigadier
  * （顶层 {@code literal(name).requires(settings::requires)}，而子命令的 settings 被丢弃），
@@ -29,12 +30,14 @@ public class IAExpCommand extends LiteralCommand {
     @Override
     public void init() {
         addArgumentCommand("reprice", new RepriceCommand());
+        addArgumentCommand("reload", new ReloadCommand());
     }
 
     @Override
     public void execute(ServerCommandEvent e) {
         e.sendSuccess("[Item Alchemy Expansion]"
                 + "\n- /itemalchemy-expansion reprice...Force re-scan recipes and recompute auto-priced EMC"
+                + "\n- /itemalchemy-expansion reload...Reload config and rebuild NBT fingerprints"
         );
     }
 }
