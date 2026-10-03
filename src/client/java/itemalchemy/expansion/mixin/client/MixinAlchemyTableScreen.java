@@ -30,11 +30,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * 一旦搜索框获得焦点，{@code keyReleased} 中的 {@code PlayerRegisteredItemUtil.getItems()}
  * 会对变体键解析崩溃。</p>
  *
- * <p>策略：Shift 按下 + 预览功能已开启 + 搜索框未聚焦时，消费 WASD / 方向键的
+ * <p>策略：Shift 按下 + 预览功能已开启 + 按键为 WASD / 方向键时，让搜索框失焦并消费
  * {@code keyPressed} 和 {@code keyReleased} 事件（返回 true）。焦点导航由
  * {@link AlchemyTableScreenShulkerPreview#updateFocus} 通过 {@code InputUtil.isKeyPressed}
- * 轮询 GLFW 状态实现，不依赖事件传递，所以消费事件不影响导航。搜索框已聚焦时放行
- * （让搜索框正常处理方向键移动文本光标）。</p>
+ * 轮询 GLFW 状态实现，不依赖事件传递，所以消费事件不影响导航。其余按键一律放行：
+ * 26.2 起 {@code EditBox.setFocused(false)} 会关闭文本输入（输入法），对任意按键失焦会打断输入。</p>
  *
  * <p><b>筛选按钮</b>：在 {@code initOverride} 末尾注入一个三档循环按钮（全部 / 仅物品 / 仅潜影盒），
  * 点击切换 filterMode、发送 C2S 包同步服务端、立即本地 {@code sortBySearch}。</p>
@@ -93,12 +93,12 @@ public abstract class MixinAlchemyTableScreen {
         if (!net.minecraft.client.Minecraft.getInstance().hasShiftDown()) return;
         if (!AlchemyTableScreenShulkerPreview.isPreviewFeatureEnabled()) return;
 
-        // 强制搜索框失焦，让方向键/WASD 控制预览焦点
-        if (searchBox != null && searchBox.isFocused()) {
-            searchBox.setFocused(false);
-        }
-
         if (isDirectionKey(args.keyCode)) {
+            // 26.2 起 EditBox.setFocused(false) 会经 Minecraft.onTextInputFocusChange 关闭文本输入（输入法），
+            // 因此只在真正要抢方向键时失焦；对任意按键失焦会打断输入法输入
+            if (searchBox != null && searchBox.isFocused()) {
+                searchBox.setFocused(false);
+            }
             // 消费事件，阻止 super.keyPressed 把焦点切换到搜索框
             cir.setReturnValue(true);
         }

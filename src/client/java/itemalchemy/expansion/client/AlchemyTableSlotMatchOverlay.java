@@ -186,7 +186,7 @@ public final class AlchemyTableSlotMatchOverlay {
             textY += lineHeight;
 
             for (int i = 0; i < shownCount; i++) {
-                context.text(client.font, names.get(i), textX, textY, 0xFFFFFF);
+                context.text(client.font, names.get(i), textX, textY, 0xFFFFFFFF);
                 textY += lineHeight;
             }
             if (overflow) {

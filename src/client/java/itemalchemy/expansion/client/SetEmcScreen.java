@@ -280,46 +280,46 @@ public class SetEmcScreen extends Screen {
         GuiRenderUtil.drawBorder(context, panelLeft, panelTop, PANEL_WIDTH, panelHeight, 0xFF404040);
 
         context.centeredText(this.font, this.title,
-                centerX, panelTop + PADDING, 0xFFFFFF);
+                centerX, panelTop + PADDING, 0xFFFFFFFF);
 
         int itemY = panelTop + PADDING + 18;
         int itemIconX = panelLeft + PADDING + 2;
         context.item(targetStack, itemIconX, itemY - 4);
         context.text(this.font, targetStack.getHoverName(),
-                itemIconX + 20, itemY, 0xFFFFFF, true);
+                itemIconX + 20, itemY, 0xFFFFFFFF, true);
         Component idText = Component.literal(itemId).withStyle(ChatFormatting.GRAY);
         context.text(this.font, idText,
-                itemIconX + 20, itemY + 10, 0xA0A0A0, false);
+                itemIconX + 20, itemY + 10, 0xFFA0A0A0, false);
         Component currentText = Component.translatable("itemalchemy-expansion.set_emc.current_emc",
                 String.format("%,d", currentEmc)).withStyle(ChatFormatting.YELLOW);
         context.text(this.font, currentText,
-                itemIconX + 20, itemY + 21, 0xFFFF00, false);
+                itemIconX + 20, itemY + 21, 0xFFFFFF00, false);
         // 精确模式且有 NBT 时显示变体简要
         if (!nbtBrief.isEmpty()) {
             Component variantText = Component.translatable("itemalchemy-expansion.set_emc.variant_label",
                     nbtBrief).withStyle(ChatFormatting.DARK_GRAY);
             context.text(this.font, variantText,
-                    itemIconX + 20, itemY + 32, 0x808080, false);
+                    itemIconX + 20, itemY + 32, 0xFF808080, false);
         }
 
         Component fieldLabel = Component.translatable("itemalchemy-expansion.set_emc.new_emc_label");
         context.text(this.font, fieldLabel,
-                panelLeft + PADDING, emcField.getY() - 11, 0xC0C0C0, false);
+                panelLeft + PADDING, emcField.getY() - 11, 0xFFC0C0C0, false);
 
         Component precisionHint = Component.translatable(
                 "itemalchemy-expansion.set_emc.precision." + precision.name().toLowerCase() + ".hint")
                 .withStyle(ChatFormatting.DARK_GRAY);
         context.text(this.font, precisionHint,
-                panelLeft + PADDING, precisionButton.getY() + 22, 0x808080, false);
+                panelLeft + PADDING, precisionButton.getY() + 22, 0xFF808080, false);
 
         Component scopeHint = Component.translatable("itemalchemy-expansion.set_emc.scope." + scope.name().toLowerCase() + ".hint")
                 .withStyle(ChatFormatting.DARK_GRAY);
         context.text(this.font, scopeHint,
-                panelLeft + PADDING, scopeButton.getY() + 22, 0x808080, false);
+                panelLeft + PADDING, scopeButton.getY() + 22, 0xFF808080, false);
 
         if (errorText != null) {
             context.centeredText(this.font, errorText,
-                    centerX, scopeButton.getY() + 38, 0xFF5555);
+                    centerX, scopeButton.getY() + 38, 0xFFFF5555);
         }
 
         super.extractRenderState(context, mouseX, mouseY, delta);

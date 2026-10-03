@@ -202,13 +202,13 @@ public class OverwritePreciseConfirmScreen extends Screen {
         GuiRenderUtil.drawBorder(context, panelX, panelY, panelW, panelH, 0xFF404040);
 
         context.centeredText(this.font, this.title,
-                this.width / 2, panelY + 10, 0xFFFFFF);
+                this.width / 2, panelY + 10, 0xFFFFFFFF);
         // 副标题：物品 ID + 新通用价
         Component subtitle = Component.translatable("itemalchemy-expansion.overwrite_precise.subtitle",
                 Component.literal(itemId), Component.literal(String.valueOf(newGeneralEmc)));
-        context.text(this.font, subtitle, listLeft, panelY + 24, 0xA0A0A0, false);
+        context.text(this.font, subtitle, listLeft, panelY + 24, 0xFFA0A0A0, false);
         Component desc = Component.translatable("itemalchemy-expansion.overwrite_precise.desc");
-        context.text(this.font, desc, listLeft, panelY + 36, 0x808080, false);
+        context.text(this.font, desc, listLeft, panelY + 36, 0xFF808080, false);
 
         context.fill(listLeft, listTop, listRight, listBottom, 0x60000000);
         GuiRenderUtil.drawBorder(context, listLeft, listTop, listWidth, listBottom - listTop, 0xFF303030);
@@ -216,7 +216,7 @@ public class OverwritePreciseConfirmScreen extends Screen {
         if (entries.isEmpty()) {
             context.centeredText(this.font,
                     Component.translatable("itemalchemy-expansion.overwrite_precise.empty"),
-                    (listLeft + listRight) / 2, (listTop + listBottom) / 2 - 4, 0xA0A0A0);
+                    (listLeft + listRight) / 2, (listTop + listBottom) / 2 - 4, 0xFFA0A0A0);
         } else {
             context.enableScissor(listLeft, listTop, listRight, listBottom);
             int hoverIdx = hitListRow(mouseX, mouseY);
@@ -231,7 +231,7 @@ public class OverwritePreciseConfirmScreen extends Screen {
 
         context.text(this.font,
                 Component.translatable("itemalchemy-expansion.overwrite_precise.hint"),
-                listLeft, panelY + panelH - 16, 0x707070, false);
+                listLeft, panelY + panelH - 16, 0xFF707070, false);
 
         super.extractRenderState(context, mouseX, mouseY, delta);
     }
@@ -245,19 +245,19 @@ public class OverwritePreciseConfirmScreen extends Screen {
         context.item(e.stack, listLeft + 20, rowY + (ROW_H - 16) / 2);
         String name = e.displayName();
         if (name.length() > 16) name = name.substring(0, 15) + "...";
-        context.text(this.font, name, listLeft + 42, textY, 0xFFFFFF, false);
+        context.text(this.font, name, listLeft + 42, textY, 0xFFFFFFFF, false);
 
         // 变体标签
         int nameW = this.font.width(name);
         int tagX = listLeft + 42 + nameW + 6;
         Component preciseTag = Component.translatable("itemalchemy-expansion.reprice.layer_precise");
-        context.text(this.font, preciseTag, tagX, textY, 0x55FFFF, false);
+        context.text(this.font, preciseTag, tagX, textY, 0xFF55FFFF, false);
 
         // NBT 指纹摘要
         int tagW = this.font.width(preciseTag);
         String nbtSummary = extractNbtSummary(e.vkStr);
         if (nbtSummary != null && !nbtSummary.isEmpty()) {
-            context.text(this.font, nbtSummary, tagX + tagW + 4, textY, 0x888888, false);
+            context.text(this.font, nbtSummary, tagX + tagW + 4, textY, 0xFF888888, false);
         }
 
         drawEmc(context, e, listRight, textY);

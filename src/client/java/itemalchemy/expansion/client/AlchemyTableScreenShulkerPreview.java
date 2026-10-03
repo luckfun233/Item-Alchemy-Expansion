@@ -19,6 +19,9 @@ import net.pitan76.itemalchemy.client.screen.AlchemyTableScreen;
 import net.pitan76.itemalchemy.gui.screen.AlchemyTableScreenHandler;
 import org.lwjgl.glfw.GLFW;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * 转换桌界面内置 Shift 预览：在 AlchemyTableScreen 渲染后，若 SHIFT 按下且
  * 鼠标悬停在提取槽的潜影盒上，绘制 9×3 内容物预览面板。
@@ -259,7 +262,7 @@ public final class AlchemyTableScreenShulkerPreview {
             String sumEmcStr = String.format("%,d", cae.sumEmc);
             Component title = Component.translatable("itemalchemy-expansion.shulker_box.preview_title",
                     shulkerBox.getHoverName(), sumEmcStr);
-            context.text(client.font, title, x + PADDING, y + PADDING, 0xFFFFFF);
+            context.text(client.font, title, x + PADDING, y + PADDING, 0xFFFFFFFF);
 
             int gridY = y + PADDING + TITLE_HEIGHT + 2;
 
@@ -272,6 +275,9 @@ public final class AlchemyTableScreenShulkerPreview {
                     redFrameEnabled = false;
                 }
             }
+
+            // 红框外延 1px，须等所有格子背景画完再统一绘制：逐格绘制会被后一格的背景覆盖成半框
+            List<int[]> redFrames = new ArrayList<>();
 
             for (int row = 0; row < ROWS; row++) {
                 for (int col = 0; col < COLS; col++) {
@@ -298,15 +304,27 @@ public final class AlchemyTableScreenShulkerPreview {
                         context.text(client.font, countText,
                                 sx + SLOT_SIZE - client.font.width(countText) - 1,
                                 sy + SLOT_SIZE - client.font.lineHeight - 1,
-                                0xFFFFFF);
+                                0xFFFFFFFF);
                         context.pose().popMatrix();
                     }
 
                     // 焦点格由白框覆盖优先级更高，红框只画在非焦点格上
                     if (redFrameEnabled && (row != focusRow || col != focusCol)
                             && SearchMatcher.matchesContentItem(item, searchCtx)) {
-                        renderRedFrame(context, sx, sy);
+                        redFrames.add(new int[]{sx, sy});
                     }
+                }
+            }
+
+            if (!redFrames.isEmpty()) {
+                context.pose().pushMatrix();
+                context.nextStratum();
+                try {
+                    for (int[] pos : redFrames) {
+                        renderRedFrame(context, pos[0], pos[1]);
+                    }
+                } finally {
+                    context.pose().popMatrix();
                 }
             }
 
@@ -372,7 +390,7 @@ public final class AlchemyTableScreenShulkerPreview {
         context.nextStratum();
         context.fill(labelX, labelY, labelX + labelW, labelY + labelH, 0xF0101010);
         GuiRenderUtil.drawBorder(context, labelX, labelY, labelW, labelH, 0xFF505050);
-        context.text(client.font, name, labelX + 4, labelY + 4, 0xFFFFFF);
+        context.text(client.font, name, labelX + 4, labelY + 4, 0xFFFFFFFF);
         context.text(client.font, emcLine, labelX + 4, labelY + 14, 0xFFFFD700);
         context.pose().popMatrix();
     }
@@ -380,18 +398,15 @@ public final class AlchemyTableScreenShulkerPreview {
     /**
      * 绘制红框标记匹配搜索词的内容物格子。
      *
-     * <p>z=260：高于物品图标(z=0)与数量文字(z=250)，低于焦点白框(z=300)。
-     * 焦点格不调用本方法，确保焦点白框优先级更高。</p>
+     * <p>整批红框由 {@link #renderPreview} 在格子背景之后用同一层统一绘制；
+     * 焦点格不画红框，保证焦点白框优先级更高。</p>
      */
     private static void renderRedFrame(GuiGraphicsExtractor context, int sx, int sy) {
-        context.pose().pushMatrix();
-        context.nextStratum();
         int red = 0xFFFF3030;
         // 2px 粗边框，外延 1px
         context.fill(sx - 1, sy - 1, sx + SLOT_SIZE + 1, sy, red);                       // top
         context.fill(sx - 1, sy + SLOT_SIZE, sx + SLOT_SIZE + 1, sy + SLOT_SIZE + 1, red); // bottom
         context.fill(sx - 1, sy, sx, sy + SLOT_SIZE, red);                               // left
         context.fill(sx + SLOT_SIZE, sy, sx + SLOT_SIZE + 1, sy + SLOT_SIZE, red);       // right
-        context.pose().popMatrix();
     }
 }

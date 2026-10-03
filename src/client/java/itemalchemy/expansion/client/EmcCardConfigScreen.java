@@ -55,6 +55,8 @@ public class EmcCardConfigScreen extends Screen {
         amountField.setTextPredicate(this::isNumeric);
         amountField.setValue(String.valueOf(EmcCardItem.getQuickChargeAmount(card)));
         addRenderableWidget(amountField);
+        // 与存入/取出界面一致：进入即让输入框获焦，26.2 的文本输入（含输入法）只在文本框获焦时开启
+        this.setFocused(amountField);
 
         // 设置金额按钮
         addRenderableWidget(Button.builder(

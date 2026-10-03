@@ -429,7 +429,7 @@ public class EmcEmitterScreen extends SimpleInventoryScreen<EmcEmitterScreenHand
             ctx.text(this.font,
                     Component.translatable("itemalchemy-expansion.shulker_box.preview_title",
                             shulkerBox.getHoverName(), String.format("%,d", cae.sumEmc)),
-                    px + pad, py + pad, 0xFFFFFF);
+                    px + pad, py + pad, 0xFFFFFFFF);
             int gridY = py + pad + title + 2;
             for (int r = 0; r < rows; r++) {
                 for (int c = 0; c < cols; c++) {

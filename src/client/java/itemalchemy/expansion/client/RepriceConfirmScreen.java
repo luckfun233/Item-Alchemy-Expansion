@@ -281,10 +281,10 @@ public class RepriceConfirmScreen extends Screen {
         GuiRenderUtil.drawBorder(context, panelX, panelY, panelW, panelH, 0xFF404040);
 
         context.centeredText(this.font, this.title,
-                this.width / 2, panelY + 10, 0xFFFFFF);
+                this.width / 2, panelY + 10, 0xFFFFFFFF);
         context.text(this.font,
                 Component.translatable("itemalchemy-expansion.reprice.selective_desc"),
-                listLeft, panelY + 26, 0xA0A0A0, false);
+                listLeft, panelY + 26, 0xFFA0A0A0, false);
 
         context.fill(listLeft, listTop, listRight, listBottom, 0x60000000);
         GuiRenderUtil.drawBorder(context, listLeft, listTop, listWidth, listBottom - listTop, 0xFF303030);
@@ -293,7 +293,7 @@ public class RepriceConfirmScreen extends Screen {
             // 防御：服务端无候选时不弹窗，此处兜底显示
             context.centeredText(this.font,
                     Component.translatable("itemalchemy-expansion.reprice.empty"),
-                    (listLeft + listRight) / 2, (listTop + listBottom) / 2 - 4, 0xA0A0A0);
+                    (listLeft + listRight) / 2, (listTop + listBottom) / 2 - 4, 0xFFA0A0A0);
         } else {
             // 裁剪到列表区域
             context.enableScissor(listLeft, listTop, listRight, listBottom);
@@ -309,7 +309,7 @@ public class RepriceConfirmScreen extends Screen {
 
         context.text(this.font,
                 Component.translatable("itemalchemy-expansion.reprice.hint2"),
-                listLeft, panelY + panelH - 16, 0x707070, false);
+                listLeft, panelY + panelH - 16, 0xFF707070, false);
 
         super.extractRenderState(context, mouseX, mouseY, delta);
     }
@@ -324,18 +324,18 @@ public class RepriceConfirmScreen extends Screen {
         // 名称截断到 16 字符
         String name = e.displayName();
         if (name.length() > 16) name = name.substring(0, 15) + "...";
-        context.text(this.font, name, listLeft + 42, textY, 0xFFFFFF, false);
+        context.text(this.font, name, listLeft + 42, textY, 0xFFFFFFFF, false);
         if (e.isPrecise()) {
             int nameW = this.font.width(name);
             int tagX = listLeft + 42 + nameW + 6;
             Component precise = Component.translatable("itemalchemy-expansion.reprice.layer_precise");
-            context.text(this.font, precise, tagX, textY, 0x55FFFF, false);
+            context.text(this.font, precise, tagX, textY, 0xFF55FFFF, false);
             // 同 ID 多变体时标注数量
             if (e.variantCount > 1) {
                 int preciseW = this.font.width(precise);
                 Component count = Component.translatable("itemalchemy-expansion.reprice.variant_count",
                         e.variantCount);
-                context.text(this.font, count, tagX + preciseW + 4, textY, 0xFFAA00, false);
+                context.text(this.font, count, tagX + preciseW + 4, textY, 0xFFFFAA00, false);
             }
         }
         drawEmc(context, e, listRight, textY);
