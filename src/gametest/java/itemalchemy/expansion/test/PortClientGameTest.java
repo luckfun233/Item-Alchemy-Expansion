@@ -65,6 +65,13 @@ public final class PortClientGameTest implements FabricClientGameTest {
             context.waitTicks(4);
             context.setScreen(EmcCardConfigScreen::new);
             context.waitTicks(4);
+            // 26.2：文本输入（含输入法）只在文本框获焦时开启，配置界面金额框必须进入即获焦
+            boolean configFieldFocused = context.computeOnClient(client -> {
+                var focused = client.gui.screen().getFocused();
+                return focused instanceof net.minecraft.client.gui.components.EditBox;
+            });
+            System.out.println("PORT_INPUT_DIAG configFieldAutoFocused=" + configFieldFocused);
+            check(configFieldFocused, "emc card config amount field is focused on open");
             context.setScreen(EmcCardLogScreen::new);
             context.waitTicks(4);
             context.setScreen(() -> new SetEmcScreen(new ItemStack(Items.DIAMOND)));
@@ -146,6 +153,14 @@ public final class PortClientGameTest implements FabricClientGameTest {
             context.runOnClient(client -> check(
                     itemalchemy.expansion.client.AlchemyTableScreenShulkerPreview.diagnosticInvocationCount() > 0,
                     "alchemy table render hook fired"));
+            // 红框标记需要非空搜索上下文（客户端渲染直接读 handler.searchText）
+            context.runOnClient(client -> {
+                var screen = (AlchemyTableScreen) client.gui.screen();
+                screen.searchBox.setValue("diamond");
+                ((AlchemyTableScreenHandler) screen.getMenu()).searchText = "diamond";
+                screen.searchBox.setFocused(false);
+            });
+            context.waitTicks(2);
             context.getInput().holdShift();
             boolean previewActive = false;
             for (int attempt = 0; attempt < 6 && !previewActive; attempt++) {
@@ -154,8 +169,82 @@ public final class PortClientGameTest implements FabricClientGameTest {
                         itemalchemy.expansion.client.AlchemyTableScreenShulkerPreview.isPreviewActive());
             }
             check(previewActive, "shulker preview engaged");
+            // 焦点移开 (0,0)（钻石所在格）：焦点格优先画白框、不画红框
+            context.getInput().holdKey(org.lwjgl.glfw.GLFW.GLFW_KEY_D);
+            context.waitTicks(14);
+            context.getInput().releaseKey(org.lwjgl.glfw.GLFW.GLFW_KEY_D);
             context.takeScreenshot("port-shulker-preview");
             context.getInput().releaseShift();
+
+            // ===== 转换桌搜索框输入回归 =====
+            double[] searchPixels = context.computeOnClient(client -> {
+                var screen = (AlchemyTableScreen) client.gui.screen();
+                double scale = client.getWindow().getGuiScale();
+                var box = screen.searchBox;
+                return new double[]{(box.getX() + box.getWidth() / 2.0) * scale,
+                        (box.getY() + box.getHeight() / 2.0) * scale};
+            });
+            context.runOnClient(client ->
+                    ((AlchemyTableScreen) client.gui.screen()).searchBox.setValue(""));
+            // MouseHandler 会丢弃首个移动事件，抖动几下直到点击落到搜索框上
+            for (int attempt = 0; attempt < 4; attempt++) {
+                context.getInput().setCursorPos(searchPixels[0] + (attempt % 2), searchPixels[1] + (attempt % 2));
+                context.waitTicks(2);
+            }
+            context.getInput().pressMouse(0);
+            context.getInput().releaseMouse(0);
+            context.waitTicks(3);
+            boolean searchFocused = context.computeOnClient(client ->
+                    ((AlchemyTableScreen) client.gui.screen()).searchBox.isFocused());
+            context.getInput().typeChars("diamond");
+            context.waitTicks(5);
+            String typedValue = context.computeOnClient(client ->
+                    ((AlchemyTableScreen) client.gui.screen()).searchBox.getValue());
+            String directChain = context.computeOnClient(client -> {
+                var screen = (AlchemyTableScreen) client.gui.screen();
+                screen.searchBox.setFocused(true);
+                boolean handled = screen.charTyped(new net.minecraft.client.input.CharacterEvent('x'));
+                return "handled=" + handled + ",value=" + screen.searchBox.getValue();
+            });
+            System.out.println("PORT_SEARCH_DIAG clickedFocused=" + searchFocused
+                    + ",typedValue='" + typedValue + "',directCharTyped{" + directChain + "}");
+            // 26.2 的输入法路径：preedit（候选/组字）必须能分发到焦点控件
+            boolean preeditHandled = context.computeOnClient(client -> {
+                var screen = (AlchemyTableScreen) client.gui.screen();
+                screen.searchBox.setFocused(true);
+                return screen.preeditUpdated(new net.minecraft.client.input.PreeditEvent(
+                        "ni", 2, java.util.List.of("ni"), 0));
+            });
+            System.out.println("PORT_SEARCH_DIAG preeditHandled=" + preeditHandled);
+            check(preeditHandled, "alchemy search box accepts IME preedit events");
+            check("diamond".equals(typedValue), "alchemy search box receives typed characters");
+
+            // 真实按键走一遍上游 keyReleased → setSearchText → sortBySearch 链路
+            context.getInput().pressKey(org.lwjgl.glfw.GLFW.GLFW_KEY_D);
+            context.getInput().releaseKey(org.lwjgl.glfw.GLFW.GLFW_KEY_D);
+            context.waitTicks(4);
+            String[] searchState = context.computeOnClient(client -> {
+                var screen = (AlchemyTableScreen) client.gui.screen();
+                var handler = (AlchemyTableScreenHandler) screen.getMenu();
+                return new String[]{screen.searchBox.getValue(), handler.searchText,
+                        String.valueOf(handler.extractInventory != null
+                                && handler.extractInventory.definedStacks != null
+                                && !handler.extractInventory.definedStacks.isEmpty())};
+            });
+            System.out.println("PORT_SEARCH_DIAG box='" + searchState[0] + "',handlerSearchText='"
+                    + searchState[1] + "',extractSlotsFilled=" + searchState[2]);
+            check(searchState[1] != null && searchState[1].equals(searchState[0]),
+                    "alchemy search propagates typed text to the screen handler");
+
+            // 服务端是否真的收到了搜索词（客户端本地已生效，服务端要靠 itemalchemy:search 包）
+            world.getServer().runOnServer(server -> {
+                var player = world.getConnection().getServerPlayer();
+                Object menu = player.containerMenu;
+                System.out.println("PORT_SEARCH_DIAG serverMenu=" + menu.getClass().getName()
+                        + ",serverSearchText='" + (menu instanceof AlchemyTableScreenHandler h ? h.searchText : "<n/a>")
+                        + "'");
+            });
+
             context.runOnClient(client -> client.player.closeContainer());
             world.getConnection().waitForServerboundPackets();
             world.getServer().runOnServer(server -> {
@@ -230,6 +319,23 @@ public final class PortClientGameTest implements FabricClientGameTest {
             context.runOnClient(client -> SetEmcClientNetwork.sendSetEmc("minecraft:diamond", 777L, SetEmcNetwork.SCOPE_THIS_SAVE, true, preciseKey[0], java.util.List.of()));
             world.getServer().waitFor(server -> java.util.Objects.equals(PreciseEmcStore.get(preciseKey[0]), 777L));
             world.getServer().runOnServer(server -> check(EMCManager.get(world.getConnection().getServerPlayer().getMainHandItem()) == 777L, "precise EMC network update affects valuation"));
+            // 单人存档默认放行本模组命令（commandsRequireOp 只在服务器上生效）：
+            // 直接检查 Brigadier 节点对单人玩家 source 的 requires 判定，避免副作用
+            // 门禁挂在顶层字面量上（mcpitanlib 会丢弃子命令的 CommandSettings）。
+            // 用一个「零权限执行者」判别：门禁缺失→默认谓词恒 true；沿用旧的静态 permissionLevel(2)→false；
+            // 只有「我们的谓词 + 单人豁免」才会对零权限 source 也返回 true。
+            boolean[] commandGate = {false, false};
+            world.getServer().runOnServer(server -> {
+                var root = server.getCommands().getDispatcher().getRoot().getChild("itemalchemy-expansion");
+                var plain = world.getConnection().getServerPlayer().createCommandSourceStack().withSuppressedOutput();
+                var noPerm = plain.withPermission(net.minecraft.server.permissions.PermissionSet.NO_PERMISSIONS);
+                commandGate[0] = root != null && root.getRequirement().test(plain);
+                commandGate[1] = root != null && root.getRequirement().test(noPerm);
+            });
+            System.out.println("PORT_PERM_DIAG topLevelRequires opPlayer=" + commandGate[0]
+                    + " zeroPermSource=" + commandGate[1]);
+            check(commandGate[0] && commandGate[1], "singleplayer bypasses the command op requirement");
+
             System.out.println("PORT_CLIENT_GAME_SMOKE_PASS");
         }
     }

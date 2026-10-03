@@ -80,6 +80,7 @@ public final class IAExpClothConfigScreen {
             IAExpConfigHolder.get().preciseMode = true;
             IAExpConfigHolder.get().autoPricingFromRecipes = editing.autoPricingFromRecipes;
             IAExpConfigHolder.get().setEmcRequireOp = editing.setEmcRequireOp;
+            IAExpConfigHolder.get().commandsRequireOp = editing.commandsRequireOp;
             IAExpConfigHolder.get().automationEnabled = editing.automationEnabled;
             IAExpConfigHolder.get().automationIntervalTicks = editing.automationIntervalTicks;
             IAExpConfigHolder.get().automationMode = editing.automationMode;
@@ -222,6 +223,14 @@ public final class IAExpClothConfigScreen {
                 .setDefaultValue(true)
                 .setTooltip(Component.translatable("itemalchemy-expansion.config.setEmcRequireOp.tooltip"))
                 .setSaveConsumer(v -> c.setEmcRequireOp = v)
+                .build());
+
+        advanced.addEntry(entries
+                .startBooleanToggle(Component.translatable("itemalchemy-expansion.config.commandsRequireOp"),
+                        c.commandsRequireOp)
+                .setDefaultValue(true)
+                .setTooltip(Component.translatable("itemalchemy-expansion.config.commandsRequireOp.tooltip"))
+                .setSaveConsumer(v -> c.commandsRequireOp = v)
                 .build());
 
         advanced.addEntry(entries

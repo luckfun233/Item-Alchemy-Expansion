@@ -1,5 +1,6 @@
 package itemalchemy.expansion.network;
 
+import itemalchemy.expansion.IAExpPermissions;
 import itemalchemy.expansion.ItemAlchemyExpansion;
 import itemalchemy.expansion.config.IAExpConfig;
 import itemalchemy.expansion.config.IAExpConfigHolder;
@@ -8,7 +9,6 @@ import itemalchemy.expansion.compat.port.PacketByteBufs;
 import itemalchemy.expansion.compat.port.ServerPlayNetworking;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.permissions.Permissions;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.pitan76.itemalchemy.EMCManager;
@@ -171,9 +171,8 @@ public final class SetEmcNetwork {
                 itemId, emc, scope, precise, variantKey,
                 preciseVkStrsToClear == null ? 0 : preciseVkStrsToClear.size());
         // 权限门禁：默认仅 OP（权限等级 2 = GAMEMASTER）可改价；单人存档豁免（自己玩不受影响）；
-        // 服主可在 config 里把 setEmcRequireOp 设为 false 完全放开
-        if (IAExpConfigHolder.get().setEmcRequireOp && !server.isSingleplayer()
-                && !player.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER)) {
+        // 服主可在 config 里把 setEmcRequireOp 设为 false 完全放开。判定与命令门禁共用 IAExpPermissions
+        if (!IAExpPermissions.canSetEmc(server, player.permissions())) {
             ItemAlchemyExpansion.LOGGER.warn("[IAExp][SetEmc] rejected: {} has no permission level 2",
                     player.getPlainTextName());
             sendFeedback(player, "itemalchemy-expansion.set_emc.fail.no_permission");
@@ -404,6 +403,13 @@ public final class SetEmcNetwork {
     static void handleRepriceSelective(net.minecraft.server.MinecraftServer server,
                                        ServerPlayer player,
                                        List<String> generalIds, List<String> preciseVkStrs) {
+        // 权限门禁：与改价同源（会移除手动定价并触发全服重算），非单人存档下要求 OP
+        if (!IAExpPermissions.canSetEmc(server, player.permissions())) {
+            ItemAlchemyExpansion.LOGGER.warn("[IAExp][Reprice] rejected: {} has no permission level 2",
+                    player.getPlainTextName());
+            sendFeedback(player, "itemalchemy-expansion.set_emc.fail.no_permission");
+            return;
+        }
         IAExpConfigHolder.get().autoPricingRepricePromptShown = true;
         IAExpConfigHolder.save();
 

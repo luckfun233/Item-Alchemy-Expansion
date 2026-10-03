@@ -65,6 +65,14 @@ public final class PortDataSmokeTest {
         StackData.getOrCreateNbt(dataItem).putLong("storedEmc", 123456789L);
         check(StackData.getNbt(dataItem).getLongOr("storedEmc", 0) == 123456789L, "mutable custom data writes through");
         check(StackData.getNbt(StackData.fromNbt(StackData.writeNbt(dataItem, new CompoundTag()))).getLongOr("storedEmc", 0) == 123456789L, "custom data persistence");
+        // 权限门禁决策表：单人放行 / 关闭校验放行 / 服务器无 OP 拒绝 / 服务器有 OP 放行
+        var noPerm = net.minecraft.server.permissions.PermissionSet.NO_PERMISSIONS;
+        var allPerm = net.minecraft.server.permissions.PermissionSet.ALL_PERMISSIONS;
+        check(IAExpPermissions.allowed(true, true, noPerm), "singleplayer bypasses op requirement");
+        check(IAExpPermissions.allowed(false, false, noPerm), "disabled op requirement allows everyone");
+        check(!IAExpPermissions.allowed(false, true, noPerm), "server without op is denied");
+        check(IAExpPermissions.allowed(false, true, allPerm), "server with op is allowed");
+        check(!IAExpPermissions.allowed(false, true, null), "missing permission set is denied");
         System.out.println("PORT_DATA_SMOKE_PASS assertions=" + assertions);
     }
 }
