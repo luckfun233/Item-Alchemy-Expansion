@@ -69,7 +69,7 @@ public final class ShulkerBoxSupport {
             if (contentStack.isEmpty()) continue;
             // 按 id 查 EMC（同 id 同价），不递归潜影盒判定
             long itemEmc = EMCManager.get(contentStack.getItem());
-            sum += itemEmc * contentStack.getCount();
+            sum = saturatedAdd(sum, saturatedMultiply(itemEmc, contentStack.getCount()));
         }
         return sum;
     }
@@ -109,9 +109,30 @@ public final class ShulkerBoxSupport {
             }
             // 累加内容物 EMC（按 id 查，同 id 同价）
             long itemEmc = EMCManager.get(contentStack.getItem());
-            sum += itemEmc * contentStack.getCount();
+            sum = saturatedAdd(sum, saturatedMultiply(itemEmc, contentStack.getCount()));
         }
         return new ContentsAndEmc(contents, sum);
+    }
+
+    /**
+     * 饱和乘：EMC 与堆叠数按非负值使用（上游 EMC 值均 >= 0），乘积溢出时钳到 {@link Long#MAX_VALUE}，
+     * 避免普通乘法回绕成负数把「天价潜影盒」算成负价（可被利用为白拿/倒赚 EMC）。
+     *
+     * <p>正常取值范围下与 {@code emc * count} 完全一致。</p>
+     */
+    public static long saturatedMultiply(long emc, long count) {
+        if (emc > 0 && count > 0 && emc > Long.MAX_VALUE / count) return Long.MAX_VALUE;
+        return emc * count;
+    }
+
+    /**
+     * 饱和加：非负 EMC 相加溢出时钳到 {@link Long#MAX_VALUE}。
+     *
+     * <p>正常取值范围下与 {@code sum + add} 完全一致。</p>
+     */
+    public static long saturatedAdd(long sum, long add) {
+        if (add > 0 && sum > Long.MAX_VALUE - add) return Long.MAX_VALUE;
+        return sum + add;
     }
 
     /** getContentsAndSumEmc 的返回值：内容物数组 + EMC 总和 */

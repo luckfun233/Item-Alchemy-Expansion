@@ -1,5 +1,6 @@
 package itemalchemy.expansion.network;
 
+import itemalchemy.expansion.IAExpPermissions;
 import itemalchemy.expansion.ItemAlchemyExpansion;
 import itemalchemy.expansion.config.IAExpConfig;
 import itemalchemy.expansion.config.IAExpConfigHolder;
@@ -39,8 +40,9 @@ import java.util.Set;
  * <p><b>注意</b>：客户端发送方法在 {@code SetEmcClientNetwork}（client source set）中，
  * 因为 {@code ClientPlayNetworking} 是客户端专属 API，不能在 main source set 引用。</p>
  *
- * <p><b>安全</b>：服务端校验 {@code itemId} 非空、emc >= 0，scope 仅 0/1。
- * 任意玩家可设（EMC 修改是创作向功能）。服主若需限制可在 {@code applyOnServer} 加 {@code player.hasPermissionLevel(2)} 判断。</p>
+ * <p><b>安全</b>：服务端校验 {@code itemId} 非空、emc >= 0，scope 仅 0/1；
+ * 并按配置 {@code setEmcRequireOp}（默认 true）做权限门禁：非单人存档里仅权限等级 2（OP）可改价，
+ * 单人存档自动豁免；服主可在 {@code config/itemalchemy-expansion.json5} 里设为 false 完全放开。</p>
  */
 public final class SetEmcNetwork {
 
@@ -121,7 +123,7 @@ public final class SetEmcNetwork {
             final String variantKey = buf.readString();
             // 通用模式下要清除的 L1 精确变体键列表（客户端弹窗逐个勾选后传入；空=不清除）
             final int clearCount = buf.readVarInt();
-            final List<String> preciseVkStrsToClear = new ArrayList<>(clearCount);
+            final List<String> preciseVkStrsToClear = new ArrayList<>(clampPrealloc(clearCount));
             for (int i = 0; i < clearCount; i++) preciseVkStrsToClear.add(buf.readString());
 
             server.execute(() -> applyOnServer(server, player, itemId, emc, scope, precise, variantKey, preciseVkStrsToClear));
@@ -135,10 +137,10 @@ public final class SetEmcNetwork {
         // 「重新定价逐个选择」C2S：玩家勾选「重算」的条目（通用层 itemId + 精确层变体键）
         ServerPlayNetworking.registerGlobalReceiver(REPRICE_SELECTIVE_ID, (server, player, handler, buf, responseSender) -> {
             final int generalCount = buf.readVarInt();
-            final List<String> generalIds = new ArrayList<>(generalCount);
+            final List<String> generalIds = new ArrayList<>(clampPrealloc(generalCount));
             for (int i = 0; i < generalCount; i++) generalIds.add(buf.readString());
             final int preciseCount = buf.readVarInt();
-            final List<String> preciseVkStrs = new ArrayList<>(preciseCount);
+            final List<String> preciseVkStrs = new ArrayList<>(clampPrealloc(preciseCount));
             for (int i = 0; i < preciseCount; i++) preciseVkStrs.add(buf.readString());
             server.execute(() -> handleRepriceSelective(server, player, generalIds, preciseVkStrs));
         });
@@ -168,6 +170,14 @@ public final class SetEmcNetwork {
                 "[IAExp][SetEmc][S2C-receive] applyOnServer: itemId='{}', emc={}, scope={}, precise={}, variantKey='{}', clearCount={}",
                 itemId, emc, scope, precise, variantKey,
                 preciseVkStrsToClear == null ? 0 : preciseVkStrsToClear.size());
+        // 权限门禁：默认仅 OP（权限等级 2）可改价，单人存档豁免（自己玩不受影响）；
+        // 服主可在 config 里把 setEmcRequireOp 设为 false 完全放开。判定与命令门禁共用 IAExpPermissions
+        if (!IAExpPermissions.canSetEmc(server, player)) {
+            ItemAlchemyExpansion.LOGGER.warn("[IAExp][SetEmc] rejected: {} has no permission level 2",
+                    player.getName().getString());
+            sendFeedback(player, "itemalchemy-expansion.set_emc.fail.no_permission");
+            return;
+        }
         if (itemId == null || itemId.isEmpty()) {
             ItemAlchemyExpansion.LOGGER.warn("[IAExp][SetEmc] rejected: empty itemId");
             sendFeedback(player, "itemalchemy-expansion.set_emc.fail.invalid_id");
@@ -393,6 +403,13 @@ public final class SetEmcNetwork {
     static void handleRepriceSelective(net.minecraft.server.MinecraftServer server,
                                        ServerPlayerEntity player,
                                        List<String> generalIds, List<String> preciseVkStrs) {
+        // 权限门禁：与改价同源（会移除手动定价并触发全服重算），非单人存档下要求 OP
+        if (!IAExpPermissions.canSetEmc(server, player)) {
+            ItemAlchemyExpansion.LOGGER.warn("[IAExp][Reprice] rejected: {} has no permission level 2",
+                    player.getName().getString());
+            sendFeedback(player, "itemalchemy-expansion.set_emc.fail.no_permission");
+            return;
+        }
         IAExpConfigHolder.get().autoPricingRepricePromptShown = true;
         IAExpConfigHolder.save();
 
@@ -463,6 +480,15 @@ public final class SetEmcNetwork {
         PacketByteBuf buf = PacketByteBufs.create();
         // 空包：仅作为触发信号
         ServerPlayNetworking.send(player, NEW_FEATURE_TOAST_ID, buf);
+    }
+
+    /**
+     * 预分配容量钳制：包内 count 为客户端可控 varint（最大 2^31-1 或负数），
+     * 直接 {@code new ArrayList<>(count)} 可被单个包触发巨量分配导致 OOM。
+     * 容量只作提示，元素仍按数据逐个读取。
+     */
+    private static int clampPrealloc(int count) {
+        return Math.max(0, Math.min(count, 1024));
     }
 
     static String normalizeItemId(String id) {

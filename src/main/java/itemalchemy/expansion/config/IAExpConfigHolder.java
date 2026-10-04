@@ -152,6 +152,58 @@ public final class IAExpConfigHolder {
             needsSave = true;
         }
 
+        // configVersion < 11: 新增「自动装置」总开关。Gson Unsafe 会把 boolean 零初始化为 false，
+        // 需显式补回默认 true
+        if (loaded.configVersion < 11) {
+            ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 11 (add automation master switch)", loaded.configVersion);
+            loaded.automationEnabled = true;
+            loaded.configVersion = 11;
+            needsSave = true;
+        }
+
+        // configVersion < 12: 新增自动装置工作间隔。Gson Unsafe 会把 int 零初始化为 0，
+        // 0 会导致每 tick 取模异常，故 <=0 时补默认值
+        if (loaded.configVersion < 12) {
+            ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 12 (add automation interval)", loaded.configVersion);
+            if (loaded.automationIntervalTicks <= 0) loaded.automationIntervalTicks = def.automationIntervalTicks;
+            loaded.configVersion = 12;
+            needsSave = true;
+        }
+
+        // configVersion < 13: 新增自动装置工作模式。Gson 缺省时枚举为 null，需补默认持续模式
+        if (loaded.configVersion < 13) {
+            ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 13 (add automation mode)", loaded.configVersion);
+            if (loaded.automationMode == null) loaded.automationMode = def.automationMode;
+            loaded.configVersion = 13;
+            needsSave = true;
+        }
+
+        // configVersion < 14: 默认工作模式改为脉冲（用户需求）
+        if (loaded.configVersion < 14) {
+            ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 14 (default mode -> pulse)", loaded.configVersion);
+            loaded.automationMode = IAExpConfig.AutomationMode.PULSE;
+            loaded.configVersion = 14;
+            needsSave = true;
+        }
+
+        // configVersion < 15: 新增「设置 EMC 仅限 OP」开关。Gson Unsafe 会把 boolean 零初始化为 false，
+        // 需显式补回默认 true（旧配置也应默认受保护）
+        if (loaded.configVersion < 15) {
+            ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 15 (add set-EMC op-only switch)", loaded.configVersion);
+            loaded.setEmcRequireOp = true;
+            loaded.configVersion = 15;
+            needsSave = true;
+        }
+
+        // configVersion < 16: 新增「命令仅限 OP」开关。Gson Unsafe 会把 boolean 零初始化为 false，
+        // 需显式补回默认 true（旧配置也应默认受保护）
+        if (loaded.configVersion < 16) {
+            ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 16 (add command op-only switch)", loaded.configVersion);
+            loaded.commandsRequireOp = true;
+            loaded.configVersion = 16;
+            needsSave = true;
+        }
+
         return loaded;
     }
 
