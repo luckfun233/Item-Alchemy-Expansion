@@ -1,0 +1,19 @@
+// 临时 init script：导出本项目的完整编译 classpath，供沙箱内 javac 直接编译验证
+// 用法（项目目录下）：
+//   .\gradlew.bat iaexpDumpCp --no-daemon --offline -I tools\dump-classpath.init.gradle
+// 产出：iaexp-classpath.txt（项目根，勿提交）
+gradle.projectsEvaluated {
+    def proj = gradle.rootProject
+    proj.tasks.register('iaexpDumpCp') {
+        group = 'help'
+        doLast {
+            def files = [] as LinkedHashSet
+            proj.tasks.withType(org.gradle.api.tasks.compile.JavaCompile) { t ->
+                files.addAll(t.classpath.files)
+            }
+            def out = new File(proj.projectDir, 'iaexp-classpath.txt')
+            out.text = files.join(File.pathSeparator)
+            println "IAEXP_CP_WRITTEN=" + out.absolutePath + " entries=" + files.size()
+        }
+    }
+}
