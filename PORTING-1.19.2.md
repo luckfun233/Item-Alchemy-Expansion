@@ -64,13 +64,10 @@ Item Alchemy Expansion 是 Item Alchemy 的附属模组：炼金台 NBT 变体�
 | `ItemAlchemyExpansionClient.java` | 客户端注册：3 个 S2C 接收器 + 3 个 `HandledScreens.register` |
 | `compat/clothconfig/IAExpClothConfigScreen.java` | 新增 2 个 OP 开关 + Automation 分类（3 项） |
 
-**唯一缺口**：`CardForgeScreen`（制卡台容器界面，1.20.1 版 467 行）尚未移植，
-`ItemAlchemyExpansionClient` 里对应的 `HandledScreens.register(... CardForgeScreen::new)` 未接入
-（该文件内已留注释说明）。制卡台的**服务端**（方块/容器/网络）已完成，缺的只是客户端界面。
+**制卡台服务端**（方块/容器/网络）与**客户端界面**均已完成，GUI 可正常打开。
 
 ### 2.3 尚未开始
 
-- `CardForgeScreen` 移植与注册（补齐后制卡台 GUI 才可打开）
 - 运行时验证（进游戏跑一遍：卡充入/拿取/关联/绑定、转能器转换、输出器喷出、权限门禁）
 - `MODRINTH.md` 的 1.19.2 发布说明与 `fabric.mod.json` 版本号（当前仍 `mod_version=1.1.1`）
 

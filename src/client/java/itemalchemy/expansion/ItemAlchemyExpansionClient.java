@@ -1,6 +1,7 @@
 package itemalchemy.expansion;
 
 import itemalchemy.expansion.client.CardForgeClientNetwork;
+import itemalchemy.expansion.client.CardForgeScreen;
 import itemalchemy.expansion.client.EmcAutoClientNetwork;
 import itemalchemy.expansion.client.EmcCardClientNetwork;
 import itemalchemy.expansion.client.EmcConverterScreen;
@@ -54,7 +55,13 @@ public class ItemAlchemyExpansionClient implements ClientModInitializer {
 			ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to register card forge S2C receiver: {}", t.toString());
 		}
 
-		// 制卡台 Screen 注册：CardForgeScreen 尚未移植（见 PORTING-1.19.2.md §2.3）
+		// 制卡台 Screen 注册
+		try {
+			net.minecraft.client.gui.screen.ingame.HandledScreens.register(
+					CardForgeScreenHandlers.TYPE, CardForgeScreen::new);
+		} catch (Throwable t) {
+			ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to register card forge screen: {}", t.toString());
+		}
 
 		// EMC 转能器 Screen 注册
 		try {
