@@ -162,6 +162,18 @@ public final class IAExpConfigHolder {
             needsSave = true;
         }
 
+        // configVersion < 12: 新增「自动装置」总开关/工作间隔/工作模式三项。
+        // 本工程版本号体系与 1.20.1 不同（1.20.1 分 4 步到 16），此处按本工程规则并为一步到 12，
+        // 终态与 1.20.1 一致：enabled=true、interval=5、mode=PULSE
+        if (loaded.configVersion < 12) {
+            ItemAlchemyExpansion.LOGGER.info("[IAExp] Upgrading config from version {} -> 12 (add automation switch/interval/mode)", loaded.configVersion);
+            loaded.automationEnabled = true;
+            if (loaded.automationIntervalTicks <= 0) loaded.automationIntervalTicks = def.automationIntervalTicks;
+            if (loaded.automationMode == null) loaded.automationMode = def.automationMode;
+            loaded.configVersion = 12;
+            needsSave = true;
+        }
+
         return loaded;
     }
 

@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " P ",
+    "WDW",
+    "III"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "W": {
+      "item": "minecraft:oak_planks"
+    },
+    "D": {
+      "item": "minecraft:dropper"
+    },
+    "P": {
+      "item": "itemalchemy:philosopher_stone"
+    }
+  },
+  "result": {
+    "item": "itemalchemy-expansion:emc_emitter"
+  }
+}

@@ -40,8 +40,14 @@ public class IAExpConfig {
         @SerializedName("first") FIRST
     }
 
-    /** 配置版本号，用于旧配置自动升级。缺省（旧配置）视为 0，当前为 11。 */
-    public int configVersion = 11;
+    /** 自动装置工作模式 */
+    public enum AutomationMode {
+        @SerializedName("continuous") CONTINUOUS,
+        @SerializedName("pulse") PULSE
+    }
+
+    /** 配置版本号，用于旧配置自动升级。缺省（旧配置）视为 0，当前为 12。 */
+    public int configVersion = 12;
 
     /** 转换桌展示方式，默认 图标+名称 */
     public DisplayMode displayMode = DisplayMode.ICON_AND_NAME;
@@ -168,6 +174,29 @@ public class IAExpConfig {
      */
     public boolean commandsRequireOp = true;
 
+    // ===== 自动装置 =====
+
+    /**
+     * 自动装置总开关（默认 true）。
+     * 关闭后：无法合成两个自动装置；即使服务器中已放置也不能运行（会有提示），
+     * 且方块 tick 提前返回，几乎零性能占用。
+     */
+    public boolean automationEnabled = true;
+
+    /**
+     * 自动装置工作间隔（tick，默认 5）。
+     * 持续模式下分解器/构物器每 N 个（有红石信号的）tick 才处理一件物品，降低吞吐防刷屏。
+     * 原为每 tick 一件（20/秒），默认降为约 4 件/秒。脉冲模式下该值不生效（每次信号触发一件）。
+     */
+    public int automationIntervalTicks = 5;
+
+    /**
+     * 自动装置工作模式（默认 脉冲）。
+     * 持续（CONTINUOUS）：有红石信号期间按 {@link #automationIntervalTicks} 间隔持续工作；
+     * 脉冲（PULSE）：每次红石信号上升沿触发一件（类似投掷器，需高频信号，不持续运行）。
+     */
+    public AutomationMode automationMode = AutomationMode.PULSE;
+
     /** 返回一份副本（不修改本对象） */
     public IAExpConfig copy() {
         IAExpConfig c = new IAExpConfig();
@@ -192,6 +221,9 @@ public class IAExpConfig {
         c.featureNoticeShown = featureNoticeShown;
         c.setEmcRequireOp = setEmcRequireOp;
         c.commandsRequireOp = commandsRequireOp;
+        c.automationEnabled = automationEnabled;
+        c.automationIntervalTicks = automationIntervalTicks;
+        c.automationMode = automationMode;
         return c;
     }
 }

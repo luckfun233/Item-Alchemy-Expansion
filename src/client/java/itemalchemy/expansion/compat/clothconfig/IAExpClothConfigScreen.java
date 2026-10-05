@@ -1,5 +1,6 @@
 package itemalchemy.expansion.compat.clothconfig;
 
+import itemalchemy.expansion.client.EmcAutoClientNetwork;
 import itemalchemy.expansion.client.RepriceTriggerClient;
 import itemalchemy.expansion.config.IAExpConfig;
 import itemalchemy.expansion.config.IAExpConfigHolder;
@@ -77,11 +78,17 @@ public final class IAExpClothConfigScreen {
             IAExpConfigHolder.get().autoPricingTickBudgetMs = editing.autoPricingTickBudgetMs;
             IAExpConfigHolder.get().setEmcRequireOp = editing.setEmcRequireOp;
             IAExpConfigHolder.get().commandsRequireOp = editing.commandsRequireOp;
+            IAExpConfigHolder.get().automationEnabled = editing.automationEnabled;
+            IAExpConfigHolder.get().automationIntervalTicks = editing.automationIntervalTicks;
+            IAExpConfigHolder.get().automationMode = editing.automationMode;
             // 精确模式始终开启
             IAExpConfigHolder.get().preciseMode = true;
             IAExpConfigHolder.get().autoPricingFromRecipes = editing.autoPricingFromRecipes;
             IAExpConfigHolder.save();
             IAExpServices.refresh();
+
+            // 自动装置开关变化可能影响合成配方：通知服务端即时增删配方，无需重启
+            EmcAutoClientNetwork.sendConfigSync();
 
             // 自动定价首次 OFF→ON：重置提示标志并弹重新定价对话框
             if (!wasAutoPricingOn && editing.autoPricingFromRecipes) {
@@ -113,6 +120,10 @@ public final class IAExpClothConfigScreen {
     private static final Function<Enum, Text> AUTO_PRICING_STRATEGY_NAMING = e ->
             Text.translatable("itemalchemy-expansion.config.autoPricingStrategy.option." + e.name().toLowerCase());
 
+    /** AutomationMode 直观名：CONTINUOUS→「持续」, PULSE→「脉冲」 */
+    private static final Function<Enum, Text> AUTOMATION_MODE_NAMING = e ->
+            Text.translatable("itemalchemy-expansion.config.automationMode.option." + e.name().toLowerCase());
+
     /**
      * 注册所有分类与条目。新增配置项时在此追加即可。
      *
@@ -121,6 +132,7 @@ public final class IAExpClothConfigScreen {
      *   <li>general — 展示、搜索</li>
      *   <li>shulker_box — 潜影盒相关</li>
      *   <li>advanced — 调试日志、权限开关、NBT 过滤、忽略 key 列表</li>
+     *   <li>automation — 自动装置（EMC 分解器 / EMC 构物器）</li>
      *   <li>experimental — 实验性功能（配方自动定价，默认关闭）</li>
      * </ul>
      * </p>
@@ -227,6 +239,35 @@ public final class IAExpClothConfigScreen {
                 .setDefaultValue(new ArrayList<>())
                 .setTooltip(Text.translatable("itemalchemy-expansion.config.ignoreNbtKeys.tooltip"))
                 .setSaveConsumer((List<String> v) -> c.ignoreNbtKeys = v)
+                .build());
+
+        // ===== Automation（自动装置）=====
+        ConfigCategory automation = builder.getOrCreateCategory(
+                Text.translatable("itemalchemy-expansion.config.category.automation"));
+
+        automation.addEntry(entries
+                .startBooleanToggle(Text.translatable("itemalchemy-expansion.config.automationEnabled"),
+                        c.automationEnabled)
+                .setDefaultValue(true)
+                .setTooltip(Text.translatable("itemalchemy-expansion.config.automationEnabled.tooltip"))
+                .setSaveConsumer(v -> c.automationEnabled = v)
+                .build());
+
+        automation.addEntry(entries
+                .startIntField(Text.translatable("itemalchemy-expansion.config.automationIntervalTicks"),
+                        c.automationIntervalTicks)
+                .setDefaultValue(5)
+                .setTooltip(Text.translatable("itemalchemy-expansion.config.automationIntervalTicks.tooltip"))
+                .setSaveConsumer(v -> c.automationIntervalTicks = Math.max(1, v))
+                .build());
+
+        automation.addEntry(entries
+                .startEnumSelector(Text.translatable("itemalchemy-expansion.config.automationMode"),
+                        IAExpConfig.AutomationMode.class, c.automationMode)
+                .setDefaultValue(IAExpConfig.AutomationMode.PULSE)
+                .setTooltip(Text.translatable("itemalchemy-expansion.config.automationMode.tooltip"))
+                .setEnumNameProvider(AUTOMATION_MODE_NAMING)
+                .setSaveConsumer(v -> c.automationMode = v)
                 .build());
 
         // ===== Experimental =====

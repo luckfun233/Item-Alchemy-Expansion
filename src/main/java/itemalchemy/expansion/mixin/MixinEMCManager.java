@@ -4,6 +4,7 @@ import itemalchemy.expansion.IAExpServices;
 import itemalchemy.expansion.ItemAlchemyExpansion;
 import itemalchemy.expansion.config.IAExpConfig;
 import itemalchemy.expansion.config.IAExpConfigHolder;
+import itemalchemy.expansion.item.EmcCardItem;
 import itemalchemy.expansion.nbt.ComponentNbtView;
 import itemalchemy.expansion.nbt.ItemVariantKey;
 import itemalchemy.expansion.nbt.ShulkerBoxSupport;
@@ -50,11 +51,24 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class MixinEMCManager {
 
     /**
-     * 原版 {@code ItemStack} 重载：潜影盒 / 精确 / 自动定价分支。
+     * 原版 {@code ItemStack} 重载：EMC 卡 / 潜影盒 / 精确 / 自动定价分支。
      */
     @Inject(method = "get(Lnet/minecraft/item/ItemStack;)J", at = @At("HEAD"), cancellable = true)
     private static void iaexp$getEmc(ItemStack stack, CallbackInfoReturnable<Long> cir) {
         if (stack == null || stack.isEmpty()) return;
+
+        // 0. EMC 卡特判：转换桌查价 = 卡本身 EMC + 卡内存储 EMC
+        // 卡本身走 EMCManager.get(Item)（不触发本 Mixin 递归），未定价时回退材料总和
+        if (stack.getItem() instanceof EmcCardItem) {
+            long count = ItemStackUtil.getCount(stack);
+            long cardBaseEmc = EmcCardItem.getBaseEmc();
+            long stored = EmcCardItem.getBalance(stack);
+            long total = (cardBaseEmc + stored) * count;
+            ItemAlchemyExpansion.debug("[IAExp] emc card: base={}, stored={}, count={}, total={}",
+                    cardBaseEmc, stored, count, total);
+            cir.setReturnValue(total);
+            return;
+        }
 
         // 1. 潜影盒：sumEmc（永远最高优先级，不依赖配置）
         if (ShulkerBoxSupport.isShulkerBox(stack)) {
