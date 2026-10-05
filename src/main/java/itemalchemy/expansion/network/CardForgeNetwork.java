@@ -272,7 +272,7 @@ public final class CardForgeNetwork {
         }
         String uuid = profile.get().getId().toString();
         // 确保目标玩家有转换桌队伍：没有则创建默认队伍（0 EMC）。
-        // 否则绑卡放入转换器/输出器会因无处入账而静默失败。
+        // 否则绑卡放入分解器/构物器会因无处入账而静默失败。
         if (!PlayerEmcUtil.ensureTeam(player.getServer(), java.util.UUID.fromString(uuid), profile.get().getName())) {
             msg(player, "card_forge.bind.no_team", Text.literal(profile.get().getName()));
             return;

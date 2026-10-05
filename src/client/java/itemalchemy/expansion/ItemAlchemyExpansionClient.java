@@ -65,7 +65,7 @@ public class ItemAlchemyExpansionClient implements ClientModInitializer {
 			ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to register card forge screen: {}", t.toString());
 		}
 
-		// EMC 转能器 Screen 注册
+		// EMC 分解器 Screen 注册
 		try {
 			net.minecraft.client.gui.screen.ingame.HandledScreens.register(
 					EmcConverterScreenHandlers.TYPE, EmcConverterScreen::new);
@@ -73,7 +73,7 @@ public class ItemAlchemyExpansionClient implements ClientModInitializer {
 			ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to register emc converter screen: {}", t.toString());
 		}
 
-		// EMC 输出器 Screen 注册（容器 GUI：左列表 + 右背包）
+		// EMC 构物器 Screen 注册（容器 GUI：左列表 + 右背包）
 		try {
 			net.minecraft.client.gui.screen.ingame.HandledScreens.register(
 					EmcEmitterScreenHandlers.TYPE, EmcEmitterScreen::new);
@@ -81,7 +81,7 @@ public class ItemAlchemyExpansionClient implements ClientModInitializer {
 			ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to register emc emitter screen: {}", t.toString());
 		}
 
-		// 自动装置 S2C 接收器（输出器打开/列表/所选）
+		// 自动装置 S2C 接收器（构物器打开/列表/所选）
 		try {
 			EmcAutoClientNetwork.registerClientReceiver();
 		} catch (Throwable t) {

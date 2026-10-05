@@ -13,7 +13,7 @@ import net.pitan76.mcpitanlib.api.util.ScreenHandlerUtil;
 import net.pitan76.mcpitanlib.api.util.SlotUtil;
 
 /**
- * EMC 转能器 ScreenHandler：1 张 EMC 卡槽 + 4 个输入槽 + 玩家物品栏。
+ * EMC 分解器 ScreenHandler：1 张 EMC 卡槽 + 4 个输入槽 + 玩家物品栏。
  */
 public class EmcConverterScreenHandler extends net.pitan76.mcpitanlib.api.gui.SimpleScreenHandler {
 

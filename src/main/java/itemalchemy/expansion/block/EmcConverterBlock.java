@@ -24,7 +24,7 @@ import net.pitan76.mcpitanlib.midohra.block.BlockState;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * EMC 转能器方块：漏斗输入物品，有红石信号时转换为 EMC 存入卡内。
+ * EMC 分解器方块：漏斗输入物品，有红石信号时转换为 EMC 存入卡内。
  * 自动装置总开关关闭时右键提示且不可用。放置朝向为玩家视线方向（类似发射器，纯装饰）。
  */
 public class EmcConverterBlock extends CompatBlock implements ExtendBlockEntityProvider {

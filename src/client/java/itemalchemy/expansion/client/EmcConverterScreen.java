@@ -16,7 +16,7 @@ import net.pitan76.mcpitanlib.api.client.render.handledscreen.DrawForegroundArgs
 import net.pitan76.mcpitanlib.api.client.render.handledscreen.RenderArgs;
 
 /**
- * EMC 转能器 GUI：4 输入槽 → 箭头 → EMC 卡槽 + 玩家物品栏，全部代码绘制（不依赖背景贴图）。
+ * EMC 分解器 GUI：4 输入槽 → 箭头 → EMC 卡槽 + 玩家物品栏，全部代码绘制（不依赖背景贴图）。
  */
 public class EmcConverterScreen extends SimpleInventoryScreen<EmcConverterScreenHandler> {
 

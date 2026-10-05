@@ -174,7 +174,7 @@ public class IAExpConfig {
      */
     public boolean commandsRequireOp = true;
 
-    // ===== 自动装置（EMC 转能器 / EMC 输出器）=====
+    // ===== 自动装置（EMC 分解器 / EMC 构物器）=====
 
     /**
      * 自动装置总开关（默认 true）。
@@ -185,7 +185,7 @@ public class IAExpConfig {
 
     /**
      * 自动装置工作间隔（tick，默认 5）。
-     * 持续模式下转换器/输出器每 N 个（有红石信号的）tick 才处理一件物品，降低吞吐防刷屏。
+     * 持续模式下分解器/构物器每 N 个（有红石信号的）tick 才处理一件物品，降低吞吐防刷屏。
      * 原为每 tick 一件（20/秒），默认降为约 4 件/秒。脉冲模式下该值不生效（每次信号触发一件）。
      */
     public int automationIntervalTicks = 5;

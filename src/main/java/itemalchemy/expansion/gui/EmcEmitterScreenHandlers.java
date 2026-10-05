@@ -8,7 +8,7 @@ import net.minecraft.util.Identifier;
 import net.pitan76.mcpitanlib.api.gui.SimpleScreenHandlerTypeBuilder;
 
 /**
- * EMC 输出器 ScreenHandlerType 注册。
+ * EMC 构物器 ScreenHandlerType 注册。
  */
 public final class EmcEmitterScreenHandlers {
 
@@ -17,7 +17,7 @@ public final class EmcEmitterScreenHandlers {
     private static final SimpleScreenHandlerTypeBuilder<EmcEmitterScreenHandler> BUILDER =
             new SimpleScreenHandlerTypeBuilder<>(e -> new EmcEmitterScreenHandler(e));
 
-    /** EMC 输出器 ScreenHandlerType */
+    /** EMC 构物器 ScreenHandlerType */
     public static final ScreenHandlerType<EmcEmitterScreenHandler> TYPE;
 
     static {

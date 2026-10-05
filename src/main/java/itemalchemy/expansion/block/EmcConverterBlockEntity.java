@@ -30,7 +30,7 @@ import net.pitan76.mcpitanlib.api.util.TextUtil;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * EMC 转能器：漏斗输入的物品在有红石信号时转换为 EMC，存入卡槽内的 EMC 卡。
+ * EMC 分解器：漏斗输入的物品在有红石信号时转换为 EMC，存入卡槽内的 EMC 卡。
  *
  * <p>槽位：0 = EMC 卡；1-4 = 待转换物品输入。每 tick 在红石信号存在时把输入槽
  * 全部按 EMC 转为卡内余额并清空。自动装置总开关关闭时 tick 直接返回。</p>

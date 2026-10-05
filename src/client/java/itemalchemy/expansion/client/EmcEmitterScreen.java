@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * EMC 输出器容器 GUI：左侧为物品选择列表（搜索 + 滚动 + 点击选择），右侧为 EMC 卡槽 +
+ * EMC 构物器容器 GUI：左侧为物品选择列表（搜索 + 滚动 + 点击选择），右侧为 EMC 卡槽 +
  * 玩家物品栏。卡槽是真实容器槽，可直接拖动放入/取出 EMC 卡；E 键/Esc 关闭。
  *
  * <p>所选物品存于方块 NBT（共享），列表基于打开者本人，由服务端经 {@code EmcAutoNetwork}
