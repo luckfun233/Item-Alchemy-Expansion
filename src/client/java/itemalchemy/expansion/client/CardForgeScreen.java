@@ -262,7 +262,7 @@ public class CardForgeScreen extends SimpleInventoryScreen<CardForgeScreenHandle
             drawSlotBox(matrices, x + s.x - 1, y + s.y - 1, s.id < 2);
         }
 
-        // 空卡槽画卡片轮廓示意（与转换器一致），指明「卡放这里」
+        // 空卡槽画卡片轮廓示意（与分解器一致），指明「卡放这里」
         for (Slot s : this.handler.slots) {
             if (s.id >= 2) break;
             if (s.getStack().isEmpty()) {

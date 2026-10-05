@@ -19,16 +19,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 自动装置（EMC 转能器 / EMC 输出器）网络层。
+ * 自动装置（EMC 分解器 / EMC 构物器）网络层。
  *
- * <p>输出器为容器 GUI：右键方块由 {@code SimpleScreenHandlerFactory} 打开，服务端通过
+ * <p>构物器为容器 GUI：右键方块由 {@code SimpleScreenHandlerFactory} 打开，服务端通过
  * {@code player.currentScreenHandler} 定位对应 {@link EmcEmitterBlockEntity}（菜单的
  * {@code canUse} 每 tick 校验距离，越界自动关闭，防伪造包）。客户端请求打开者转换桌列表、
  * 设置所选物品；卡槽为真实容器槽，直接拖动放入/取出，无需额外协议。</p>
  */
 public final class EmcAutoNetwork {
 
-    /** C2S：请求列表（无载荷，服务端按当前打开的输出器菜单定位） */
+    /** C2S：请求列表（无载荷，服务端按当前打开的构物器菜单定位） */
     public static final Identifier REQ_ID =
             new Identifier(ItemAlchemyExpansion.MOD_ID, "emc_emitter_req");
     /** C2S：设置所选物品（携带变体键） */
@@ -76,7 +76,7 @@ public final class EmcAutoNetwork {
         });
     }
 
-    /** 按当前打开的转能器/输出器菜单定位 tile，下发卡实时余额（GUI 心跳刷新用） */
+    /** 按当前打开的分解器/构物器菜单定位 tile，下发卡实时余额（GUI 心跳刷新用） */
     private static void handleBalanceRequest(ServerPlayerEntity player) {
         if (!IAExpConfigHolder.get().automationEnabled) return;
         if (player.currentScreenHandler instanceof EmcEmitterScreenHandler sh) {
@@ -98,7 +98,7 @@ public final class EmcAutoNetwork {
         }
     }
 
-    /** 通过当前打开的容器菜单定位输出器方块（菜单 canUse 已校验距离） */
+    /** 通过当前打开的容器菜单定位构物器方块（菜单 canUse 已校验距离） */
     private static EmcEmitterBlockEntity currentEmitterTile(ServerPlayerEntity player) {
         if (player.currentScreenHandler instanceof EmcEmitterScreenHandler sh) {
             return sh.tile;
@@ -154,7 +154,7 @@ public final class EmcAutoNetwork {
 
         tile.setSelectedVariant(variant);
         String sel = tile.getSelectedVariant() == null ? "" : tile.getSelectedVariant();
-        // 共享所选物品：广播给所有正打开同一输出器的玩家，避免不同玩家看到不同选择
+        // 共享所选物品：广播给所有正打开同一构物器的玩家，避免不同玩家看到不同选择
         for (ServerPlayerEntity p : player.getServer().getPlayerManager().getPlayerList()) {
             if (p == player) continue;
             if (p.currentScreenHandler instanceof EmcEmitterScreenHandler sh && sh.tile == tile) {

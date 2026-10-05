@@ -1,7 +1,7 @@
 # Item Alchemy Expansion — 1.20.1 → 1.19.2 移植指南
 
 > 目标项目：`item-alchemy-expansion-1.19.2/`（MC 1.19.2 / Fabric / Java 17）
-> 上游同步基准：1.20.1 分支 `item-alchemy-expansion-1.20.1/`（mod_version 1.2.0）
+> 上游同步基准：1.20.1 分支 `item-alchemy-expansion-1.20.1/`（mod_version 1.2.2）
 > 本文档记录移植状态、实测 API 差异、构建方式与剩余工作，接手时先读本文。
 
 ## 目录
@@ -18,7 +18,7 @@
 ## 一、项目背景与目标
 
 Item Alchemy Expansion 是 Item Alchemy 的附属模组：炼金台 NBT 变体区分、药水/潜影盒支持、
-精确与自动定价，以及 1.20.1 后期新增的 EMC 卡、制卡台、EMC 转能器/输出器等自动装置。
+精确与自动定价，以及 1.20.1 后期新增的 EMC 卡、制卡台、EMC 分解器/构物器等自动装置。
 
 1.19.2 分支早期只同步到 1.20.1 的 **1.1.1** 状态（筛选按钮、精确 EMC、潜影盒预览、重新定价
 对话框等），缺少此后 1.20.1 的全部新功能。本次移植目标是把这些功能补齐到 1.19.2。
@@ -37,8 +37,8 @@ Item Alchemy Expansion 是 Item Alchemy 的附属模组：炼金台 NBT 变体�
 |------|------------|------|
 | EMC 卡物品 | `item/EmcCardItem.java`、`item/IAExpItems.java` | 完成 |
 | 制卡台 | `block/CardForgeBlock{,Entity,Blocks}.java`、`gui/CardForgeScreenHandler{,s}.java` | 完成（服务端） |
-| EMC 转能器 | `block/EmcConverterBlock{,Entity}.java`、`block/EmcAutoBlocks.java`、`gui/EmcConverterScreenHandler{,s}.java` | 完成（服务端） |
-| EMC 输出器 | `block/EmcEmitterBlock{,Entity}.java`、`gui/EmcEmitterScreenHandler{,s}.java` | 完成（服务端） |
+| EMC 分解器 | `block/EmcConverterBlock{,Entity}.java`、`block/EmcAutoBlocks.java`、`gui/EmcConverterScreenHandler{,s}.java` | 完成（服务端） |
+| EMC 构物器 | `block/EmcEmitterBlock{,Entity}.java`、`gui/EmcEmitterScreenHandler{,s}.java` | 完成（服务端） |
 | 卡网络层 | `network/EmcCardNetwork`、`CardForgeNetwork`、`EmcAutoNetwork` | 完成 |
 | 卡余额/账户 | `network/EmcCardBalanceUtil`、`CardAccountStore`、`PlayerEmcUtil` | 完成 |
 | 权限门禁 | `IAExpPermissions.java` | 完成 |
@@ -57,10 +57,10 @@ Item Alchemy Expansion 是 Item Alchemy 的附属模组：炼金台 NBT 变体�
 |------|------|
 | `client/EmcCardClientNetwork.java` | C2S 充入/拿取/配置 + S2C 打开 GUI |
 | `client/CardForgeClientNetwork.java` | 制卡台动作 + 在线玩家列表 |
-| `client/EmcAutoClientNetwork.java` | 输出器列表/所选/余额 + 配置同步 |
+| `client/EmcAutoClientNetwork.java` | 构物器列表/所选/余额 + 配置同步 |
 | `client/EmcCardMainScreen.java` 等 5 个 | EMC 卡菜单/充入/拿取/交易记录/快捷充能配置 |
-| `client/EmcConverterScreen.java` | 转能器容器界面（纯代码绘制） |
-| `client/EmcEmitterScreen.java` | 输出器容器界面（左列表 + 右背包） |
+| `client/EmcConverterScreen.java` | 分解器容器界面（纯代码绘制） |
+| `client/EmcEmitterScreen.java` | 构物器容器界面（左列表 + 右背包） |
 | `ItemAlchemyExpansionClient.java` | 客户端注册：3 个 S2C 接收器 + 3 个 `HandledScreens.register` |
 | `compat/clothconfig/IAExpClothConfigScreen.java` | 新增 2 个 OP 开关 + Automation 分类（3 项） |
 
@@ -68,8 +68,8 @@ Item Alchemy Expansion 是 Item Alchemy 的附属模组：炼金台 NBT 变体�
 
 ### 2.3 尚未开始
 
-- 运行时验证（进游戏跑一遍：卡充入/拿取/关联/绑定、转能器转换、输出器喷出、权限门禁）
-- `MODRINTH.md` 的 1.19.2 发布说明与 `fabric.mod.json` 版本号（当前仍 `mod_version=1.1.1`）
+- 运行时验证（进游戏跑一遍：卡充入/拿取/关联/绑定、分解器转换、构物器喷出、权限门禁）
+- `MODRINTH.md` 的 1.19.2 发布说明（`fabric.mod.json` 版本随 `mod_version` 展开，现为 1.2.2）
 
 ## 三、环境与依赖配置
 
@@ -80,7 +80,7 @@ minecraft_version=1.19.2
 yarn_mappings=1.19.2+build.28
 loader_version=0.19.3
 loom_version=1.15.5
-mod_version=1.1.1
+mod_version=1.2.2
 fabric_version=0.77.0+1.19.2
 itemalchemy_version=1.3.3
 mcpitanlib_version=3.7.1
@@ -275,7 +275,7 @@ Gradle 只用来导出一次 classpath，之后用 `javac` 直接校验，秒级
 1. `javac` 全量 0 错误
 2. 完整权限下 `gradlew build -x test` 通过
 3. 进游戏：`/itemalchemy-expansion reload`、EMC 卡充入/拿取、制卡台关联/绑定/合并、
-   转能器（漏斗 + 红石）转换、输出器选择物品并喷出、非 OP 玩家改价/命令被拒
+   分解器（漏斗 + 红石）转换、构物器选择物品并喷出、非 OP 玩家改价/命令被拒
 
 ## 七、下一步 TODO
 
@@ -296,7 +296,7 @@ Gradle 只用来导出一次 classpath，之后用 `javac` 直接校验，秒级
 | `../research/ShulkerBoxTooltip-1.20.x/` | 潜影盒预览实现参考 |
 | `../1.19.2-crash-analysis.md` | 「跨版本互拷 jar → NoSuchMethodError」的完整证据链 |
 | `../PORTING-1.21.1.md` | 1.21.1 分支的移植指南（Data Components 体系，可对照 1.19.2 的 NBT 体系） |
-| `../item-alchemy-expansion-1.20.1/` | 本次移植的同步基准（mod_version 1.2.0） |
+| `../item-alchemy-expansion-1.20.1/` | 本次移植的同步基准（mod_version 1.2.2） |
 
 本地快速查 API 是否存在（无需反编译工具）：
 

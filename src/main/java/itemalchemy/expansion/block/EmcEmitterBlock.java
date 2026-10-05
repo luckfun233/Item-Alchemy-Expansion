@@ -26,7 +26,7 @@ import net.pitan76.mcpitanlib.midohra.block.BlockState;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * EMC 输出器方块：卡内选择物品，有红石信号时按放置朝向喷出该物品。
+ * EMC 构物器方块：卡内选择物品，有红石信号时按放置朝向喷出该物品。
  * 自动装置总开关关闭时右键提示且不可用。放置朝向为玩家视线方向（类似发射器，含上下）。
  */
 public class EmcEmitterBlock extends CompatBlock implements ExtendBlockEntityProvider {

@@ -7,7 +7,7 @@ import net.minecraft.util.registry.Registry;
 import net.pitan76.mcpitanlib.api.gui.SimpleScreenHandlerTypeBuilder;
 
 /**
- * EMC 转能器 ScreenHandlerType 注册。
+ * EMC 分解器 ScreenHandlerType 注册。
  */
 public final class EmcConverterScreenHandlers {
 

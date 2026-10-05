@@ -14,39 +14,39 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 自动装置客户端网络：EMC 输出器列表请求/选择设置（C2S）+ 打开界面/列表/所选同步（S2C）。
+ * 自动装置客户端网络：EMC 构物器列表请求/选择设置（C2S）+ 打开界面/列表/所选同步（S2C）。
  */
 public final class EmcAutoClientNetwork {
 
     private EmcAutoClientNetwork() {}
 
-    /** 当前打开的输出器选择界面（用于实时刷新） */
+    /** 当前打开的构物器选择界面（用于实时刷新） */
     private static EmcEmitterScreen activeScreen;
 
-    /** 当前打开的转能器界面（用于余额实时刷新） */
+    /** 当前打开的分解器界面（用于余额实时刷新） */
     private static EmcConverterScreen activeConverterScreen;
 
-    /** 登记当前输出器界面（打开时调用） */
+    /** 登记当前构物器界面（打开时调用） */
     public static void attach(EmcEmitterScreen screen) {
         activeScreen = screen;
     }
 
-    /** 注销当前输出器界面（关闭时调用） */
+    /** 注销当前构物器界面（关闭时调用） */
     public static void detach(EmcEmitterScreen screen) {
         if (activeScreen == screen) activeScreen = null;
     }
 
-    /** 登记当前转能器界面（打开时调用） */
+    /** 登记当前分解器界面（打开时调用） */
     public static void attachConverter(EmcConverterScreen screen) {
         activeConverterScreen = screen;
     }
 
-    /** 注销当前转能器界面（关闭时调用） */
+    /** 注销当前分解器界面（关闭时调用） */
     public static void detachConverter(EmcConverterScreen screen) {
         if (activeConverterScreen == screen) activeConverterScreen = null;
     }
 
-    /** 客户端请求当前打开装置（转能器/输出器）的卡余额（C2S，心跳刷新用） */
+    /** 客户端请求当前打开装置（分解器/构物器）的卡余额（C2S，心跳刷新用） */
     public static void sendBalanceRequest() {
         try {
             ClientPlayNetworking.send(EmcAutoNetwork.BALANCE_REQ_ID, PacketByteBufs.create());
@@ -55,7 +55,7 @@ public final class EmcAutoClientNetwork {
         }
     }
 
-    /** 客户端请求打开者的转换桌列表（C2S，无载荷；服务端按当前打开的输出器菜单定位） */
+    /** 客户端请求打开者的转换桌列表（C2S，无载荷；服务端按当前打开的构物器菜单定位） */
     public static void sendRequest() {
         try {
             ClientPlayNetworking.send(EmcAutoNetwork.REQ_ID, PacketByteBufs.create());

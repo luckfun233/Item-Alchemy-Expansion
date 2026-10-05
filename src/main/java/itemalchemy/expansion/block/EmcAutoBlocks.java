@@ -11,7 +11,7 @@ import net.pitan76.mcpitanlib.api.block.v2.CompatibleBlockSettings;
 import net.pitan76.mcpitanlib.api.util.CompatIdentifier;
 
 /**
- * 自动装置（EMC 转能器 / EMC 输出器）注册：方块、方块物品、BlockEntityType。
+ * 自动装置（EMC 分解器 / EMC 构物器）注册：方块、方块物品、BlockEntityType。
  * 沿用制卡台的 Fabric 原生 {@link Registry#register} 注册方式。
  *
  * <p>1.19.2 无 ItemGroupEvents：总开关关闭时只是不能合成/不能使用（见方块右键与 tick 闸门），
@@ -21,18 +21,18 @@ public final class EmcAutoBlocks {
 
     private EmcAutoBlocks() {}
 
-    /** EMC 转能器方块 */
+    /** EMC 分解器方块 */
     public static EmcConverterBlock CONVERTER;
-    /** EMC 转能器 BlockItem */
+    /** EMC 分解器 BlockItem */
     public static BlockItem CONVERTER_ITEM;
-    /** EMC 转能器 BlockEntityType */
+    /** EMC 分解器 BlockEntityType */
     public static BlockEntityType<EmcConverterBlockEntity> CONVERTER_TILE;
 
-    /** EMC 输出器方块 */
+    /** EMC 构物器方块 */
     public static EmcEmitterBlock EMITTER;
-    /** EMC 输出器 BlockItem */
+    /** EMC 构物器 BlockItem */
     public static BlockItem EMITTER_ITEM;
-    /** EMC 输出器 BlockEntityType */
+    /** EMC 构物器 BlockEntityType */
     public static BlockEntityType<EmcEmitterBlockEntity> EMITTER_TILE;
 
     public static void init() {

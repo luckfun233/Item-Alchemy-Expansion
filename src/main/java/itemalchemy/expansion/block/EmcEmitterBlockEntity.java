@@ -34,7 +34,7 @@ import net.pitan76.mcpitanlib.api.util.TextUtil;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * EMC 输出器：卡槽内放 EMC 卡（由漏斗放入），GUI 中从打开者转换桌列表选择要喷出的物品。
+ * EMC 构物器：卡槽内放 EMC 卡（由漏斗放入），GUI 中从打开者转换桌列表选择要喷出的物品。
  * 有红石信号时，从卡内扣除所选物品的 EMC 并按朝向喷出该物品（保留 NBT）。
  *
  * <p>所选物品存于方块 NBT（共享），他人打开可见同一设置。自动装置总开关关闭时 tick 直接返回。</p>

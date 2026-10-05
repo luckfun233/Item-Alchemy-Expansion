@@ -13,7 +13,7 @@ import net.pitan76.mcpitanlib.api.util.ScreenHandlerUtil;
 import net.pitan76.mcpitanlib.api.util.SlotUtil;
 
 /**
- * EMC 输出器 ScreenHandler：1 张 EMC 卡槽 + 玩家物品栏（右侧列）。
+ * EMC 构物器 ScreenHandler：1 张 EMC 卡槽 + 玩家物品栏（右侧列）。
  *
  * <p>左侧为物品选择列表（非容器数据，走自定义网络）；右侧为卡槽 + 玩家物品栏，
  * 卡槽支持直接拖动放入/取出（绑定卡同样可放）。服务端由

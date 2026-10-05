@@ -45,7 +45,7 @@ public final class EmcCardBalanceUtil {
         if (bind != null) {
             UUID bid = parseUuid(bind);
             // 懒补建：绑卡目标若从未建过队伍（旧卡/离线目标），先补默认队伍再入账，
-            // 否则转换器会被绑卡阻塞、EMC 无处存放
+            // 否则分解器会被绑卡阻塞、EMC 无处存放
             if (bid != null && !PlayerEmcUtil.hasTeam(server, bid)) {
                 String nm = EmcCardItem.getBindName(card);
                 PlayerEmcUtil.ensureTeam(server, bid, nm);
