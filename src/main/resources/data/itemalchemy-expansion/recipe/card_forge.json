@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "QRQ",
+    "III",
+    "MMM"
+  ],
+  "key": {
+    "Q": "minecraft:quartz",
+    "R": "minecraft:redstone",
+    "I": "minecraft:iron_ingot",
+    "M": "minecraft:oak_planks"
+  },
+  "result": {
+    "id": "itemalchemy-expansion:card_forge"
+  }
+}

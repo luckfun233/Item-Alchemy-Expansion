@@ -1,7 +1,16 @@
 package itemalchemy.expansion;
 
+import itemalchemy.expansion.client.CardForgeClientNetwork;
+import itemalchemy.expansion.client.CardForgeScreen;
+import itemalchemy.expansion.client.EmcAutoClientNetwork;
+import itemalchemy.expansion.client.EmcCardClientNetwork;
+import itemalchemy.expansion.client.EmcConverterScreen;
+import itemalchemy.expansion.client.EmcEmitterScreen;
 import itemalchemy.expansion.client.SetEmcClientNetwork;
 import itemalchemy.expansion.client.SetEmcKeybind;
+import itemalchemy.expansion.gui.CardForgeScreenHandlers;
+import itemalchemy.expansion.gui.EmcConverterScreenHandlers;
+import itemalchemy.expansion.gui.EmcEmitterScreenHandlers;
 import net.fabricmc.api.ClientModInitializer;
 
 /**
@@ -32,6 +41,51 @@ public class ItemAlchemyExpansionClient implements ClientModInitializer {
 			ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to register precise emc S2C receiver: {}", t.toString());
 		}
 
-		ItemAlchemyExpansion.LOGGER.info("[IAExp] client initialized: set-emc keybind registered, shulker preview via mixin, precise emc S2C receiver registered.");
+		// EMC 卡 S2C 接收器：右键卡时服务端发信号让客户端打开 GUI
+		try {
+			EmcCardClientNetwork.registerClientReceiver();
+		} catch (Throwable t) {
+			ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to register emc card S2C receiver: {}", t.toString());
+		}
+
+		// 制卡台 S2C 接收器：绑定页在线玩家列表下发
+		try {
+			CardForgeClientNetwork.registerClientReceiver();
+		} catch (Throwable t) {
+			ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to register card forge S2C receiver: {}", t.toString());
+		}
+
+		// 制卡台 Screen 注册
+		try {
+			net.minecraft.client.gui.screen.ingame.HandledScreens.register(
+					CardForgeScreenHandlers.TYPE, CardForgeScreen::new);
+		} catch (Throwable t) {
+			ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to register card forge screen: {}", t.toString());
+		}
+
+		// EMC 分解器 Screen 注册
+		try {
+			net.minecraft.client.gui.screen.ingame.HandledScreens.register(
+					EmcConverterScreenHandlers.TYPE, EmcConverterScreen::new);
+		} catch (Throwable t) {
+			ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to register emc converter screen: {}", t.toString());
+		}
+
+		// EMC 构物器 Screen 注册（容器 GUI：左列表 + 右背包）
+		try {
+			net.minecraft.client.gui.screen.ingame.HandledScreens.register(
+					EmcEmitterScreenHandlers.TYPE, EmcEmitterScreen::new);
+		} catch (Throwable t) {
+			ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to register emc emitter screen: {}", t.toString());
+		}
+
+		// 自动装置 S2C 接收器（构物器打开/列表/所选）
+		try {
+			EmcAutoClientNetwork.registerClientReceiver();
+		} catch (Throwable t) {
+			ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to register emc auto S2C receiver: {}", t.toString());
+		}
+
+		ItemAlchemyExpansion.LOGGER.info("[IAExp] client initialized: set-emc keybind registered, shulker preview via mixin, precise emc S2C receiver registered, emc card S2C receiver registered, emc automation receivers registered.");
 	}
 }

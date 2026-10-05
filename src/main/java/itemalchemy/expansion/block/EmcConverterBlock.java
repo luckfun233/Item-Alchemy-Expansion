@@ -1,0 +1,112 @@
+package itemalchemy.expansion.block;
+
+import itemalchemy.expansion.config.IAExpConfigHolder;
+import net.minecraft.block.Block;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.block.entity.BlockEntityType;
+import net.minecraft.text.Text;
+import net.minecraft.util.shape.VoxelShape;
+import net.pitan76.mcpitanlib.api.block.ExtendBlockEntityProvider;
+import net.pitan76.mcpitanlib.api.block.args.v2.PlacementStateArgs;
+import net.pitan76.mcpitanlib.api.block.v2.CompatBlock;
+import net.pitan76.mcpitanlib.api.block.v2.CompatibleBlockSettings;
+import net.pitan76.mcpitanlib.api.event.block.AppendPropertiesArgs;
+import net.pitan76.mcpitanlib.api.event.block.BlockUseEvent;
+import net.pitan76.mcpitanlib.api.event.block.StateReplacedEvent;
+import net.pitan76.mcpitanlib.api.state.property.CompatProperties;
+import net.pitan76.mcpitanlib.api.state.property.DirectionProperty;
+import net.pitan76.mcpitanlib.api.util.CompatActionResult;
+import net.pitan76.mcpitanlib.api.util.VoxelShapeUtil;
+import net.pitan76.mcpitanlib.core.serialization.CompatMapCodec;
+import net.pitan76.mcpitanlib.core.serialization.codecs.CompatBlockMapCodecUtil;
+import net.pitan76.mcpitanlib.midohra.block.BlockState;
+import org.jetbrains.annotations.Nullable;
+
+/**
+ * EMC 分解器方块：漏斗输入物品，有红石信号时转换为 EMC 存入卡内。
+ * 自动装置总开关关闭时右键提示且不可用。放置朝向为玩家视线方向（类似发射器，纯装饰）。
+ */
+public class EmcConverterBlock extends CompatBlock implements ExtendBlockEntityProvider {
+
+    /** 摆放朝向（全向，纯装饰，用于模型正面朝向） */
+    public static final DirectionProperty FACING = CompatProperties.FACING;
+
+    protected final CompatMapCodec<? extends CompatBlock> codec =
+            CompatBlockMapCodecUtil.createCodec(EmcConverterBlock::new);
+
+    public EmcConverterBlock(CompatibleBlockSettings settings) {
+        super(settings);
+        setDefaultState(getDefaultMidohraState().with(FACING, net.pitan76.mcpitanlib.midohra.util.math.Direction.NORTH));
+    }
+
+    @Override
+    public void appendProperties(AppendPropertiesArgs args) {
+        args.addProperty(FACING);
+        super.appendProperties(args);
+    }
+
+    @Override
+    public CompatMapCodec<? extends Block> getCompatCodec() {
+        return codec;
+    }
+
+    @Override
+    public CompatActionResult onRightClick(BlockUseEvent e) {
+        if (e.isClient()) return e.success();
+        if (!IAExpConfigHolder.get().automationEnabled) {
+            e.player.getServerPlayer().ifPresent(p -> p.sendMessage(
+                    Text.translatable("itemalchemy-expansion.automation.disabled"), true));
+            return e.success();
+        }
+        BlockEntity be = e.getBlockEntity();
+        if (be instanceof EmcConverterBlockEntity tile) {
+            e.player.openGuiScreen(tile);
+            return e.consume();
+        }
+        return e.pass();
+    }
+
+    @Override
+    public void onStateReplaced(StateReplacedEvent e) {
+        if (e.isSameState()) return;
+        e.spawnDropsInContainer();
+        super.onStateReplaced(e);
+    }
+
+    @Override
+    public @Nullable BlockState getPlacementState(PlacementStateArgs args) {
+        BlockState state = super.getPlacementState(args);
+        if (state == null) return null;
+        // 参考投掷器：正面朝向放置者视线方向（含俯仰），水平方向翻转 180°（正面面朝放置者）
+        net.pitan76.mcpitanlib.midohra.util.math.Direction facing;
+        try {
+            net.pitan76.mcpitanlib.midohra.util.math.Direction look =
+                    net.pitan76.mcpitanlib.midohra.util.math.Direction.of(args.getCtx().getPlayerLookDirection());
+            facing = look.isHorizontal() ? look.getOpposite() : look;
+        } catch (Throwable t) {
+            facing = net.pitan76.mcpitanlib.midohra.util.math.Direction.NORTH;
+        }
+        return state.with(FACING, facing);
+    }
+
+    @Override
+    public VoxelShape getOutlineShape(net.pitan76.mcpitanlib.api.block.args.v2.OutlineShapeEvent e) {
+        return VoxelShapeUtil.cuboid(0, 0, 0, 1, 1, 1);
+    }
+
+    @Override
+    public VoxelShape getCollisionShape(net.pitan76.mcpitanlib.api.block.args.v2.CollisionShapeEvent e) {
+        // 满方块碰撞：保证按钮/拉杆等可附着在六个面上
+        return VoxelShapeUtil.cuboid(0, 0, 0, 1, 1, 1);
+    }
+
+    @Override
+    public @Nullable <T extends BlockEntity> BlockEntityType<T> getBlockEntityType() {
+        return (BlockEntityType<T>) EmcAutoBlocks.CONVERTER_TILE;
+    }
+
+    @Override
+    public boolean isTick() {
+        return true;
+    }
+}

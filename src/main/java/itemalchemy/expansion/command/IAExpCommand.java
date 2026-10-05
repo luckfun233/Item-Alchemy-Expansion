@@ -36,7 +36,7 @@ public class IAExpCommand extends LiteralCommand {
     public void execute(ServerCommandEvent e) {
         e.sendSuccess("[Item Alchemy Expansion]"
                 + "\n- /itemalchemy-expansion reprice...Force re-scan recipes and recompute auto-priced EMC"
-                + "\n- /itemalchemy-expansion reload...Reload config and rebuild NBT fingerprints"
+                + "\n- /itemalchemy-expansion reload...Reload config and sync automation recipes"
         );
     }
 }

@@ -1,0 +1,149 @@
+package itemalchemy.expansion.client;
+
+import itemalchemy.expansion.IAExpServices;
+import itemalchemy.expansion.ItemAlchemyExpansion;
+import itemalchemy.expansion.nbt.ItemVariantKey;
+import itemalchemy.expansion.network.EmcAutoNetwork;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.network.PacketByteBuf;
+import net.pitan76.mcpitanlib.api.network.ClientNetworking;
+import net.pitan76.mcpitanlib.api.network.PacketByteUtil;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * 自动装置客户端网络：EMC 构物器列表请求/选择设置（C2S）+ 打开界面/列表/所选同步（S2C）。
+ */
+public final class EmcAutoClientNetwork {
+
+    private EmcAutoClientNetwork() {}
+
+    /** 当前打开的构物器选择界面（用于实时刷新） */
+    private static EmcEmitterScreen activeScreen;
+
+    /** 当前打开的分解器界面（用于余额实时刷新） */
+    private static EmcConverterScreen activeConverterScreen;
+
+    /** 登记当前构物器界面（打开时调用） */
+    public static void attach(EmcEmitterScreen screen) {
+        activeScreen = screen;
+    }
+
+    /** 注销当前构物器界面（关闭时调用） */
+    public static void detach(EmcEmitterScreen screen) {
+        if (activeScreen == screen) activeScreen = null;
+    }
+
+    /** 登记当前分解器界面（打开时调用） */
+    public static void attachConverter(EmcConverterScreen screen) {
+        activeConverterScreen = screen;
+    }
+
+    /** 注销当前分解器界面（关闭时调用） */
+    public static void detachConverter(EmcConverterScreen screen) {
+        if (activeConverterScreen == screen) activeConverterScreen = null;
+    }
+
+    /** 客户端请求当前打开装置（分解器/构物器）的卡余额（C2S，心跳刷新用） */
+    public static void sendBalanceRequest() {
+        try {
+            ClientNetworking.send(EmcAutoNetwork.BALANCE_REQ_ID, PacketByteUtil.create());
+        } catch (Throwable t) {
+            ItemAlchemyExpansion.LOGGER.warn("[IAExp] emc auto: failed to send balance request: {}", t.toString());
+        }
+    }
+
+    /** 客户端请求打开者的转换桌列表（C2S，无载荷；服务端按当前打开的构物器菜单定位） */
+    public static void sendRequest() {
+        try {
+            ClientNetworking.send(EmcAutoNetwork.REQ_ID, PacketByteUtil.create());
+        } catch (Throwable t) {
+            ItemAlchemyExpansion.LOGGER.warn("[IAExp] emc emitter: failed to send list request: {}", t.toString());
+        }
+    }
+
+    /** 客户端设置所选物品（variant 为 null 表示清除） */
+    public static void sendSet(String variant) {
+        try {
+            PacketByteBuf buf = PacketByteUtil.create();
+            buf.writeBoolean(variant != null && !variant.isEmpty());
+            if (variant != null && !variant.isEmpty()) {
+                buf.writeString(variant);
+            }
+            ClientNetworking.send(EmcAutoNetwork.SET_ID, buf);
+        } catch (Throwable t) {
+            ItemAlchemyExpansion.LOGGER.warn("[IAExp] emc emitter: failed to send set: {}", t.toString());
+        }
+    }
+
+    /** 客户端通知服务端同步自动装置合成配方（配置保存后调用，开关变更即时生效） */
+    public static void sendConfigSync() {
+        try {
+            if (MinecraftClient.getInstance() == null
+                    || MinecraftClient.getInstance().getNetworkHandler() == null) {
+                return;
+            }
+            ClientNetworking.send(EmcAutoNetwork.CFG_SYNC_ID, PacketByteUtil.create());
+        } catch (Throwable t) {
+            ItemAlchemyExpansion.LOGGER.warn("[IAExp] emc auto: failed to send config sync: {}", t.toString());
+        }
+    }
+
+    /** 注册 S2C 接收器：下发列表 / 更新所选（界面由容器打开，无需 S2C 打开包） */
+    public static void registerClientReceiver() {
+        ClientNetworking.registerReceiver(EmcAutoNetwork.LIST_S2C_ID,
+                (client, player, buf) -> {
+                    final String selected = buf.readString();
+                    final long balance = buf.readLong();
+                    // 与服务端 handleListRequest 写入顺序严格一致（含 facing + card），漏读会导致后续字节全部错位
+                    final String facing = buf.readString();
+                    final NbtCompound cardNbt = PacketByteUtil.readNbt(buf);
+                    final int n = buf.readInt();
+                    final List<String> keys = new ArrayList<>(n);
+                    for (int i = 0; i < n; i++) {
+                        keys.add(buf.readString());
+                    }
+                    // 变体键重建 / 卡栈解码需要注册表上下文，放到主线程执行
+                    client.execute(() -> {
+                        if (activeScreen == null) return;
+                        List<ItemStack> stacks = new ArrayList<>(keys.size());
+                        for (String s : keys) {
+                            ItemVariantKey vk = ItemVariantKey.fromStorageString(s);
+                            stacks.add(vk == null ? ItemStack.EMPTY : IAExpServices.rebuildStack(vk));
+                        }
+                        ItemStack card = ItemStack.EMPTY;
+                        try {
+                            if (cardNbt != null && !cardNbt.isEmpty() && client.world != null) {
+                                card = ItemStack.fromNbtOrEmpty(client.world.getRegistryManager(), cardNbt);
+                            }
+                        } catch (Throwable t) {
+                            ItemAlchemyExpansion.LOGGER.warn("[IAExp] emc emitter: failed to decode card stack: {}", t.toString());
+                        }
+                        activeScreen.onListReceived(keys, stacks, selected, balance, facing, card);
+                    });
+                });
+
+        ClientNetworking.registerReceiver(EmcAutoNetwork.SELECTED_S2C_ID,
+                (client, player, buf) -> {
+                    final String selected = buf.readString();
+                    client.execute(() -> {
+                        if (activeScreen != null) activeScreen.onSelectedUpdated(selected);
+                    });
+                });
+
+        ClientNetworking.registerReceiver(EmcAutoNetwork.BALANCE_S2C_ID,
+                (client, player, buf) -> {
+                    final long balance = buf.readLong();
+                    client.execute(() -> {
+                        if (activeScreen != null) {
+                            activeScreen.onBalanceReceived(balance);
+                        } else if (activeConverterScreen != null) {
+                            activeConverterScreen.onBalanceReceived(balance);
+                        }
+                    });
+                });
+    }
+}
