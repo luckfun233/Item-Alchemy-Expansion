@@ -23,14 +23,14 @@ public final class IAExpPermissions {
     public static boolean canSetEmc(MinecraftServer server, ServerPlayerEntity player) {
         return allowed(trueSingleplayer(server),
                 IAExpConfigHolder.get().setEmcRequireOp,
-                player.hasPermissionLevel(2));
+                player != null && player.hasPermissionLevel(2));
     }
 
     /** 本模组命令是否放行：受 {@code commandsRequireOp} 控制 */
     public static boolean canUseCommands(MinecraftServer server, ServerCommandSource source) {
         return allowed(trueSingleplayer(server),
                 IAExpConfigHolder.get().commandsRequireOp,
-                source.hasPermissionLevel(2));
+                source != null && source.hasPermissionLevel(2));
     }
 
     /** 真单人 = 集成服务器且在线人数不超过 1（只有自己） */

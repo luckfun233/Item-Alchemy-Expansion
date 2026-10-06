@@ -123,7 +123,7 @@ public final class SetEmcNetwork {
             final String variantKey = buf.readString();
             // 通用模式需要清除的 L1 精确变体键列表（客户端覆盖确认框勾选）；空=不操作
             final int clearCount = buf.readVarInt();
-            final List<String> preciseVkStrsToClear = new ArrayList<>(clearCount);
+            final List<String> preciseVkStrsToClear = new ArrayList<>(clampPrealloc(clearCount));
             for (int i = 0; i < clearCount; i++) preciseVkStrsToClear.add(buf.readString());
 
             server.execute(() -> applyOnServer(server, player, itemId, emc, scope, precise, variantKey, preciseVkStrsToClear));
@@ -137,10 +137,10 @@ public final class SetEmcNetwork {
         // 「重新定价逐个选择」C2S：玩家勾选「重算」的条目（通用层 itemId + 精确层变体键）
         ServerNetworking.registerReceiver(REPRICE_SELECTIVE_ID, (server, player, buf) -> {
             final int generalCount = buf.readVarInt();
-            final List<String> generalIds = new ArrayList<>(generalCount);
+            final List<String> generalIds = new ArrayList<>(clampPrealloc(generalCount));
             for (int i = 0; i < generalCount; i++) generalIds.add(buf.readString());
             final int preciseCount = buf.readVarInt();
-            final List<String> preciseVkStrs = new ArrayList<>(preciseCount);
+            final List<String> preciseVkStrs = new ArrayList<>(clampPrealloc(preciseCount));
             for (int i = 0; i < preciseCount; i++) preciseVkStrs.add(buf.readString());
             server.execute(() -> handleRepriceSelective(server, player, generalIds, preciseVkStrs));
         });
@@ -468,6 +468,15 @@ public final class SetEmcNetwork {
     static String normalizeItemId(String id) {
         if (!id.contains(":")) return "minecraft:" + id;
         return id;
+    }
+
+    /**
+     * 预分配容量钳制：包内 count 是客户端可控 varint（可为负数或 2^31-1），
+     * 直接 {@code new ArrayList<>(count)} 会被单个包触发巨量分配（OOM）或抛异常。
+     * 容量只作提示，元素仍按数据逐个读取。
+     */
+    private static int clampPrealloc(int count) {
+        return Math.max(0, Math.min(count, 1024));
     }
 
     static void sendFeedback(ServerPlayerEntity player, String key, Text... args) {

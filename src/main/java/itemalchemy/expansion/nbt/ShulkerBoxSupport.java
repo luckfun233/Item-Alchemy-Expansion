@@ -65,7 +65,7 @@ public final class ShulkerBoxSupport {
         contents.forEach(contentStack -> {
             if (contentStack.isEmpty()) return;
             long itemEmc = EMCManager.get(contentStack.getItem());
-            sumHolder[0] += itemEmc * contentStack.getCount();
+            sumHolder[0] = saturatedAdd(sumHolder[0], saturatedMultiply(itemEmc, contentStack.getCount()));
         });
         return sumHolder[0];
     }
@@ -93,9 +93,26 @@ public final class ShulkerBoxSupport {
             if (contentStack.isEmpty()) continue;
             contents[i] = contentStack;
             long itemEmc = EMCManager.get(contentStack.getItem());
-            sum += itemEmc * contentStack.getCount();
+            sum = saturatedAdd(sum, saturatedMultiply(itemEmc, contentStack.getCount()));
         }
         return new ContentsAndEmc(contents, sum);
+    }
+
+    /**
+     * 饱和乘：非负 EMC × 堆叠数溢出时钳到 {@link Long#MAX_VALUE}，避免回绕成负数把天价潜影盒算成负价。
+     * 正常取值范围内与 {@code emc * count} 完全一致。
+     */
+    public static long saturatedMultiply(long emc, long count) {
+        if (emc > 0 && count > 0 && emc > Long.MAX_VALUE / count) return Long.MAX_VALUE;
+        return emc * count;
+    }
+
+    /**
+     * 饱和加：非负 EMC 相加溢出时钳到 {@link Long#MAX_VALUE}。正常取值范围内与 {@code sum + add} 一致。
+     */
+    public static long saturatedAdd(long sum, long add) {
+        if (add > 0 && sum > Long.MAX_VALUE - add) return Long.MAX_VALUE;
+        return sum + add;
     }
 
     /** getContentsAndSumEmc 的返回值：内容物数组 + EMC 总和 */
