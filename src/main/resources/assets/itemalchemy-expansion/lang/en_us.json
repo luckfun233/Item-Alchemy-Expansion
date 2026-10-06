@@ -141,7 +141,7 @@
   "itemalchemy-expansion.reprice.feedback.done": "[IAExp] Re-priced %s items and recomputed auto-pricing.",
   "itemalchemy-expansion.reprice.feedback.kept": "[IAExp] Kept manual settings; auto-pricing will only handle undefined items.",
 
-  "itemalchemy-expansion.shulker_box.no_emc_item": "Cannot insert: %s has no EMC value. Set \"No-EMC item policy\" to \"Count as 0\" in the config to ignore.",
+  "itemalchemy-expansion.shulker_box.no_emc_item": "Cannot place: %s has no EMC value. Set 'No-EMC Item Policy' to 'Allow as zero' to ignore.",
 
   "item.itemalchemy-expansion.emc_card": "EMC Card",
   "itemalchemy-expansion.emc_card.tooltip.stored": "Stored: %s EMC",
