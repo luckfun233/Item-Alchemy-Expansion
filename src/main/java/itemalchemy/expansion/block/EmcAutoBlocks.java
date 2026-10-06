@@ -7,6 +7,8 @@ import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryKeys;
 import net.minecraft.util.Identifier;
 import net.pitan76.mcpitanlib.api.block.v2.CompatibleBlockSettings;
 import net.pitan76.mcpitanlib.api.util.CompatIdentifier;
@@ -40,9 +42,15 @@ public final class EmcAutoBlocks {
                                 CompatIdentifier.of(ItemAlchemyExpansion.MOD_ID, "emc_converter"))
                         .strength(2.0f, 6.0f)));
 
+        // 1.21.2+ 的 Item.Settings 必须给出 registryKey；BlockItem 默认用 item.* 翻译键，需显式改回 block.*
+        RegistryKey<Item> converterItemKey = RegistryKey.of(RegistryKeys.ITEM,
+                Identifier.of(ItemAlchemyExpansion.MOD_ID, "emc_converter"));
         CONVERTER_ITEM = Registry.register(Registries.ITEM,
                 Identifier.of(ItemAlchemyExpansion.MOD_ID, "emc_converter"),
-                new BlockItem(CONVERTER, new Item.Settings().maxCount(64)));
+                new BlockItem(CONVERTER, new Item.Settings()
+                        .maxCount(64)
+                        .registryKey(converterItemKey)
+                        .useBlockPrefixedTranslationKey()));
 
         CONVERTER_TILE = Registry.register(Registries.BLOCK_ENTITY_TYPE,
                 Identifier.of(ItemAlchemyExpansion.MOD_ID, "emc_converter"),
@@ -54,9 +62,14 @@ public final class EmcAutoBlocks {
                                 CompatIdentifier.of(ItemAlchemyExpansion.MOD_ID, "emc_emitter"))
                         .strength(2.0f, 6.0f)));
 
+        RegistryKey<Item> emitterItemKey = RegistryKey.of(RegistryKeys.ITEM,
+                Identifier.of(ItemAlchemyExpansion.MOD_ID, "emc_emitter"));
         EMITTER_ITEM = Registry.register(Registries.ITEM,
                 Identifier.of(ItemAlchemyExpansion.MOD_ID, "emc_emitter"),
-                new BlockItem(EMITTER, new Item.Settings().maxCount(64)));
+                new BlockItem(EMITTER, new Item.Settings()
+                        .maxCount(64)
+                        .registryKey(emitterItemKey)
+                        .useBlockPrefixedTranslationKey()));
 
         EMITTER_TILE = Registry.register(Registries.BLOCK_ENTITY_TYPE,
                 Identifier.of(ItemAlchemyExpansion.MOD_ID, "emc_emitter"),

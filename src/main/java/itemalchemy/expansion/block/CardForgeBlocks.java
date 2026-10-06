@@ -7,6 +7,8 @@ import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryKeys;
 import net.minecraft.util.Identifier;
 import net.pitan76.mcpitanlib.api.block.v2.CompatibleBlockSettings;
 import net.pitan76.mcpitanlib.api.util.CompatIdentifier;
@@ -35,10 +37,16 @@ public final class CardForgeBlocks {
                                 CompatIdentifier.of(ItemAlchemyExpansion.MOD_ID, "card_forge"))
                         .strength(2.0f, 6.0f)));
 
+        // 1.21.2+ 的 Item.Settings 必须给出 registryKey（Item 构造时即取翻译键，缺失抛 "Item id not set"）；
+        // BlockItem 也不再继承方块的 block.* 翻译键，需显式改回，否则物品名显示原始翻译键
+        RegistryKey<Item> forgeItemKey = RegistryKey.of(RegistryKeys.ITEM,
+                Identifier.of(ItemAlchemyExpansion.MOD_ID, "card_forge"));
         FORGE_ITEM = Registry.register(Registries.ITEM,
                 Identifier.of(ItemAlchemyExpansion.MOD_ID, "card_forge"),
                 new BlockItem(FORGE, new Item.Settings()
-                        .maxCount(64)));
+                        .maxCount(64)
+                        .registryKey(forgeItemKey)
+                        .useBlockPrefixedTranslationKey()));
 
         // 1.21.4 移除了 BlockEntityType.Builder，改用 Fabric 的 builder
         FORGE_TILE = Registry.register(Registries.BLOCK_ENTITY_TYPE,
