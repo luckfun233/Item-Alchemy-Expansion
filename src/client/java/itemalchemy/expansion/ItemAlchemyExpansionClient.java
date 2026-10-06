@@ -86,6 +86,17 @@ public class ItemAlchemyExpansionClient implements ClientModInitializer {
 			ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to register emc auto S2C receiver: {}", t.toString());
 		}
 
+		// 指纹中的附魔等组件解码需要动态注册表（附魔属动态注册表），进世界后持续同步
+		try {
+			net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(client -> {
+				if (client.world != null) {
+					itemalchemy.expansion.nbt.ComponentNbtView.setRegistryManager(client.world.getRegistryManager());
+				}
+			});
+		} catch (Throwable t) {
+			ItemAlchemyExpansion.LOGGER.warn("[IAExp] Failed to register registry manager sync: {}", t.toString());
+		}
+
 		ItemAlchemyExpansion.LOGGER.info("[IAExp] client initialized: set-emc keybind registered, shulker preview via mixin, precise emc S2C receiver registered, emc card S2C receiver registered, emc automation receivers registered.");
 	}
 }

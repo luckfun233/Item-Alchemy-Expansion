@@ -1,6 +1,10 @@
 package itemalchemy.expansion.nbt;
 
+import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
+import com.mojang.serialization.DynamicOps;
+import net.minecraft.component.ComponentMap;
+import net.minecraft.component.ComponentType;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.ContainerComponent;
 import net.minecraft.component.type.NbtComponent;
@@ -14,12 +18,14 @@ import net.minecraft.nbt.NbtString;
 import net.minecraft.potion.Potion;
 import net.minecraft.registry.DynamicRegistryManager;
 import net.minecraft.registry.Registries;
+import net.minecraft.registry.RegistryOps;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.pitan76.mcpitanlib.api.util.CustomDataUtil;
 
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * 1.20.1 NBT 与 1.21.1 Data Components 之间的桥接层。
@@ -39,8 +45,9 @@ import java.util.Optional;
  *   <li>{@code CONTAINER}：潜影盒内容物 → {@code __iaexp_container__}（1.21.1 原生 NbtList 格式）</li>
  * </ul>
  *
- * <p>未收集的组件（如 ENCHANTMENTS、CUSTOM_MODEL_DATA、LORE）不参与指纹，
- * 这些不影响 TACZ 子弹区分、潜影盒内容物区分与原版药水区分的核心需求。</p>
+ * <p>其余「非默认」组件（附魔、Lore、自定义模型数据等）由 {@code __iaexp_components__} 兜底收集与回写，
+ * 与物品默认组件相同的部分跳过，普通物品的既有指纹不变。附魔等动态注册表组件的编解码依赖
+ * {@link #setRegistryManager} 提供的注册表，未就绪时跳过。</p>
  *
  * <p><b>潜影盒内容物</b>：1.20.1 中内容物存在 {@code BlockEntityTag.Items} NBT 中，
  * 1.21.1 迁移到独立的 {@code CONTAINER} data component。本类用 {@link ContainerComponent#CODEC}
@@ -52,7 +59,35 @@ import java.util.Optional;
  */
 public final class ComponentNbtView {
 
+    /** 已单独映射成 1.20.1 风格 key 的组件，不再进 extras 兜底 */
+    private static final Set<ComponentType<?>> HANDLED_TYPES = Set.of(
+            DataComponentTypes.CUSTOM_DATA,
+            DataComponentTypes.CUSTOM_NAME,
+            DataComponentTypes.DAMAGE,
+            DataComponentTypes.REPAIR_COST,
+            DataComponentTypes.BLOCK_ENTITY_DATA,
+            DataComponentTypes.POTION_CONTENTS,
+            DataComponentTypes.CONTAINER);
+
+    /** 其余非默认组件的存放 key（附魔 / Lore / 自定义模型数据 / 属性修饰符等） */
+    private static final String EXTRAS_KEY = "__iaexp_components__";
+
+    /**
+     * 当前动态注册表：附魔等组件属于动态注册表，编解码必须走 {@link RegistryOps}。
+     * 未就绪时退回纯 {@link NbtOps}（这类组件跳过，不报错）。由服务端启动/数据包重载与客户端进世界时设置。
+     */
+    private static volatile DynamicRegistryManager registryManager;
+
     private ComponentNbtView() {}
+
+    public static void setRegistryManager(DynamicRegistryManager manager) {
+        registryManager = manager;
+    }
+
+    private static DynamicOps<NbtElement> ops() {
+        DynamicRegistryManager manager = registryManager;
+        return manager == null ? NbtOps.INSTANCE : RegistryOps.of(NbtOps.INSTANCE, manager);
+    }
 
     /**
      * 把物品的关键 data component 收集为 NbtCompound（模拟 1.20.1 NBT 结构）。
@@ -122,6 +157,10 @@ public final class ComponentNbtView {
         //    必须单独收集，否则变体键丢失内容物信息，rebuildStack 后潜影盒变空盒。
         collectContainer(stack, result);
 
+        // 8. 其余非默认组件兜底收集（附魔 / Lore / 自定义模型数据等），
+        //    否则同 ID 不同附魔会共用变体键，且重建堆时这些组件被静默丢弃
+        collectExtraComponents(stack, result);
+
         return result;
     }
 
@@ -139,6 +178,48 @@ public final class ComponentNbtView {
         // 空内容物（NbtList 且 isEmpty）不收集，避免空潜影盒产生不必要的指纹
         if (e instanceof NbtList list && list.isEmpty()) return;
         result.put("__iaexp_container__", e);
+    }
+
+    /**
+     * 收集除 {@link #HANDLED_TYPES} 外的全部「非默认」组件，按组件 id 存进 {@link #EXTRAS_KEY}。
+     * 与物品默认组件相同的部分跳过，保证普通物品的既有指纹不变。
+     */
+    private static void collectExtraComponents(ItemStack stack, NbtCompound result) {
+        if (stack.isEmpty()) return;
+        ComponentMap defaults = stack.getDefaultComponents();
+        NbtCompound extras = new NbtCompound();
+        for (ComponentType<?> type : stack.getComponents().getTypes()) {
+            if (type.shouldSkipSerialization()) continue;
+            if (HANDLED_TYPES.contains(type) && !needsExtraPotion(type, stack)) continue;
+            Object value = stack.get(type);
+            if (value == null || value.equals(defaults.get(type))) continue;
+            Identifier id = Registries.DATA_COMPONENT_TYPE.getId(type);
+            if (id == null) continue;
+            encodeComponent(type, value, extras, id.toString());
+        }
+        if (!extras.isEmpty()) result.put(EXTRAS_KEY, extras);
+    }
+
+    /**
+     * 「Potion」字符串 key 只记录基础药水，自定义效果/颜色会丢；这类药水额外进 extras 完整保存。
+     * 基础药水不进 extras，以免改写既有药水指纹（老存档的变体键与精确价不受影响）。
+     */
+    private static boolean needsExtraPotion(ComponentType<?> type, ItemStack stack) {
+        if (type != DataComponentTypes.POTION_CONTENTS) return false;
+        PotionContentsComponent contents = stack.get(DataComponentTypes.POTION_CONTENTS);
+        return contents != null && (!contents.customEffects().isEmpty() || contents.customColor().isPresent());
+    }
+
+    /** 单个组件编码失败只跳过该组件，不影响其他组件与整体指纹 */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static void encodeComponent(ComponentType<?> type, Object value, NbtCompound out, String key) {
+        try {
+            Codec codec = type.getCodec();
+            if (codec == null) return;
+            DataResult<NbtElement> encoded = codec.encodeStart(ops(), value);
+            encoded.result().ifPresent(nbt -> out.put(key, nbt));
+        } catch (Throwable ignored) {
+        }
     }
 
     /**
@@ -188,6 +269,8 @@ public final class ComponentNbtView {
                     stack.set(DataComponentTypes.REPAIR_COST, nbt.getInt(key));
                     break;
                 case "Potion":
+                    // extras 已写入完整组件（自定义效果/颜色）时不覆盖，保证与 key 遍历顺序无关
+                    if (stack.get(DataComponentTypes.POTION_CONTENTS) != null) break;
                     String potionId = nbt.getString(key);
                     Potion potion = Registries.POTION.get(Identifier.tryParse(potionId));
                     if (potion != null) {
@@ -199,6 +282,9 @@ public final class ComponentNbtView {
                 case "__iaexp_container__":
                     // 潜影盒内容物：用 ContainerComponent.CODEC 反序列化回组件，写回 stack
                     applyContainer(stack, nbt.get(key));
+                    break;
+                case EXTRAS_KEY:
+                    applyExtraComponents(stack, nbt.getCompound(key));
                     break;
                 default:
                     // 其余 key 视为模组自定义数据
@@ -226,6 +312,27 @@ public final class ComponentNbtView {
     }
 
     /**
+     * 回写 extras：按组件 id 查回 {@link ComponentType}，用其 codec 解码后写回 stack。
+     * 动态注册表未就绪时这类组件解码失败即跳过（与修复前的行为一致）。
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static void applyExtraComponents(ItemStack stack, NbtCompound extras) {
+        for (String idStr : extras.getKeys()) {
+            Identifier id = Identifier.tryParse(idStr);
+            if (id == null) continue;
+            ComponentType<?> resolved = Registries.DATA_COMPONENT_TYPE.get(id);
+            if (resolved == null) continue;
+            try {
+                ComponentType raw = resolved;
+                Codec codec = raw.getCodec();
+                if (codec == null) continue;
+                codec.parse(ops(), extras.get(idStr)).result().ifPresent(value -> stack.set(raw, value));
+            } catch (Throwable ignored) {
+            }
+        }
+    }
+
+    /**
      * 物品是否有任何影响身份的 data component（用于判断是否需要生成指纹）。
      */
     public static boolean hasEffectiveNbt(ItemStack stack) {
@@ -235,7 +342,22 @@ public final class ComponentNbtView {
                 || stack.contains(DataComponentTypes.POTION_CONTENTS)
                 || stack.contains(DataComponentTypes.CONTAINER)
                 || (stack.get(DataComponentTypes.DAMAGE) != null && stack.get(DataComponentTypes.DAMAGE) > 0)
-                || (stack.get(DataComponentTypes.REPAIR_COST) != null && stack.get(DataComponentTypes.REPAIR_COST) > 0);
+                || (stack.get(DataComponentTypes.REPAIR_COST) != null && stack.get(DataComponentTypes.REPAIR_COST) > 0)
+                || hasExtraComponents(stack);
+    }
+
+    /** 是否存在需要指纹的非默认组件（口径与 {@link #collectExtraComponents} 一致） */
+    private static boolean hasExtraComponents(ItemStack stack) {
+        if (stack.isEmpty()) return false;
+        ComponentMap defaults = stack.getDefaultComponents();
+        for (ComponentType<?> type : stack.getComponents().getTypes()) {
+            if (type.shouldSkipSerialization()) continue;
+            if (HANDLED_TYPES.contains(type) && !needsExtraPotion(type, stack)) continue;
+            Object value = stack.get(type);
+            if (value == null || value.equals(defaults.get(type))) continue;
+            if (Registries.DATA_COMPONENT_TYPE.getId(type) != null) return true;
+        }
+        return false;
     }
 
     /** 清空所有用于指纹的 data component（用于重建堆前清空旧数据） */

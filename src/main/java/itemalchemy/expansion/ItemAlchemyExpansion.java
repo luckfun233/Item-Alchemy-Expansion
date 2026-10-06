@@ -9,6 +9,7 @@ import itemalchemy.expansion.gui.CardForgeScreenHandlers;
 import itemalchemy.expansion.gui.EmcConverterScreenHandlers;
 import itemalchemy.expansion.gui.EmcEmitterScreenHandlers;
 import itemalchemy.expansion.item.IAExpItems;
+import itemalchemy.expansion.nbt.ComponentNbtView;
 import itemalchemy.expansion.network.AutoEmcStore;
 import itemalchemy.expansion.network.CardAccountStore;
 import itemalchemy.expansion.network.CardForgeNetwork;
@@ -93,6 +94,13 @@ public class ItemAlchemyExpansion implements ModInitializer {
 			try { CardAccountStore.save(server); } catch (Throwable t) {
 				LOGGER.warn("[IAExp] Failed to save card accounts: {}", t.toString());
 			}
+		});
+
+		// 指纹中的附魔等组件属于动态注册表，编解码需要当前注册表；数据包重载后需刷新
+		ServerLifecycleEvents.SERVER_STARTED.register(server ->
+				ComponentNbtView.setRegistryManager(server.getRegistryManager()));
+		ServerLifecycleEvents.END_DATA_PACK_RELOAD.register((server, resourceManager, success) -> {
+			if (success) ComponentNbtView.setRegistryManager(server.getRegistryManager());
 		});
 
 		// 自动装置总开关：启动时按配置状态同步合成配方（关闭则移除，阻止继续合成）
