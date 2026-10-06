@@ -85,8 +85,11 @@ public abstract class MixinEMCManager {
         ItemVariantKey vk = IAExpServices.variantKeyOf(stack);
         String vkStr = vk.toStorageString();
 
-        // L1: 玩家精确覆盖
+        // L1: 玩家精确覆盖；带指纹的变体键未命中时回退纯 ID 键，兼容升级前存下的手动价
         Long preciseManual = PreciseEmcStore.get(vkStr);
+        if (preciseManual == null && vk.nbtFingerprint != null) {
+            preciseManual = PreciseEmcStore.get(vk.itemId());
+        }
         if (preciseManual != null) {
             ItemAlchemyExpansion.debug("[IAExp] emc hit L1 (precise manual): {} -> {} x {}",
                     vkStr, preciseManual, count);

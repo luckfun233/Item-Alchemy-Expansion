@@ -242,6 +242,10 @@ public final class ComponentNbtView {
     public static void applyEffectiveNbt(ItemStack stack, NbtCompound nbt) {
         if (nbt == null || nbt.isEmpty()) return;
 
+        // extras 先回写：带自定义效果/颜色的药水在这里写入完整组件，
+        // 下面的「Potion」单键分支据此判断是否还需要补基础药水
+        boolean potionFromExtras = applyExtraComponents(stack, nbt.getCompound(EXTRAS_KEY));
+
         // 分离出各组件专属的 key，剩余的放入 CUSTOM_DATA
         NbtCompound customData = new NbtCompound();
 
@@ -269,8 +273,9 @@ public final class ComponentNbtView {
                     stack.set(DataComponentTypes.REPAIR_COST, nbt.getInt(key));
                     break;
                 case "Potion":
-                    // extras 已写入完整组件（自定义效果/颜色）时不覆盖，保证与 key 遍历顺序无关
-                    if (stack.get(DataComponentTypes.POTION_CONTENTS) != null) break;
+                    // 物品本身可能已带默认 POTION_CONTENTS（minecraft:potion 就是），
+                    // 所以只能用「extras 是否写过」判断，不能用 stack.get(...) != null
+                    if (potionFromExtras) break;
                     String potionId = nbt.getString(key);
                     Potion potion = Registries.POTION.get(Identifier.tryParse(potionId));
                     if (potion != null) {
@@ -284,8 +289,7 @@ public final class ComponentNbtView {
                     applyContainer(stack, nbt.get(key));
                     break;
                 case EXTRAS_KEY:
-                    applyExtraComponents(stack, nbt.getCompound(key));
-                    break;
+                    break; // 已在循环前统一回写
                 default:
                     // 其余 key 视为模组自定义数据
                     customData.put(key, nbt.get(key));
@@ -314,9 +318,12 @@ public final class ComponentNbtView {
     /**
      * 回写 extras：按组件 id 查回 {@link ComponentType}，用其 codec 解码后写回 stack。
      * 动态注册表未就绪时这类组件解码失败即跳过（与修复前的行为一致）。
+     *
+     * @return 是否写入了 {@code POTION_CONTENTS}；调用方据此跳过单键 {@code Potion} 分支
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private static void applyExtraComponents(ItemStack stack, NbtCompound extras) {
+    private static boolean applyExtraComponents(ItemStack stack, NbtCompound extras) {
+        boolean potionApplied = false;
         for (String idStr : extras.getKeys()) {
             Identifier id = Identifier.tryParse(idStr);
             if (id == null) continue;
@@ -326,10 +333,14 @@ public final class ComponentNbtView {
                 ComponentType raw = resolved;
                 Codec codec = raw.getCodec();
                 if (codec == null) continue;
-                codec.parse(ops(), extras.get(idStr)).result().ifPresent(value -> stack.set(raw, value));
+                Optional<?> parsed = codec.parse(ops(), extras.get(idStr)).result();
+                if (parsed.isEmpty()) continue;
+                stack.set(raw, parsed.get());
+                if (raw == DataComponentTypes.POTION_CONTENTS) potionApplied = true;
             } catch (Throwable ignored) {
             }
         }
+        return potionApplied;
     }
 
     /**
@@ -339,11 +350,21 @@ public final class ComponentNbtView {
         return CustomDataUtil.hasNbt(stack)
                 || stack.contains(DataComponentTypes.CUSTOM_NAME)
                 || stack.contains(DataComponentTypes.BLOCK_ENTITY_DATA)
-                || stack.contains(DataComponentTypes.POTION_CONTENTS)
+                || hasPotionData(stack)
                 || stack.contains(DataComponentTypes.CONTAINER)
                 || (stack.get(DataComponentTypes.DAMAGE) != null && stack.get(DataComponentTypes.DAMAGE) > 0)
                 || (stack.get(DataComponentTypes.REPAIR_COST) != null && stack.get(DataComponentTypes.REPAIR_COST) > 0)
                 || hasExtraComponents(stack);
+    }
+
+    /**
+     * POTION_CONTENTS 是否带实际内容：{@code minecraft:potion} 自带默认空组件，
+     * 不能用 {@code contains} 判断，否则无内容药水会被误当成有指纹。
+     */
+    private static boolean hasPotionData(ItemStack stack) {
+        PotionContentsComponent contents = stack.get(DataComponentTypes.POTION_CONTENTS);
+        return contents != null && (contents.potion().isPresent()
+                || !contents.customEffects().isEmpty() || contents.customColor().isPresent());
     }
 
     /** 是否存在需要指纹的非默认组件（口径与 {@link #collectExtraComponents} 一致） */
