@@ -302,7 +302,10 @@ public class EmcEmitterBlockEntity extends CompatBlockEntity
 
     @Override
     public void writeNbt(WriteNbtArgs args) {
-        NbtRWUtil.putItemStack(args, "slot_0", slots[0]);
+        // 空槽不写：encode 拒绝空堆，抛异常会中断整次区块保存
+        if (!slots[0].isEmpty()) {
+            NbtRWUtil.putItemStack(args, "slot_0", slots[0]);
+        }
         if (selectedVariant != null) {
             args.getNbt().putString(SELECTED_KEY, selectedVariant);
         }

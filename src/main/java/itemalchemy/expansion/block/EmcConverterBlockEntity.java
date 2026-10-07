@@ -213,6 +213,8 @@ public class EmcConverterBlockEntity extends CompatBlockEntity
     @Override
     public void writeNbt(WriteNbtArgs args) {
         for (int i = 0; i < SLOT_COUNT; i++) {
+            // 空槽不写：encode 拒绝空堆，抛异常会中断整次区块保存
+            if (slots[i].isEmpty()) continue;
             NbtRWUtil.putItemStack(args, "slot_" + i, slots[i]);
         }
     }

@@ -116,6 +116,8 @@ public class CardForgeBlockEntity extends CompatBlockEntity implements Inventory
     @Override
     public void writeNbt(WriteNbtArgs args) {
         for (int i = 0; i < SLOT_COUNT; i++) {
+            // 空槽不写：encode 拒绝空堆，抛异常会中断整次区块保存
+            if (cardSlots[i].isEmpty()) continue;
             // 1.21.4 的 ItemStack 序列化需要注册表上下文，走 mcpitanlib 的 NbtRWUtil
             NbtRWUtil.putItemStack(args, "slot_" + i, cardSlots[i]);
         }
