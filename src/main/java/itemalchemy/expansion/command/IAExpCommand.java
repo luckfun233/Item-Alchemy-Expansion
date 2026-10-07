@@ -20,9 +20,9 @@ public class IAExpCommand extends LiteralCommand {
 
     @Override
     public void init(CommandSettings settings) {
-        // 单人存档放行；服务器上按 commandsRequireOp 要求 OP（默认要求）
+        // 存档归属者（单人/局域网房主）放行；其余按 commandsRequireOp 要求 GAMEMASTER（默认要求）
         settings.permissionLevel(-1).custom(source ->
-                IAExpPermissions.canUseCommands(source.getServer(), source.permissions()));
+                IAExpPermissions.canUseCommands(source.getServer(), source));
         super.init(settings); // 转发到无参 init()，否则子命令不会被注册
     }
 

@@ -172,7 +172,7 @@ public final class SetEmcNetwork {
                 preciseVkStrsToClear == null ? 0 : preciseVkStrsToClear.size());
         // 权限门禁：默认仅 OP（权限等级 2 = GAMEMASTER）可改价；单人存档豁免（自己玩不受影响）；
         // 服主可在 config 里把 setEmcRequireOp 设为 false 完全放开。判定与命令门禁共用 IAExpPermissions
-        if (!IAExpPermissions.canSetEmc(server, player.permissions())) {
+        if (!IAExpPermissions.canSetEmc(server, player)) {
             ItemAlchemyExpansion.LOGGER.warn("[IAExp][SetEmc] rejected: {} has no permission level 2",
                     player.getPlainTextName());
             sendFeedback(player, "itemalchemy-expansion.set_emc.fail.no_permission");
@@ -403,8 +403,8 @@ public final class SetEmcNetwork {
     static void handleRepriceSelective(net.minecraft.server.MinecraftServer server,
                                        ServerPlayer player,
                                        List<String> generalIds, List<String> preciseVkStrs) {
-        // 权限门禁：与改价同源（会移除手动定价并触发全服重算），非单人存档下要求 OP
-        if (!IAExpPermissions.canSetEmc(server, player.permissions())) {
+        // 权限门禁：与改价同源（会移除手动定价并触发全服重算）
+        if (!IAExpPermissions.canSetEmc(server, player)) {
             ItemAlchemyExpansion.LOGGER.warn("[IAExp][Reprice] rejected: {} has no permission level 2",
                     player.getPlainTextName());
             sendFeedback(player, "itemalchemy-expansion.set_emc.fail.no_permission");
