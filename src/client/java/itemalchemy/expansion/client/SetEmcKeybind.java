@@ -73,8 +73,25 @@ public final class SetEmcKeybind {
             return;
         }
 
+        // 权限预判：无改价权限时不打开界面，避免填完表单才被服务端拒绝
+        if (!maySetEmc(client)) {
+            player.sendMessage(net.minecraft.text.Text.translatable(
+                    "itemalchemy-expansion.set_emc.fail.no_permission"), true);
+            return;
+        }
+
         // tick 回调本身在主线程，直接 setScreen 即可
         client.setScreen(new SetEmcScreen(target));
+    }
+
+    /**
+     * 客户端权限预判：服务端下发的判定优先，本地权限等级兜底（会话中途被 OP / 取消 OP）。
+     *
+     * <p>仅用于提前拦下必然失败的界面；能否改价最终由服务端 {@code IAExpPermissions} 判定。</p>
+     */
+    private static boolean maySetEmc(MinecraftClient client) {
+        if (client.player == null) return false;
+        return SetEmcClientNetwork.serverAllowsSetEmc() || client.player.hasPermissionLevel(2);
     }
 
     /** 主手优先，主手为空时用副手 */

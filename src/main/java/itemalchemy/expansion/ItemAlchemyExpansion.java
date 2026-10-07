@@ -160,6 +160,11 @@ public class ItemAlchemyExpansion implements ModInitializer {
 			} catch (Throwable t) {
 				LOGGER.warn("[IAExp] Failed to push auto emc map on player join: {}", t.toString());
 			}
+			try {
+				SetEmcNetwork.pushSetEmcPermissionTo(handler.player);
+			} catch (Throwable t) {
+				LOGGER.warn("[IAExp] Failed to push set-emc permission on player join: {}", t.toString());
+			}
 			// 升级 toast：仅当配置从旧版本升级且未提示过时弹一次
 			try {
 				if (IAExpConfigHolder.wasUpgradedFromLegacy()
