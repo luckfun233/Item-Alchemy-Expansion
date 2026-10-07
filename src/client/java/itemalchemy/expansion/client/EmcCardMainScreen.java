@@ -81,8 +81,14 @@ public class EmcCardMainScreen extends Screen {
     }
 
     @Override
+    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
+        // 基类 1.21.1 版会 applyBlur 模糊全屏；背景由 render() 自行铺暗色
+    }
+
+    @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        renderBackground(context, mouseX, mouseY, delta);
+        // 1.21.1 的 4 参 renderBackground 带 applyBlur 会产生模糊残影，直接铺暗色背景
+        context.fill(0, 0, this.width, this.height, 0xA0000000);
 
         int centerX = this.width / 2;
         int panelLeft = centerX - PANEL_WIDTH / 2;
