@@ -3,6 +3,7 @@ package itemalchemy.expansion.command;
 import itemalchemy.expansion.IAExpServices;
 import itemalchemy.expansion.ItemAlchemyExpansion;
 import itemalchemy.expansion.config.IAExpConfigHolder;
+import itemalchemy.expansion.network.SetEmcNetwork;
 import net.pitan76.mcpitanlib.api.command.LiteralCommand;
 import net.pitan76.mcpitanlib.api.event.ServerCommandEvent;
 
@@ -26,6 +27,9 @@ public class ReloadCommand extends LiteralCommand {
             // 自动装置总开关：配方随配置即时增删（无需重启）
             net.minecraft.server.MinecraftServer server = e.getSource().getServer();
             ItemAlchemyExpansion.syncAutomationRecipes(server);
+
+            // 权限开关可能已变：立即同步给在线玩家，避免客户端仍按重载前的判定拦截 K 键界面
+            SetEmcNetwork.pushSetEmcPermissionToAll(server);
 
             e.sendSuccess("[Item Alchemy Expansion] Config reloaded. automationEnabled="
                     + IAExpConfigHolder.get().automationEnabled);

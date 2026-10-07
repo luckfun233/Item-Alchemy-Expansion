@@ -63,6 +63,14 @@ public final class SetEmcNetwork {
             Identifier.of(ItemAlchemyExpansion.MOD_ID, "sync_auto_emc");
 
     /**
+     * S2C 包 id：{@code itemalchemy-expansion:set_emc_perm}。
+     * <p>服务端把「该玩家当前能否改价」的判定结果推给客户端（单 boolean），
+     * 供 K 键界面提前拦截，避免填完表单才被拒。服务端判定仍是权威。</p>
+     */
+    public static final Identifier SET_EMC_PERM_ID =
+            Identifier.of(ItemAlchemyExpansion.MOD_ID, "set_emc_perm");
+
+    /**
      * C2S 包 id：{@code itemalchemy-expansion:reprice_check}。
      * <p>客户端请求服务端扫描 PerSaveEmcStore 候选（玩家开启自动定价时触发）。</p>
      */
@@ -279,6 +287,30 @@ public final class SetEmcNetwork {
     }
 
     /**
+     * 把「该玩家能否改价」推给客户端（S2C）：玩家加入与配置重载后调用。
+     *
+     * <p>客户端只用于提前拦截 K 键界面，实际改价仍由 {@link #applyOnServer} 重新判定。</p>
+     */
+    public static void pushSetEmcPermissionTo(ServerPlayerEntity player) {
+        if (player == null) return;
+        try {
+            PacketByteBuf buf = PacketByteUtil.create();
+            buf.writeBoolean(IAExpPermissions.canSetEmc(player.getServer(), player));
+            ServerNetworking.send(player, SET_EMC_PERM_ID, buf);
+        } catch (Throwable t) {
+            ItemAlchemyExpansion.LOGGER.warn("[IAExp] failed to push set-emc permission: {}", t.toString());
+        }
+    }
+
+    /** 把改价权限判定推给所有在线玩家（配置重载后调用，让开关立即生效） */
+    public static void pushSetEmcPermissionToAll(net.minecraft.server.MinecraftServer server) {
+        if (server == null) return;
+        for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
+            pushSetEmcPermissionTo(p);
+        }
+    }
+
+    /**
      * 把 {@code Map<String, Long>} 编码到 PacketByteBuf：varint size + N 个 (string key + long value)。
      *
      * <p>供 S2C 推送（精确/自动/通用 map）复用，与 {@link #readEmcMap} 配对。</p>
@@ -324,6 +356,12 @@ public final class SetEmcNetwork {
      */
     public static void handleRepriceCheck(net.minecraft.server.MinecraftServer server,
                                           ServerPlayerEntity player) {
+        // 无改价权限者不弹：其提交必然被 handleRepriceSelective 拒绝，还会白白消费「只弹一次」标记
+        if (!IAExpPermissions.canSetEmc(server, player)) {
+            ItemAlchemyExpansion.debug("[IAExp] reprice check skipped: {} has no permission",
+                    player.getName().getString());
+            return;
+        }
         // 已经弹过则不再弹（避免重复）
         if (IAExpConfigHolder.get().autoPricingRepricePromptShown) {
             ItemAlchemyExpansion.debug("[IAExp] reprice check skipped: already shown");

@@ -35,6 +35,13 @@ public final class SetEmcClientNetwork {
     private static String cachedVariantKey = "";
 
     /**
+     * 服务端下发的「当前玩家能否改价」判定（S2C {@code SET_EMC_PERM_ID}）。
+     *
+     * <p>默认 true：包未到达（旧服务端 / 单人）时不拦截；是否真的能改仍以服务端判定为准。</p>
+     */
+    private static boolean serverAllowsSetEmc = true;
+
+    /**
      * 待处理的 L1 候选查询回调（设通用价前查询该 ID 是否有 L1 精确覆盖）。
      *
      * <p>SetEmcScreen 发送查询包前设置此回调，收到 S2C 结果后调用并清空。
@@ -142,6 +149,11 @@ public final class SetEmcClientNetwork {
         return cachedVariantKey;
     }
 
+    /** 服务端下发的改价权限判定；仅用于 K 键界面提前拦截，服务端仍会重新判定 */
+    public static boolean serverAllowsSetEmc() {
+        return serverAllowsSetEmc;
+    }
+
     /**
      * 设置待处理的 L1 候选查询回调。
      *
@@ -157,6 +169,16 @@ public final class SetEmcClientNetwork {
      * <p>应在 ClientModInitializer 中调用一次。</p>
      */
     public static void registerClientReceiver() {
+        // 改价权限判定（服务端权威 → 客户端用于提前拦截 K 键界面）
+        ClientNetworking.registerReceiver(SetEmcNetwork.SET_EMC_PERM_ID,
+                (client, player, buf) -> {
+                    boolean allowed = buf.readBoolean();
+                    client.execute(() -> {
+                        serverAllowsSetEmc = allowed;
+                        ItemAlchemyExpansion.debug("[IAExp] set-emc permission synced from server: {}", allowed);
+                    });
+                });
+
         // 玩家精确 map 同步
         ClientNetworking.registerReceiver(SetEmcNetwork.SYNC_PRECISE_EMC_ID,
                 (client, player, buf) -> {
