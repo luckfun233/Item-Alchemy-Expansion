@@ -5,7 +5,6 @@ import net.minecraft.item.Item;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.util.Identifier;
-import net.pitan76.itemalchemy.item.ItemGroups;
 import net.pitan76.mcpitanlib.api.item.v2.CompatibleItemSettings;
 import net.pitan76.mcpitanlib.api.util.CompatIdentifier;
 import net.pitan76.mcpitanlib.api.util.CompatRarity;
@@ -16,6 +15,10 @@ import net.pitan76.mcpitanlib.api.util.CompatRarity;
  * <p>用 Fabric 原生 {@link Registry#register} 注册 {@link EmcCardItem}（继承 mcpitanlib {@code CompatItem}），
  * settings 仍走 mcpitanlib {@link CompatibleItemSettings} 以保留 rarity/maxCount 链式 API。
  * CompatItem 的事件回调（onRightClick/appendTooltip）通过重写 Item 方法实现，无需额外事件注册。</p>
+ *
+ * <p>创造物品栏归属不在此设置：物品走原版 {@link Registry#register} 注册时，mcpitanlib 的
+ * {@code addGroup} 绑定会被静默跳过，统一改由 {@code ItemAlchemyExpansion} 的
+ * {@code ItemGroupEvents.modifyEntriesEvent} 加入（与 26.2 分支做法一致）。</p>
  */
 public final class IAExpItems {
 
@@ -30,8 +33,7 @@ public final class IAExpItems {
                 new EmcCardItem(CompatibleItemSettings.of(
                                 CompatIdentifier.of(ItemAlchemyExpansion.MOD_ID, "emc_card"))
                         .maxCount(1)
-                        .rarity(CompatRarity.UNCOMMON)
-                        .addGroup(ItemGroups.ITEM_ALCHEMY)));
+                        .rarity(CompatRarity.UNCOMMON)));
 
         ItemAlchemyExpansion.LOGGER.info("[IAExp] items registered: emc_card");
     }

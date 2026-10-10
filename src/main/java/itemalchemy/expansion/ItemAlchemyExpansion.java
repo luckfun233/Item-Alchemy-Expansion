@@ -58,11 +58,16 @@ public class ItemAlchemyExpansion implements ModInitializer {
 		EmcConverterScreenHandlers.init();
 		EmcEmitterScreenHandlers.init();
 
-		// 制卡台加入 Item Alchemy 创造物品栏
+		// 本模组物品加入 Item Alchemy 创造物品栏：EMC 卡 + 制卡台
+		// 统一走 Fabric 事件，不用 mcpitanlib 的 addGroup——后者依赖 mcpitanlib 注册期的栏位绑定，
+		// 而本模组的物品用原版 Registry.register 注册，绑定会被静默跳过（26.2 分支同款做法）
 		try {
 			ItemGroupEvents.modifyEntriesEvent(
 					RegistryKey.of(RegistryKeys.ITEM_GROUP, Identifier.of("itemalchemy", "item_alchemy")))
-					.register(entries -> entries.add(new ItemStack(CardForgeBlocks.FORGE_ITEM)));
+					.register(entries -> {
+						entries.add(new ItemStack(IAExpItems.EMC_CARD));
+						entries.add(new ItemStack(CardForgeBlocks.FORGE_ITEM));
+					});
 		} catch (Throwable t) {
 			LOGGER.warn("[IAExp] Failed to register card forge in item group: {}", t.toString());
 		}
