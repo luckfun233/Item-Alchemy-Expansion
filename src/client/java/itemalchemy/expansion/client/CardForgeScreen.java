@@ -1,6 +1,7 @@
 package itemalchemy.expansion.client;
 
 import itemalchemy.expansion.ItemAlchemyExpansion;
+import itemalchemy.expansion.client.util.GuiRenderUtil;
 import itemalchemy.expansion.gui.CardForgeScreenHandler;
 import itemalchemy.expansion.item.EmcCardItem;
 import itemalchemy.expansion.network.CardForgeNetwork;
@@ -246,9 +247,9 @@ public class CardForgeScreen extends SimpleInventoryScreen<CardForgeScreenHandle
         // 浅灰面板 + 描边
         DrawableHelper.fill(matrices, x, y, x + BG_W, y + BG_H, PANEL);
         drawBorder(matrices, x, y, BG_W, BG_H, PANEL_LINE);
-        // 1.19.2 的 DrawableHelper.fillGradient 是 protected，跨包不可调用，改用顶部浅色条 + 分隔线
-        DrawableHelper.fill(matrices, x + 1, y + 1, x + BG_W - 1, y + 12, 0xFFD2D2D2);
-        DrawableHelper.fill(matrices, x + 1, y + 12, x + BG_W - 1, y + 13, PANEL_LINE);
+        // 顶部标题条：与 1.20.1 的 fillGradient 同款竖向渐变
+        // （1.19.2 的 DrawableHelper.fillGradient 是 protected，跨包不可调用，见 GuiRenderUtil）
+        GuiRenderUtil.fillVerticalGradient(matrices, x + 1, y + 1, x + BG_W - 1, y + 12, 0xFFD2D2D2, PANEL);
 
         // 标题
         DrawableHelper.drawCenteredTextWithShadow(matrices, this.textRenderer, this.title.asOrderedText(),
@@ -344,6 +345,15 @@ public class CardForgeScreen extends SimpleInventoryScreen<CardForgeScreenHandle
     @Override
     protected void drawForegroundOverride(DrawForegroundArgs args) {
         // 标题已在 drawBackgroundOverride 居中绘制，跳过原版 foreground（否则标题/物品栏标签被二次绘制，产生重影与重叠）
+
+        // 属性/绑定页：盖住组合专用第二槽。原版已按 (x, y) 平移矩阵，此处用槽位相对坐标；
+        // 必须画在物品层之后、tooltip 之前（放在 renderOverride 里会盖住原版物品提示框）
+        if (currentTab != TAB_COMBINE) {
+            Slot s1 = this.handler.slots.get(1);
+            if (s1 != null) {
+                DrawableHelper.fill(args.drawObjectDM.getStack(), s1.x - 1, s1.y - 1, s1.x + 17, s1.y + 17, PANEL);
+            }
+        }
     }
 
     @Override
@@ -371,15 +381,6 @@ public class CardForgeScreen extends SimpleInventoryScreen<CardForgeScreenHandle
         super.renderOverride(args);
 
         MatrixStack matrices = args.drawObjectDM.getStack();
-        // 属性/绑定页：用面板色盖住组合专用第二槽（坐标从槽位读取，避免硬编码错位）
-        if (currentTab != TAB_COMBINE) {
-            Slot s1 = this.handler.slots.get(1);
-            if (s1 != null) {
-                DrawableHelper.fill(matrices, this.x + s1.x - 1, this.y + s1.y - 1,
-                        this.x + s1.x + 17, this.y + s1.y + 17, PANEL);
-            }
-        }
-
         // 绑定页：输入框占位提示（1.19.2 无 TextFieldWidget.setPlaceholder，手绘）
         if (currentTab == TAB_BIND) {
             drawPlaceholder(matrices, nameField, "itemalchemy-expansion.card_forge.bind.name_placeholder");
@@ -398,6 +399,19 @@ public class CardForgeScreen extends SimpleInventoryScreen<CardForgeScreenHandle
                     "itemalchemy-expansion.card_forge.bind.single.tooltip", args.mouseX, args.mouseY);
             drawFieldTooltip(matrices, totalField, LIMIT_FIELD_W,
                     "itemalchemy-expansion.card_forge.bind.total.tooltip", args.mouseX, args.mouseY);
+        }
+
+        // 按钮悬停提示必须最后绘制：在 renderButton 里画会被同层后渲染的相邻控件盖住
+        drawButtonTooltips(matrices, args.mouseX, args.mouseY);
+    }
+
+    /** 悬停按钮的提示文案：1.19.2 无 1.20 的 Tooltip 延迟绘制机制，改由界面在渲染末尾统一触发 */
+    private void drawButtonTooltips(MatrixStack matrices, int mouseX, int mouseY) {
+        ModernButton[] buttons = {btnPrivate, btnPublic, btnLink, btnMerge, btnUnlink, btnBind, btnApplyLimits};
+        for (ModernButton b : buttons) {
+            if (b.tooltipText == null || !b.isHovering(mouseX, mouseY)) continue;
+            b.renderTooltipNow(matrices, mouseX, mouseY);
+            return;
         }
     }
 
@@ -560,13 +574,22 @@ public class CardForgeScreen extends SimpleInventoryScreen<CardForgeScreenHandle
             DrawableHelper.fill(matrices, this.x, this.y, this.x + 1, this.y + this.height, PANEL_LINE);
             DrawableHelper.fill(matrices, this.x + this.width - 1, this.y, this.x + this.width, this.y + this.height, PANEL_LINE);
             int tc = this.active ? 0xFFFFFFFF : 0xFFA0A0A0;
-            // 1.19.2 的 ButtonWidget 无 drawMessage，按原版居中方式自绘；悬停时补画提示（原版在 renderButton 末尾调用）
+            // 1.19.2 的 ButtonWidget 无 drawMessage，按原版居中方式自绘；
+            // 提示框不在此处画（会被后渲染的控件盖住），改由外层 drawButtonTooltips 统一触发
             DrawableHelper.drawCenteredTextWithShadow(matrices, MinecraftClient.getInstance().textRenderer,
                     this.getMessage().asOrderedText(),
                     this.x + this.width / 2, this.y + (this.height - 8) / 2, tc);
-            if (this.isHovered()) {
-                this.renderTooltip(matrices, mouseX, mouseY);
-            }
+        }
+
+        /** 鼠标是否落在本按钮内（width/height 是父类 protected 字段，只能由子类内部判断） */
+        public boolean isHovering(int mouseX, int mouseY) {
+            return this.visible && mouseX >= this.x && mouseY >= this.y
+                    && mouseX < this.x + this.width && mouseY < this.y + this.height;
+        }
+
+        /** 触发构造器传入的 TooltipSupplier（1.19.2 由 renderButton 调用，此处改由外层在渲染末尾调用） */
+        public void renderTooltipNow(MatrixStack matrices, int mouseX, int mouseY) {
+            this.renderTooltip(matrices, mouseX, mouseY);
         }
     }
 }

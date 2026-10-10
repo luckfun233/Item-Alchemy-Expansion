@@ -45,6 +45,32 @@ public final class GuiRenderUtil {
         fill(matrices, x + width - 1, y, x + width, y + height, color);   // right
     }
 
+    /**
+     * 竖向渐变填充，对应 1.20.1 的 {@code DrawContext#fillGradient}。
+     * 1.19.2 的 {@code DrawableHelper#fillGradient} 是 protected，跨包不可用，故按行 fill 近似（行数 = 高度）。
+     */
+    public static void fillVerticalGradient(MatrixStack matrices, int x1, int y1, int x2, int y2,
+                                            int colorTop, int colorBottom) {
+        int height = y2 - y1;
+        if (height <= 0) return;
+        for (int i = 0; i < height; i++) {
+            fill(matrices, x1, y1 + i, x2, y1 + i + 1, lerpARGB(colorTop, colorBottom, (i + 0.5F) / height));
+        }
+    }
+
+    /** ARGB 线性插值：t=0 取 from，t=1 取 to */
+    private static int lerpARGB(int from, int to, float t) {
+        return lerpChannel(from >>> 24, to >>> 24, t) << 24
+                | lerpChannel(from >>> 16, to >>> 16, t) << 16
+                | lerpChannel(from >>> 8, to >>> 8, t) << 8
+                | lerpChannel(from, to, t);
+    }
+
+    private static int lerpChannel(int from, int to, float t) {
+        int a = from & 0xFF;
+        return (int) (a + ((to & 0xFF) - a) * t);
+    }
+
     /** 1.19.2 用 DrawableHelper.fill（MatrixStack 版本） */
     private static void fill(MatrixStack matrices, int x1, int y1, int x2, int y2, int color) {
         net.minecraft.client.gui.DrawableHelper.fill(matrices, x1, y1, x2, y2, color);

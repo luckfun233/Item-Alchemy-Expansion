@@ -1,6 +1,7 @@
 package itemalchemy.expansion.client;
 
 import itemalchemy.expansion.ItemAlchemyExpansion;
+import itemalchemy.expansion.client.util.GuiRenderUtil;
 import itemalchemy.expansion.gui.EmcConverterScreenHandler;
 import itemalchemy.expansion.item.EmcCardItem;
 import net.minecraft.client.MinecraftClient;
@@ -98,9 +99,9 @@ public class EmcConverterScreen extends SimpleInventoryScreen<EmcConverterScreen
         // 面板 + 描边 + 顶部标题条
         DrawableHelper.fill(matrices, x, y, x + BG_W, y + BG_H, PANEL);
         drawBorder(matrices, x, y, BG_W, BG_H, PANEL_LINE);
-        // 1.19.2 的 DrawableHelper.fillGradient 是 protected，跨包不可调用，改用顶部浅色条 + 分隔线
-        DrawableHelper.fill(matrices, x + 1, y + 1, x + BG_W - 1, y + 12, 0xFFD2D2D2);
-        DrawableHelper.fill(matrices, x + 1, y + 12, x + BG_W - 1, y + 13, PANEL_LINE);
+        // 顶部标题条：与 1.20.1 的 fillGradient 同款竖向渐变（原先的硬分隔线会横穿下方标签文字）
+        // 1.19.2 的 DrawableHelper.fillGradient 是 protected，跨包不可调用，见 GuiRenderUtil
+        GuiRenderUtil.fillVerticalGradient(matrices, x + 1, y + 1, x + BG_W - 1, y + 12, 0xFFD2D2D2, PANEL);
 
         // 标题
         DrawableHelper.drawCenteredTextWithShadow(matrices, this.textRenderer, this.title.asOrderedText(),
