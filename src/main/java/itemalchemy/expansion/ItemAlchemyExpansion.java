@@ -23,12 +23,16 @@ import itemalchemy.expansion.recipe.RecipeAutoPricer;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroupEntries;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemGroup;
 import net.minecraft.item.ItemStack;
 import net.minecraft.recipe.PreparedRecipes;
 import net.minecraft.recipe.RecipeEntry;
 import net.minecraft.recipe.ServerRecipeManager;
+import net.minecraft.registry.Registries;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.resource.featuretoggle.FeatureSet;
@@ -61,9 +65,10 @@ public class ItemAlchemyExpansion implements ModInitializer {
 		// 本模组物品加入 Item Alchemy 创造物品栏：EMC 卡 + 制卡台
 		// 统一走 Fabric 事件，不用 mcpitanlib 的 addGroup——后者依赖 mcpitanlib 注册期的栏位绑定，
 		// 而本模组的物品用原版 Registry.register 注册，绑定会被静默跳过（26.2 分支同款做法）
+		RegistryKey<ItemGroup> itemAlchemyTab = RegistryKey.of(RegistryKeys.ITEM_GROUP,
+				Identifier.of("itemalchemy", "item_alchemy"));
 		try {
-			ItemGroupEvents.modifyEntriesEvent(
-					RegistryKey.of(RegistryKeys.ITEM_GROUP, Identifier.of("itemalchemy", "item_alchemy")))
+			ItemGroupEvents.modifyEntriesEvent(itemAlchemyTab)
 					.register(entries -> {
 						entries.add(new ItemStack(IAExpItems.EMC_CARD));
 						entries.add(new ItemStack(CardForgeBlocks.FORGE_ITEM));
@@ -74,8 +79,7 @@ public class ItemAlchemyExpansion implements ModInitializer {
 
 		// 自动装置加入创造物品栏（总开关关闭时不出现在物品栏；回调内运行时判定，reload 后即时生效）
 		try {
-			ItemGroupEvents.modifyEntriesEvent(
-					RegistryKey.of(RegistryKeys.ITEM_GROUP, Identifier.of("itemalchemy", "item_alchemy")))
+			ItemGroupEvents.modifyEntriesEvent(itemAlchemyTab)
 					.register(entries -> {
 						if (!IAExpConfigHolder.get().automationEnabled) return;
 						entries.add(new ItemStack(EmcAutoBlocks.CONVERTER_ITEM));
@@ -83,6 +87,14 @@ public class ItemAlchemyExpansion implements ModInitializer {
 					});
 		} catch (Throwable t) {
 			LOGGER.warn("[IAExp] Failed to register automation blocks in item group: {}", t.toString());
+		}
+
+		// 上游物品兜底：见 addMissingItemAlchemyEntries 的注释
+		try {
+			ItemGroupEvents.modifyEntriesEvent(itemAlchemyTab)
+					.register(ItemAlchemyExpansion::addMissingItemAlchemyEntries);
+		} catch (Throwable t) {
+			LOGGER.warn("[IAExp] Failed to register item alchemy tab fallback: {}", t.toString());
 		}
 
 		SetEmcNetwork.registerServer();
@@ -196,6 +208,37 @@ public class ItemAlchemyExpansion implements ModInitializer {
 
 		LOGGER.info("[IAExp] Item Alchemy Expansion initialized. config={}",
 				IAExpConfigHolder.configPath());
+	}
+
+	/**
+	 * 上游物品入栏兜底。
+	 *
+	 * <p>mcpitanlib 4.x 的 {@code CompatibleItemSettings.addGroup(CreativeTabBuilder)} 只记录栏位 id、
+	 * 不记录物品 id，而 {@code build()} 的入栏条件是「栏位 id 与物品 id 都不为空」，于是走该 API 的物品
+	 * 会被整批漏掉（上游 Item Alchemy 1.4.1 的 64 个物品全部依赖它）。这里按命名空间补齐：
+	 * 上游「注册物品数 == addGroup 数」，不会误加；栏位集合是 {@code ItemStackSet}，
+	 * 环境正常（mcpitanlib 已修）时重复项会被去重。</p>
+	 */
+	private static void addMissingItemAlchemyEntries(FabricItemGroupEntries entries) {
+		List<ItemStack> present = entries.getDisplayStacks();
+		int added = 0;
+		for (Item item : Registries.ITEM) {
+			if (!"itemalchemy".equals(Registries.ITEM.getId(item).getNamespace())) continue;
+			if (containsItem(present, item)) continue;
+			entries.add(new ItemStack(item));
+			added++;
+		}
+		if (added > 0) {
+			debug("[IAExp] added {} missing itemalchemy entries to the creative tab", added);
+		}
+	}
+
+	/** 栏位条目里是否已有该物品（按物品比较，忽略组件差异） */
+	private static boolean containsItem(List<ItemStack> stacks, Item item) {
+		for (ItemStack stack : stacks) {
+			if (stack.isOf(item)) return true;
+		}
+		return false;
 	}
 
 	/**
