@@ -51,7 +51,7 @@ dependencies {
 
 	// Item Alchemy（本模组前置）+ 配套 mcpitanlib，均用 libs/ 内置 jar
 	modImplementation files("libs/itemalchemy-${project.itemalchemy_version}.jar")
-	modImplementation files("libs/mcpitanlib-fabric.${project.minecraft_version}-${project.mcpitanlib_version}.jar")
+	modImplementation files("libs/mcpitanlib-${project.mcpitanlib_version}.jar")
 
 	// 可选配置 UI：Cloth Config API + Mod Menu（软依赖）
 	modApi("me.shedaniel.cloth:cloth-config-fabric:${project.cloth_config_version}") {
